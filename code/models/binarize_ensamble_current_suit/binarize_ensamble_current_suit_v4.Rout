@@ -1,0 +1,1824 @@
+
+R version 3.4.4 (2018-03-15) -- "Someone to Lean On"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+Loading required package: colorout
+> #SEWAL. Code for modelling and project into the future. It is prepared for run in sewall.  
+> 
+> ###################################
+> #ESTABLECE EL DIRECTORIO DE TRABAJO
+> ###################################
+> #DIRECTORIO DE TRABAJO
+> setwd("/Users/dsalazar/nicho_pinus/")
+> 
+> 
+> #function for binarize the current projections  
+> #I have separated the binarization from the fitting of modelling because I have problems in gam when I load ecospat package, which is used in caculates of threshold.      
+> binarize_curent_projections = function(species){
++ 
++     #required libraries
++     #library(raster)
++     #library(dismo)
++     #library(ecospat) #for threshold
++     #library(gtools) #for mixedsort function, which order elements of a list by numbers. Used in pre-projections
++ 
++     #begin the species
++     print(paste("begin",species))
++ 
++     #load models 
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "glm_model.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "gam_model.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "rf_model.rda", sep="_"), sep="/"))  
++ 
++     #load evaluations
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation.rda", sep="_"), sep="/")) 
++ 
++     #load evaluation data
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation_data.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation_data.rda", sep="_"), sep="/"))
++     load(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation_data.rda", sep="_"), sep="/")) 
++ 
++     #load continuous predictions of glm 
++     glm_predict = stack(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_glm", paste(species, "tif", sep="."), sep="_"))
++ 
++     #load continuous predictions of gam     
++     gam_predict = stack(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_gam", paste(species, "tif", sep="."), sep="_"))
++ 
++     #load binary predictions of Random forest (already finished)
++     rf_predict = stack(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions_rf", paste(species, "tif", sep="."), sep="_"))
++ 
++     #lists for saving thresholds
++     glm_threshold = list()
++     gam_threshold = list()
++ 
++     #lists for saving binary projections
++     glm_prediction_bin = list()
++     gam_prediction_bin = list()
++     rf_prediction_bin = list()
++ 
++     for (k in 1:12){
++ 
++         ###################################
++         ############Threshold #############
++         ################################### 
++ 
++         #calculate the best threshold according to kappa
++         glm_kappa = ecospat.max.kappa(glm_evaluation_predict[[k]]$predict_glm, glm_evaluation_predict[[k]]$presence)[[2]]
++         gam_kappa = ecospat.max.kappa(gam_evaluation_predict[[k]]$predict_gam, gam_evaluation_predict[[k]]$presence)[[2]] #we don't have to binarize the predictions of random forest model because is a clasificaction tree, the predictions are binarized. 
++ 
++         #calculate the best threshold according to TSS
++         glm_tss = ecospat.max.tss(glm_evaluation_predict[[k]]$predict_glm, glm_evaluation_predict[[k]]$presence)[[2]]
++         gam_tss = ecospat.max.tss(gam_evaluation_predict[[k]]$predict_gam, gam_evaluation_predict[[k]]$presence)[[2]]
++ 
++         #save all 
++         glm_optim_threshold = as.data.frame(cbind(rbind(as.numeric(glm_kappa[,2][1]),as.numeric(glm_kappa[,2][2])), rbind(as.numeric(glm_tss[,2][1]),as.numeric(glm_tss[,2][2]))))
++         names(glm_optim_threshold) = c("kappa", "TSS")
++         row.names(glm_optim_threshold) = c("maximum value", "threshold")
++ 
++         gam_optim_threshold = as.data.frame(cbind(rbind(as.numeric(gam_kappa[,2][1]),as.numeric(gam_kappa[,2][2])), rbind(as.numeric(gam_tss[,2][1]),as.numeric(gam_tss[,2][2]))))
++         names(gam_optim_threshold) = c("kappa", "TSS")
++         row.names(gam_optim_threshold) = c("maximum value", "threshold")
++ 
++         glm_threshold[[k]] = glm_optim_threshold
++         gam_threshold[[k]] = gam_optim_threshold
++ 
++         ###################################
++         ######Binarize predictions#########
++         ###################################
++ 
++         #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
++         #glm
++         glm_prediction_bin[[k]] = glm_predict[[k]] #copy the raster 
++         glm_prediction_bin[[k]][glm_prediction_bin[[k]]>=(glm_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
++         glm_prediction_bin[[k]][glm_prediction_bin[[k]]<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
++ 
++         #gam
++         gam_prediction_bin[[k]] = gam_predict[[k]] #copy the raster 
++         gam_prediction_bin[[k]][gam_prediction_bin[[k]]>=(gam_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
++         gam_prediction_bin[[k]][gam_prediction_bin[[k]]<(gam_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
++ 
++         #rf
++         rf_prediction_bin[[k]] = rf_predict[[k]] #we don't have to binarize the predictions of this model because is a clasificaction tree, the predictions are not continuous probabilities, on the contrary, they are 0 or 1 (binary) 
++     }
++ 
++     #stack all binary predictions 
++     binary_predictions = stack(stack(glm_prediction_bin), stack(gam_prediction_bin), stack(rf_prediction_bin))    
++ 
++     ##create the ensamble
++     ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions)) #calculate the percentage of models for which a pixel is suitable
++ 
++     #save threshold
++     save(glm_threshold, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/threshold", paste(species, "glm_threshold.rda", sep="_"), sep="/"))
++     save(gam_threshold, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/threshold", paste(species, "gam_threshold.rda", sep="_"), sep="/"))
++ 
++     #save the binary predictions of glm and gam (rf make them before)
++     writeRaster(stack(glm_prediction_bin), filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions_glm", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
++     writeRaster(stack(gam_prediction_bin), filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions_gam", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
++ 
++     #save ensamble
++     writeRaster(ensamble_predictions_bin, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_predictions_bin", paste("ensamble_predictions_bin", paste(species, "tif", sep="."), sep="_"), sep="/"), overwrite=TRUE)
++ 
++     #########################################
++     ######ZIP AND DELETE EVALUATIONS ########
++     ######################################### 
++     ####FOR RELEASE SPACE IN SEAWELL
++     #list continuous projections created 
++     if (species=="strobus"){ #conditional for avoiding problems with strobus and pseudostrobus listing files
++         evaluations = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", pattern=glob2rx(paste("*", species, "*", "rda", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE)
++         evaluations = evaluations[!grepl("pseudostrobus", evaluations)]
++     } else {
++         evaluations = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", pattern=glob2rx(paste("*", species, "*", "rda", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE) 
++     }
++ 
++     #zip all continuous projections for lack of space in disk
++     zip(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations/evaluations", paste(species, "zip", sep="."), sep="_"), evaluations, flags="-j") #j indicate that you don't want all the directory structure
++ 
++     #delete continuous projections
++     file.remove(evaluations) 
++ 
++     ########################################################
++     ######ZIP AND DELETE BIN AND CONTINUOUS PREDICTIONS ####
++     ######################################################## 
++     #list continuous predictions created 
++     if (species=="strobus"){ #conditional for avoiding problems with strobus and pseudostrobus listing files    
++         continuous_predictions = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions", pattern=glob2rx(paste("*", species, "*", "tif", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE)
++         continuous_predictions = continuous_predictions[!grepl("pseudostrobus", continuous_predictions)]
++     } else {
++         continuous_predictions = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions", pattern=glob2rx(paste("*", species, "*", "tif", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE)
++     } 
++ 
++     #zip all continuous predictions for lack of space in disk
++     zip(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions", paste(species, "zip", sep="."), sep="_"), continuous_predictions, flags="-j") #j indicate that you don't want all the directory structure
++ 
++     #delete continuous predictions
++     file.remove(continuous_predictions)
++ 
++     #list binary predictions created 
++     if (species=="strobus"){ #conditional for avoiding problems with strobus and pseudostrobus listing files    
++         binary_predictions = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions", pattern=glob2rx(paste("*", species, "*", "tif", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE)
++         binary_predictions = binary_predictions[!grepl("pseudostrobus", binary_predictions)]        
++     } else {
++         binary_predictions = list.files("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions", pattern=glob2rx(paste("*", species, "*", "tif", sep=""), trim.head=TRUE, trim.tail=FALSE), full.names=TRUE)        
++     }
++ 
++     #zip all binary predictions for lack of space in disk
++     zip(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions", paste(species, "zip", sep="."), sep="_"), binary_predictions, flags="-j") #j indicate that you don't want all the directory structure
++ 
++     #delete binary predictions
++     file.remove(binary_predictions)
++ 
++     #name of species
++     print(paste(species, "ended")) 
++ }
+> 
+> ########Paralelize the process######
+> require(foreach)
+Loading required package: foreach
+> require(doParallel) #for parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+> 
+> 
+> #load species names
+> list_species = read.table("/Users/dsalazar/nicho_pinus/data/list_species.txt", sep="\t", header=TRUE)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     113 
+> 
+> # set up cluster
+> clust <- makeCluster(6) 
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+> registerDoParallel(clust)
+> 
+> 
+> ###########################
+> #########BINARIZE##########
+> ###########################
+> #binarize current predictions for non-problematic species
+> foreach(i = epithet_species_list, .packages=c("raster", "dismo", "ecospat", "gtools")) %dopar% { 
++     binarize_curent_projections(species = i)
++ } 
+  adding: amamiana_gam_evaluation_data.rda (deflated 0%)
+  adding: amamiana_gam_evaluation.rda (stored 0%)
+  adding: amamiana_glm_evaluation_data.rda (deflated 0%)
+  adding: amamiana_glm_evaluation.rda (stored 0%)
+  adding: amamiana_rf_evaluation_data.rda (deflated 0%)
+  adding: amamiana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_amamiana.tif (deflated 22%)
+  adding: continuous_predictions_glm_amamiana.tif (deflated 26%)
+  adding: binary_predictions_gam_amamiana.tif (deflated 63%)
+  adding: binary_predictions_glm_amamiana.tif (deflated 63%)
+  adding: binary_predictions_rf_amamiana.tif (deflated 63%)
+  adding: attenuata_gam_evaluation_data.rda (deflated 0%)
+  adding: attenuata_gam_evaluation.rda (deflated 1%)
+  adding: attenuata_glm_evaluation_data.rda (deflated 0%)
+  adding: attenuata_glm_evaluation.rda (deflated 1%)
+  adding: attenuata_rf_evaluation_data.rda (deflated 1%)
+  adding: attenuata_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_attenuata.tif (deflated 14%)
+  adding: continuous_predictions_glm_attenuata.tif (deflated 18%)
+  adding: binary_predictions_gam_attenuata.tif (deflated 78%)
+  adding: binary_predictions_glm_attenuata.tif (deflated 78%)
+  adding: binary_predictions_rf_attenuata.tif (deflated 79%)
+  adding: aristata_gam_evaluation_data.rda (deflated 0%)
+  adding: aristata_gam_evaluation.rda (deflated 1%)
+  adding: aristata_glm_evaluation_data.rda (deflated 0%)
+  adding: aristata_glm_evaluation.rda (deflated 0%)
+  adding: aristata_rf_evaluation_data.rda (deflated 1%)
+  adding: aristata_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_aristata.tif (deflated 13%)
+  adding: continuous_predictions_glm_aristata.tif (deflated 13%)
+  adding: binary_predictions_gam_aristata.tif (deflated 74%)
+  adding: binary_predictions_glm_aristata.tif (deflated 74%)
+  adding: binary_predictions_rf_aristata.tif (deflated 74%)
+  adding: arizonica_gam_evaluation_data.rda (deflated 0%)
+  adding: arizonica_gam_evaluation.rda (deflated 1%)
+  adding: arizonica_glm_evaluation_data.rda (deflated 0%)
+  adding: arizonica_glm_evaluation.rda (deflated 1%)
+  adding: arizonica_rf_evaluation_data.rda (deflated 1%)
+  adding: arizonica_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_arizonica.tif (deflated 12%)
+  adding: continuous_predictions_glm_arizonica.tif (deflated 15%)
+  adding: binary_predictions_gam_arizonica.tif (deflated 75%)
+  adding: binary_predictions_glm_arizonica.tif (deflated 75%)
+  adding: binary_predictions_rf_arizonica.tif (deflated 77%)
+  adding: albicaulis_gam_evaluation_data.rda (deflated 0%)
+  adding: albicaulis_gam_evaluation.rda (deflated 0%)
+  adding: albicaulis_glm_evaluation_data.rda (deflated 0%)
+  adding: albicaulis_glm_evaluation.rda (deflated 0%)
+  adding: albicaulis_rf_evaluation_data.rda (deflated 1%)
+  adding: albicaulis_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_albicaulis.tif (deflated 12%)
+  adding: continuous_predictions_glm_albicaulis.tif (deflated 13%)
+  adding: binary_predictions_gam_albicaulis.tif (deflated 74%)
+  adding: binary_predictions_glm_albicaulis.tif (deflated 74%)
+  adding: binary_predictions_rf_albicaulis.tif (deflated 73%)
+  adding: armandii_gam_evaluation_data.rda (deflated 0%)
+  adding: armandii_gam_evaluation.rda (deflated 1%)
+  adding: armandii_glm_evaluation_data.rda (deflated 0%)
+  adding: armandii_glm_evaluation.rda (deflated 1%)
+  adding: armandii_rf_evaluation_data.rda (deflated 1%)
+  adding: armandii_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_armandii.tif (deflated 8%)
+  adding: continuous_predictions_glm_armandii.tif (deflated 8%)
+  adding: binary_predictions_gam_armandii.tif (deflated 63%)
+  adding: binary_predictions_glm_armandii.tif (deflated 62%)
+  adding: binary_predictions_rf_armandii.tif (deflated 62%)
+  adding: ayacahuite_gam_evaluation_data.rda (deflated 0%)
+  adding: ayacahuite_gam_evaluation.rda (deflated 2%)
+  adding: ayacahuite_glm_evaluation_data.rda (deflated 0%)
+  adding: ayacahuite_glm_evaluation.rda (deflated 1%)
+  adding: ayacahuite_rf_evaluation_data.rda (deflated 1%)
+  adding: ayacahuite_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_ayacahuite.tif (deflated 20%)
+  adding: continuous_predictions_glm_ayacahuite.tif (deflated 21%)
+  adding: binary_predictions_gam_ayacahuite.tif (deflated 76%)
+  adding: binary_predictions_glm_ayacahuite.tif (deflated 75%)
+  adding: binary_predictions_rf_ayacahuite.tif (deflated 76%)
+  adding: balfouriana_gam_evaluation_data.rda (deflated 0%)
+  adding: balfouriana_gam_evaluation.rda (deflated 1%)
+  adding: balfouriana_glm_evaluation_data.rda (deflated 0%)
+  adding: balfouriana_glm_evaluation.rda (deflated 1%)
+  adding: balfouriana_rf_evaluation_data.rda (deflated 1%)
+  adding: balfouriana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_balfouriana.tif (deflated 14%)
+  adding: continuous_predictions_glm_balfouriana.tif (deflated 14%)
+  adding: binary_predictions_gam_balfouriana.tif (deflated 80%)
+  adding: binary_predictions_glm_balfouriana.tif (deflated 80%)
+  adding: binary_predictions_rf_balfouriana.tif (deflated 79%)
+  adding: bhutanica_gam_evaluation_data.rda (deflated 0%)
+  adding: bhutanica_gam_evaluation.rda (deflated 0%)
+  adding: bhutanica_glm_evaluation_data.rda (deflated 0%)
+  adding: bhutanica_glm_evaluation.rda (deflated 0%)
+  adding: bhutanica_rf_evaluation_data.rda (deflated 1%)
+  adding: bhutanica_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_bhutanica.tif (deflated 8%)
+  adding: continuous_predictions_glm_bhutanica.tif (deflated 10%)
+  adding: binary_predictions_gam_bhutanica.tif (deflated 65%)
+  adding: binary_predictions_glm_bhutanica.tif (deflated 66%)
+  adding: binary_predictions_rf_bhutanica.tif (deflated 66%)
+  adding: brutia_gam_evaluation_data.rda (deflated 0%)
+  adding: brutia_gam_evaluation.rda (deflated 1%)
+  adding: brutia_glm_evaluation_data.rda (deflated 0%)
+  adding: brutia_glm_evaluation.rda (deflated 1%)
+  adding: brutia_rf_evaluation_data.rda (deflated 1%)
+  adding: brutia_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_brutia.tif (deflated 9%)
+  adding: continuous_predictions_glm_brutia.tif (deflated 10%)
+  adding: binary_predictions_gam_brutia.tif (deflated 66%)
+  adding: binary_predictions_glm_brutia.tif (deflated 66%)
+  adding: binary_predictions_rf_brutia.tif (deflated 69%)
+  adding: bungeana_gam_evaluation_data.rda (deflated 0%)
+  adding: bungeana_gam_evaluation.rda (deflated 0%)
+  adding: bungeana_glm_evaluation_data.rda (deflated 0%)
+  adding: bungeana_glm_evaluation.rda (deflated 0%)
+  adding: bungeana_rf_evaluation_data.rda (deflated 1%)
+  adding: bungeana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_bungeana.tif (deflated 10%)
+  adding: continuous_predictions_glm_bungeana.tif (deflated 12%)
+  adding: binary_predictions_gam_bungeana.tif (deflated 68%)
+  adding: binary_predictions_glm_bungeana.tif (deflated 66%)
+  adding: binary_predictions_rf_bungeana.tif (deflated 67%)
+  adding: banksiana_gam_evaluation_data.rda (deflated 0%)
+  adding: banksiana_gam_evaluation.rda (deflated 0%)
+  adding: banksiana_glm_evaluation_data.rda (deflated 0%)
+  adding: banksiana_glm_evaluation.rda (deflated 0%)
+  adding: banksiana_rf_evaluation_data.rda (deflated 1%)
+  adding: banksiana_rf_evaluation.rda (deflated 14%)
+  adding: continuous_predictions_gam_banksiana.tif (deflated 11%)
+  adding: continuous_predictions_glm_banksiana.tif (deflated 12%)
+  adding: binary_predictions_gam_banksiana.tif (deflated 67%)
+  adding: binary_predictions_glm_banksiana.tif (deflated 67%)
+  adding: binary_predictions_rf_banksiana.tif (deflated 68%)
+updating: canariensis_gam_evaluation_data.rda (deflated 0%)
+updating: canariensis_gam_evaluation.rda (stored 0%)
+updating: canariensis_glm_evaluation_data.rda (deflated 0%)
+updating: canariensis_glm_evaluation.rda (stored 0%)
+updating: canariensis_rf_evaluation_data.rda (deflated 0%)
+updating: canariensis_rf_evaluation.rda (stored 0%)
+updating: continuous_predictions_gam_canariensis.tif (deflated 26%)
+updating: continuous_predictions_glm_canariensis.tif (deflated 21%)
+updating: binary_predictions_gam_canariensis.tif (deflated 73%)
+updating: binary_predictions_glm_canariensis.tif (deflated 72%)
+updating: binary_predictions_rf_canariensis.tif (deflated 71%)
+  adding: cembra_gam_evaluation_data.rda (deflated 0%)
+  adding: cembra_gam_evaluation.rda (deflated 1%)
+  adding: cembra_glm_evaluation_data.rda (deflated 0%)
+  adding: cembra_glm_evaluation.rda (deflated 1%)
+  adding: cembra_rf_evaluation_data.rda (deflated 1%)
+  adding: cembra_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_cembra.tif (deflated 11%)
+  adding: continuous_predictions_glm_cembra.tif (deflated 12%)
+  adding: binary_predictions_gam_cembra.tif (deflated 69%)
+  adding: binary_predictions_glm_cembra.tif (deflated 69%)
+  adding: binary_predictions_rf_cembra.tif (deflated 69%)
+  adding: caribaea_gam_evaluation_data.rda (deflated 0%)
+  adding: caribaea_gam_evaluation.rda (deflated 2%)
+  adding: caribaea_glm_evaluation_data.rda (deflated 0%)
+  adding: caribaea_glm_evaluation.rda (deflated 2%)
+  adding: caribaea_rf_evaluation_data.rda (deflated 0%)
+  adding: caribaea_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_caribaea.tif (deflated 11%)
+  adding: continuous_predictions_glm_caribaea.tif (deflated 18%)
+  adding: binary_predictions_gam_caribaea.tif (deflated 70%)
+  adding: binary_predictions_glm_caribaea.tif (deflated 70%)
+  adding: binary_predictions_rf_caribaea.tif (deflated 71%)
+  adding: chiapensis_gam_evaluation_data.rda (deflated 0%)
+  adding: chiapensis_gam_evaluation.rda (deflated 0%)
+  adding: chiapensis_glm_evaluation_data.rda (deflated 0%)
+  adding: chiapensis_glm_evaluation.rda (deflated 0%)
+  adding: chiapensis_rf_evaluation_data.rda (deflated 0%)
+  adding: chiapensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_chiapensis.tif (deflated 18%)
+  adding: continuous_predictions_glm_chiapensis.tif (deflated 20%)
+  adding: binary_predictions_gam_chiapensis.tif (deflated 77%)
+  adding: binary_predictions_glm_chiapensis.tif (deflated 76%)
+  adding: binary_predictions_rf_chiapensis.tif (deflated 77%)
+  adding: cembroides_gam_evaluation_data.rda (deflated 0%)
+  adding: cembroides_gam_evaluation.rda (deflated 0%)
+  adding: cembroides_glm_evaluation_data.rda (deflated 0%)
+  adding: cembroides_glm_evaluation.rda (deflated 0%)
+  adding: cembroides_rf_evaluation_data.rda (deflated 1%)
+  adding: cembroides_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_cembroides.tif (deflated 12%)
+  adding: continuous_predictions_glm_cembroides.tif (deflated 12%)
+  adding: binary_predictions_gam_cembroides.tif (deflated 74%)
+  adding: binary_predictions_glm_cembroides.tif (deflated 73%)
+  adding: binary_predictions_rf_cembroides.tif (deflated 75%)
+  adding: clausa_gam_evaluation_data.rda (deflated 0%)
+  adding: clausa_gam_evaluation.rda (deflated 0%)
+  adding: clausa_glm_evaluation_data.rda (deflated 0%)
+  adding: clausa_glm_evaluation.rda (deflated 0%)
+  adding: clausa_rf_evaluation_data.rda (deflated 1%)
+  adding: clausa_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_clausa.tif (deflated 18%)
+  adding: continuous_predictions_glm_clausa.tif (deflated 19%)
+  adding: binary_predictions_gam_clausa.tif (deflated 73%)
+  adding: binary_predictions_glm_clausa.tif (deflated 72%)
+  adding: binary_predictions_rf_clausa.tif (deflated 73%)
+  adding: cooperi_gam_evaluation_data.rda (deflated 0%)
+  adding: cooperi_gam_evaluation.rda (deflated 0%)
+  adding: cooperi_glm_evaluation_data.rda (deflated 0%)
+  adding: cooperi_glm_evaluation.rda (deflated 0%)
+  adding: cooperi_rf_evaluation_data.rda (deflated 1%)
+  adding: cooperi_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_cooperi.tif (deflated 30%)
+  adding: continuous_predictions_glm_cooperi.tif (deflated 36%)
+  adding: binary_predictions_gam_cooperi.tif (deflated 78%)
+  adding: binary_predictions_glm_cooperi.tif (deflated 77%)
+  adding: binary_predictions_rf_cooperi.tif (deflated 77%)
+  adding: contorta_gam_evaluation_data.rda (deflated 0%)
+  adding: contorta_gam_evaluation.rda (deflated 0%)
+  adding: contorta_glm_evaluation_data.rda (deflated 0%)
+  adding: contorta_glm_evaluation.rda (deflated 0%)
+  adding: contorta_rf_evaluation_data.rda (deflated 1%)
+  adding: contorta_rf_evaluation.rda (deflated 8%)
+  adding: continuous_predictions_gam_contorta.tif (deflated 12%)
+  adding: continuous_predictions_glm_contorta.tif (deflated 12%)
+  adding: binary_predictions_gam_contorta.tif (deflated 70%)
+  adding: binary_predictions_glm_contorta.tif (deflated 70%)
+  adding: binary_predictions_rf_contorta.tif (deflated 70%)
+  adding: coulteri_gam_evaluation_data.rda (deflated 0%)
+  adding: coulteri_gam_evaluation.rda (deflated 1%)
+  adding: coulteri_glm_evaluation_data.rda (deflated 0%)
+  adding: coulteri_glm_evaluation.rda (deflated 0%)
+  adding: coulteri_rf_evaluation_data.rda (deflated 1%)
+  adding: coulteri_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_coulteri.tif (deflated 29%)
+  adding: continuous_predictions_glm_coulteri.tif (deflated 34%)
+  adding: binary_predictions_gam_coulteri.tif (deflated 79%)
+  adding: binary_predictions_glm_coulteri.tif (deflated 79%)
+  adding: binary_predictions_rf_coulteri.tif (deflated 79%)
+  adding: cubensis_gam_evaluation_data.rda (deflated 0%)
+  adding: cubensis_gam_evaluation.rda (stored 0%)
+  adding: cubensis_glm_evaluation_data.rda (deflated 0%)
+  adding: cubensis_glm_evaluation.rda (deflated 0%)
+  adding: cubensis_rf_evaluation_data.rda (deflated 0%)
+  adding: cubensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_cubensis.tif (deflated 45%)
+  adding: continuous_predictions_glm_cubensis.tif (deflated 37%)
+  adding: binary_predictions_gam_cubensis.tif (deflated 76%)
+  adding: binary_predictions_glm_cubensis.tif (deflated 73%)
+  adding: binary_predictions_rf_cubensis.tif (deflated 73%)
+  adding: culminicola_gam_evaluation_data.rda (deflated 0%)
+  adding: culminicola_gam_evaluation.rda (deflated 0%)
+  adding: culminicola_glm_evaluation_data.rda (deflated 0%)
+  adding: culminicola_glm_evaluation.rda (deflated 1%)
+  adding: culminicola_rf_evaluation_data.rda (deflated 1%)
+  adding: culminicola_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_culminicola.tif (deflated 15%)
+  adding: continuous_predictions_glm_culminicola.tif (deflated 16%)
+  adding: binary_predictions_gam_culminicola.tif (deflated 75%)
+  adding: binary_predictions_glm_culminicola.tif (deflated 76%)
+  adding: binary_predictions_rf_culminicola.tif (deflated 75%)
+  adding: dalatensis_gam_evaluation_data.rda (deflated 0%)
+  adding: dalatensis_gam_evaluation.rda (stored 0%)
+  adding: dalatensis_glm_evaluation_data.rda (deflated 0%)
+  adding: dalatensis_glm_evaluation.rda (deflated 0%)
+  adding: dalatensis_rf_evaluation_data.rda (deflated 1%)
+  adding: dalatensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_dalatensis.tif (deflated 37%)
+  adding: continuous_predictions_glm_dalatensis.tif (deflated 45%)
+  adding: binary_predictions_gam_dalatensis.tif (deflated 74%)
+  adding: binary_predictions_glm_dalatensis.tif (deflated 75%)
+  adding: binary_predictions_rf_dalatensis.tif (deflated 74%)
+  adding: densata_gam_evaluation_data.rda (deflated 0%)
+  adding: densata_gam_evaluation.rda (deflated 1%)
+  adding: densata_glm_evaluation_data.rda (deflated 0%)
+  adding: densata_glm_evaluation.rda (deflated 1%)
+  adding: densata_rf_evaluation_data.rda (deflated 1%)
+  adding: densata_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_densata.tif (deflated 10%)
+  adding: continuous_predictions_glm_densata.tif (deflated 10%)
+  adding: binary_predictions_gam_densata.tif (deflated 67%)
+  adding: binary_predictions_glm_densata.tif (deflated 66%)
+  adding: binary_predictions_rf_densata.tif (deflated 67%)
+  adding: densiflora_gam_evaluation_data.rda (deflated 0%)
+  adding: densiflora_gam_evaluation.rda (deflated 1%)
+  adding: densiflora_glm_evaluation_data.rda (deflated 0%)
+  adding: densiflora_glm_evaluation.rda (deflated 1%)
+  adding: densiflora_rf_evaluation_data.rda (deflated 0%)
+  adding: densiflora_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_densiflora.tif (deflated 8%)
+  adding: continuous_predictions_glm_densiflora.tif (deflated 8%)
+  adding: binary_predictions_gam_densiflora.tif (deflated 63%)
+  adding: binary_predictions_glm_densiflora.tif (deflated 64%)
+  adding: binary_predictions_rf_densiflora.tif (deflated 65%)
+  adding: devoniana_gam_evaluation_data.rda (deflated 0%)
+  adding: devoniana_gam_evaluation.rda (deflated 1%)
+  adding: devoniana_glm_evaluation_data.rda (deflated 0%)
+  adding: devoniana_glm_evaluation.rda (deflated 1%)
+  adding: devoniana_rf_evaluation_data.rda (deflated 1%)
+  adding: devoniana_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_devoniana.tif (deflated 21%)
+  adding: continuous_predictions_glm_devoniana.tif (deflated 21%)
+  adding: binary_predictions_gam_devoniana.tif (deflated 77%)
+  adding: binary_predictions_glm_devoniana.tif (deflated 76%)
+  adding: binary_predictions_rf_devoniana.tif (deflated 77%)
+  adding: douglasiana_gam_evaluation_data.rda (deflated 0%)
+  adding: douglasiana_gam_evaluation.rda (deflated 0%)
+  adding: douglasiana_glm_evaluation_data.rda (deflated 0%)
+  adding: douglasiana_glm_evaluation.rda (deflated 0%)
+  adding: douglasiana_rf_evaluation_data.rda (deflated 1%)
+  adding: douglasiana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_douglasiana.tif (deflated 20%)
+  adding: continuous_predictions_glm_douglasiana.tif (deflated 19%)
+  adding: binary_predictions_gam_douglasiana.tif (deflated 77%)
+  adding: binary_predictions_glm_douglasiana.tif (deflated 76%)
+  adding: binary_predictions_rf_douglasiana.tif (deflated 77%)
+  adding: discolor_gam_evaluation_data.rda (deflated 0%)
+  adding: discolor_gam_evaluation.rda (deflated 0%)
+  adding: discolor_glm_evaluation_data.rda (deflated 0%)
+  adding: discolor_glm_evaluation.rda (deflated 0%)
+  adding: discolor_rf_evaluation_data.rda (deflated 1%)
+  adding: discolor_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_discolor.tif (deflated 12%)
+  adding: continuous_predictions_glm_discolor.tif (deflated 12%)
+  adding: binary_predictions_gam_discolor.tif (deflated 73%)
+  adding: binary_predictions_glm_discolor.tif (deflated 73%)
+  adding: binary_predictions_rf_discolor.tif (deflated 75%)
+  adding: durangensis_gam_evaluation_data.rda (deflated 0%)
+  adding: durangensis_gam_evaluation.rda (deflated 1%)
+  adding: durangensis_glm_evaluation_data.rda (deflated 0%)
+  adding: durangensis_glm_evaluation.rda (deflated 1%)
+  adding: durangensis_rf_evaluation_data.rda (deflated 1%)
+  adding: durangensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_durangensis.tif (deflated 13%)
+  adding: continuous_predictions_glm_durangensis.tif (deflated 16%)
+  adding: binary_predictions_gam_durangensis.tif (deflated 76%)
+  adding: binary_predictions_glm_durangensis.tif (deflated 76%)
+  adding: binary_predictions_rf_durangensis.tif (deflated 77%)
+  adding: edulis_gam_evaluation_data.rda (deflated 0%)
+  adding: edulis_gam_evaluation.rda (deflated 0%)
+  adding: edulis_glm_evaluation_data.rda (deflated 0%)
+  adding: edulis_glm_evaluation.rda (deflated 0%)
+  adding: edulis_rf_evaluation_data.rda (deflated 1%)
+  adding: edulis_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_edulis.tif (deflated 13%)
+  adding: continuous_predictions_glm_edulis.tif (deflated 12%)
+  adding: binary_predictions_gam_edulis.tif (deflated 74%)
+  adding: binary_predictions_glm_edulis.tif (deflated 74%)
+  adding: binary_predictions_rf_edulis.tif (deflated 75%)
+  adding: elliottii_gam_evaluation_data.rda (deflated 0%)
+  adding: elliottii_gam_evaluation.rda (deflated 1%)
+  adding: elliottii_glm_evaluation_data.rda (deflated 0%)
+  adding: elliottii_glm_evaluation.rda (deflated 0%)
+  adding: elliottii_rf_evaluation_data.rda (deflated 0%)
+  adding: elliottii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_elliottii.tif (deflated 17%)
+  adding: continuous_predictions_glm_elliottii.tif (deflated 19%)
+  adding: binary_predictions_gam_elliottii.tif (deflated 74%)
+  adding: binary_predictions_glm_elliottii.tif (deflated 73%)
+  adding: binary_predictions_rf_elliottii.tif (deflated 74%)
+  adding: echinata_gam_evaluation_data.rda (deflated 0%)
+  adding: echinata_gam_evaluation.rda (deflated 0%)
+  adding: echinata_glm_evaluation_data.rda (deflated 0%)
+  adding: echinata_glm_evaluation.rda (deflated 0%)
+  adding: echinata_rf_evaluation_data.rda (deflated 1%)
+  adding: echinata_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_echinata.tif (deflated 11%)
+  adding: continuous_predictions_glm_echinata.tif (deflated 13%)
+  adding: binary_predictions_gam_echinata.tif (deflated 74%)
+  adding: binary_predictions_glm_echinata.tif (deflated 75%)
+  adding: binary_predictions_rf_echinata.tif (deflated 75%)
+  adding: fenzeliana_gam_evaluation_data.rda (deflated 0%)
+  adding: fenzeliana_gam_evaluation.rda (deflated 0%)
+  adding: fenzeliana_glm_evaluation_data.rda (deflated 0%)
+  adding: fenzeliana_glm_evaluation.rda (deflated 0%)
+  adding: fenzeliana_rf_evaluation_data.rda (deflated 1%)
+  adding: fenzeliana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_fenzeliana.tif (deflated 9%)
+  adding: continuous_predictions_glm_fenzeliana.tif (deflated 10%)
+  adding: binary_predictions_gam_fenzeliana.tif (deflated 69%)
+  adding: binary_predictions_glm_fenzeliana.tif (deflated 67%)
+  adding: binary_predictions_rf_fenzeliana.tif (deflated 69%)
+  adding: engelmannii_gam_evaluation_data.rda (deflated 0%)
+  adding: engelmannii_gam_evaluation.rda (deflated 1%)
+  adding: engelmannii_glm_evaluation_data.rda (deflated 0%)
+  adding: engelmannii_glm_evaluation.rda (deflated 1%)
+  adding: engelmannii_rf_evaluation_data.rda (deflated 1%)
+  adding: engelmannii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_engelmannii.tif (deflated 12%)
+  adding: continuous_predictions_glm_engelmannii.tif (deflated 14%)
+  adding: binary_predictions_gam_engelmannii.tif (deflated 77%)
+  adding: binary_predictions_glm_engelmannii.tif (deflated 76%)
+  adding: binary_predictions_rf_engelmannii.tif (deflated 77%)
+  adding: flexilis_gam_evaluation_data.rda (deflated 0%)
+  adding: flexilis_gam_evaluation.rda (deflated 1%)
+  adding: flexilis_glm_evaluation_data.rda (deflated 0%)
+  adding: flexilis_glm_evaluation.rda (deflated 1%)
+  adding: flexilis_rf_evaluation_data.rda (deflated 1%)
+  adding: flexilis_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_flexilis.tif (deflated 12%)
+  adding: continuous_predictions_glm_flexilis.tif (deflated 13%)
+  adding: binary_predictions_gam_flexilis.tif (deflated 75%)
+  adding: binary_predictions_glm_flexilis.tif (deflated 75%)
+  adding: binary_predictions_rf_flexilis.tif (deflated 75%)
+  adding: fragilissima_gam_evaluation_data.rda (deflated 0%)
+  adding: fragilissima_gam_evaluation.rda (deflated 2%)
+  adding: fragilissima_glm_evaluation_data.rda (deflated 0%)
+  adding: fragilissima_glm_evaluation.rda (deflated 1%)
+  adding: fragilissima_rf_evaluation_data.rda (deflated 1%)
+  adding: fragilissima_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_fragilissima.tif (deflated 8%)
+  adding: continuous_predictions_glm_fragilissima.tif (deflated 8%)
+  adding: binary_predictions_gam_fragilissima.tif (deflated 59%)
+  adding: binary_predictions_glm_fragilissima.tif (deflated 59%)
+  adding: binary_predictions_rf_fragilissima.tif (deflated 61%)
+  adding: greggii_gam_evaluation_data.rda (deflated 0%)
+  adding: greggii_gam_evaluation.rda (deflated 0%)
+  adding: greggii_glm_evaluation_data.rda (deflated 0%)
+  adding: greggii_glm_evaluation.rda (deflated 0%)
+  adding: greggii_rf_evaluation_data.rda (deflated 1%)
+  adding: greggii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_greggii.tif (deflated 15%)
+  adding: continuous_predictions_glm_greggii.tif (deflated 20%)
+  adding: binary_predictions_gam_greggii.tif (deflated 77%)
+  adding: binary_predictions_glm_greggii.tif (deflated 76%)
+  adding: binary_predictions_rf_greggii.tif (deflated 76%)
+  adding: gerardiana_gam_evaluation_data.rda (deflated 0%)
+  adding: gerardiana_gam_evaluation.rda (deflated 1%)
+  adding: gerardiana_glm_evaluation_data.rda (deflated 0%)
+  adding: gerardiana_glm_evaluation.rda (deflated 1%)
+  adding: gerardiana_rf_evaluation_data.rda (deflated 1%)
+  adding: gerardiana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_gerardiana.tif (deflated 7%)
+  adding: continuous_predictions_glm_gerardiana.tif  adding: glabra_gam_evaluation_data.rda (deflated 0%)
+  adding: glabra_gam_evaluation.rda (deflated 0%)
+  adding: glabra_glm_evaluation_data.rda (deflated 0%)
+  adding: glabra_glm_evaluation.rda (deflated 1%)
+  adding: glabra_rf_evaluation_data.rda (deflated 1%)
+  adding: glabra_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_glabra.tif (deflated 25%)
+  adding: continuous_predictions_glm_glabra.tif (deflated 26%)
+  adding: binary_predictions_gam_glabra.tif (deflated 74%)
+  adding: binary_predictions_glm_glabra.tif (deflated 74%)
+  adding: binary_predictions_rf_glabra.tif (deflated 75%)
+ (deflated 8%)
+  adding: binary_predictions_gam_gerardiana.tif (deflated 56%)
+  adding: binary_predictions_glm_gerardiana.tif (deflated 57%)
+  adding: binary_predictions_rf_gerardiana.tif (deflated 56%)
+  adding: halepensis_gam_evaluation_data.rda (deflated 0%)
+  adding: halepensis_gam_evaluation.rda (deflated 0%)
+  adding: halepensis_glm_evaluation_data.rda (deflated 0%)
+  adding: halepensis_glm_evaluation.rda (deflated 0%)
+  adding: halepensis_rf_evaluation_data.rda (deflated 1%)
+  adding: halepensis_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_halepensis.tif (deflated 9%)
+  adding: continuous_predictions_glm_halepensis.tif (deflated 10%)
+  adding: binary_predictions_gam_halepensis.tif (deflated 66%)
+  adding: binary_predictions_glm_halepensis.tif (deflated 66%)
+  adding: binary_predictions_rf_halepensis.tif (deflated 69%)
+  adding: hartwegii_gam_evaluation_data.rda (deflated 0%)
+  adding: hartwegii_gam_evaluation.rda (deflated 1%)
+  adding: hartwegii_glm_evaluation_data.rda (deflated 0%)
+  adding: hartwegii_glm_evaluation.rda (deflated 1%)
+  adding: hartwegii_rf_evaluation_data.rda (deflated 1%)
+  adding: hartwegii_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_hartwegii.tif (deflated 12%)
+  adding: continuous_predictions_glm_hartwegii.tif (deflated 15%)
+  adding: binary_predictions_gam_hartwegii.tif (deflated 73%)
+  adding: binary_predictions_glm_hartwegii.tif (deflated 72%)
+  adding: binary_predictions_rf_hartwegii.tif (deflated 75%)
+  adding: heldreichii_gam_evaluation_data.rda (deflated 0%)
+  adding: heldreichii_gam_evaluation.rda (deflated 1%)
+  adding: heldreichii_glm_evaluation_data.rda (deflated 0%)
+  adding: heldreichii_glm_evaluation.rda (deflated 0%)
+  adding: heldreichii_rf_evaluation_data.rda (deflated 1%)
+  adding: heldreichii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_heldreichii.tif (deflated 11%)
+  adding: continuous_predictions_glm_heldreichii.tif (deflated 12%)
+  adding: binary_predictions_gam_heldreichii.tif (deflated 69%)
+  adding: binary_predictions_glm_heldreichii.tif (deflated 68%)
+  adding: binary_predictions_rf_heldreichii.tif (deflated 70%)
+  adding: herrerae_gam_evaluation_data.rda (deflated 0%)
+  adding: herrerae_gam_evaluation.rda (deflated 0%)
+  adding: herrerae_glm_evaluation_data.rda (deflated 0%)
+  adding: herrerae_glm_evaluation.rda (deflated 1%)
+  adding: herrerae_rf_evaluation_data.rda (deflated 0%)
+  adding: herrerae_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_herrerae.tif (deflated 18%)
+  adding: continuous_predictions_glm_herrerae.tif (deflated 29%)
+  adding: binary_predictions_gam_herrerae.tif (deflated 77%)
+  adding: binary_predictions_glm_herrerae.tif (deflated 77%)
+  adding: binary_predictions_rf_herrerae.tif (deflated 77%)
+  adding: hwangshanensis_gam_evaluation_data.rda (deflated 0%)
+  adding: hwangshanensis_gam_evaluation.rda (deflated 0%)
+  adding: hwangshanensis_glm_evaluation_data.rda (deflated 0%)
+  adding: hwangshanensis_glm_evaluation.rda (deflated 0%)
+  adding: hwangshanensis_rf_evaluation_data.rda (deflated 1%)
+  adding: hwangshanensis_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_hwangshanensis.tif (deflated 9%)
+  adding: continuous_predictions_glm_hwangshanensis.tif  adding: jeffreyi_gam_evaluation_data.rda (deflated 0%)
+  adding: jeffreyi_gam_evaluation.rda (deflated 1%)
+  adding: jeffreyi_glm_evaluation_data.rda (deflated 0%)
+  adding: jeffreyi_glm_evaluation.rda (deflated 0%)
+  adding: jeffreyi_rf_evaluation_data.rda (deflated 0%)
+  adding: jeffreyi_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_jeffreyi.tif (deflated 11%)
+  adding: binary_predictions_gam_hwangshanensis.tif (deflated 69%)
+  adding: binary_predictions_glm_hwangshanensis.tif (deflated 68%)
+  adding: binary_predictions_rf_hwangshanensis.tif (deflated 70%)
+ (deflated 14%)
+  adding: continuous_predictions_glm_jeffreyi.tif (deflated 14%)
+  adding: binary_predictions_gam_jeffreyi.tif (deflated 77%)
+  adding: binary_predictions_glm_jeffreyi.tif (deflated 77%)
+  adding: binary_predictions_rf_jeffreyi.tif (deflated 78%)
+  adding: johannis_gam_evaluation_data.rda (deflated 0%)
+  adding: johannis_gam_evaluation.rda (deflated 0%)
+  adding: johannis_glm_evaluation_data.rda (deflated 0%)
+  adding: johannis_glm_evaluation.rda (deflated 0%)
+  adding: johannis_rf_evaluation_data.rda (deflated 0%)
+  adding: johannis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_johannis.tif (deflated 13%)
+  adding: continuous_predictions_glm_johannis.tif (deflated 18%)
+  adding: binary_predictions_gam_johannis.tif (deflated 76%)
+  adding: binary_predictions_glm_johannis.tif (deflated 75%)
+  adding: binary_predictions_rf_johannis.tif (deflated 76%)
+  adding: juarezensis_gam_evaluation_data.rda (deflated 0%)
+  adding: juarezensis_gam_evaluation.rda (deflated 1%)
+  adding: juarezensis_glm_evaluation_data.rda (deflated 0%)
+  adding: juarezensis_glm_evaluation.rda (deflated 1%)
+  adding: juarezensis_rf_evaluation_data.rda (deflated 1%)
+  adding: juarezensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_juarezensis.tif (deflated 29%)
+  adding: continuous_predictions_glm_juarezensis.tif (deflated 31%)
+  adding: binary_predictions_gam_juarezensis.tif (deflated 79%)
+  adding: binary_predictions_glm_juarezensis.tif (deflated 79%)
+  adding: binary_predictions_rf_juarezensis.tif (deflated 79%)
+  adding: koraiensis_gam_evaluation_data.rda (deflated 0%)
+  adding: koraiensis_gam_evaluation.rda (deflated 1%)
+  adding: koraiensis_glm_evaluation_data.rda (deflated 0%)
+  adding: koraiensis_glm_evaluation.rda (deflated 1%)
+  adding: koraiensis_rf_evaluation_data.rda (deflated 1%)
+  adding: koraiensis_rf_evaluation.rda (deflated 3%)
+  adding: continuous_predictions_gam_koraiensis.tif (deflated 8%)
+  adding: continuous_predictions_glm_koraiensis.tif  adding: krempfii_gam_evaluation_data.rda (deflated 0%)
+  adding: krempfii_gam_evaluation.rda (stored 0%)
+  adding: krempfii_glm_evaluation_data.rda (deflated 0%)
+  adding: krempfii_glm_evaluation.rda (stored 0%)
+  adding: krempfii_rf_evaluation_data.rda (deflated 1%)
+  adding: krempfii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_krempfii.tif (deflated 47%)
+  adding: continuous_predictions_glm_krempfii.tif (deflated 49%)
+  adding: binary_predictions_gam_krempfii.tif (deflated 75%)
+  adding: binary_predictions_glm_krempfii.tif (deflated 75%)
+  adding: binary_predictions_rf_krempfii.tif (deflated 74%)
+ (deflated 8%)
+  adding: binary_predictions_gam_koraiensis.tif (deflated 58%)
+  adding: binary_predictions_glm_koraiensis.tif (deflated 59%)
+  adding: binary_predictions_rf_koraiensis.tif (deflated 60%)
+  adding: kwangtungensis_gam_evaluation_data.rda (deflated 0%)
+  adding: kwangtungensis_gam_evaluation.rda (stored 0%)
+  adding: kwangtungensis_glm_evaluation_data.rda (deflated 0%)
+  adding: kwangtungensis_glm_evaluation.rda (stored 0%)
+  adding: kwangtungensis_rf_evaluation_data.rda (deflated 0%)
+  adding: kwangtungensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_kwangtungensis.tif (deflated 20%)
+  adding: continuous_predictions_glm_kwangtungensis.tif (deflated 25%)
+  adding: binary_predictions_gam_kwangtungensis.tif (deflated 67%)
+  adding: binary_predictions_glm_kwangtungensis.tif (deflated 66%)
+  adding: binary_predictions_rf_kwangtungensis.tif (deflated 65%)
+  adding: kesiya_gam_evaluation_data.rda (deflated 0%)
+  adding: kesiya_gam_evaluation.rda (deflated 1%)
+  adding: kesiya_glm_evaluation_data.rda (deflated 0%)
+  adding: kesiya_glm_evaluation.rda (deflated 1%)
+  adding: kesiya_rf_evaluation_data.rda (deflated 1%)
+  adding: kesiya_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_kesiya.tif (deflated 8%)
+  adding: continuous_predictions_glm_kesiya.tif (deflated 10%)
+  adding: binary_predictions_gam_kesiya.tif (deflated 65%)
+  adding: binary_predictions_glm_kesiya.tif (deflated 64%)
+  adding: binary_predictions_rf_kesiya.tif (deflated 66%)
+  adding: lambertiana_gam_evaluation_data.rda (deflated 0%)
+  adding: lambertiana_gam_evaluation.rda (deflated 1%)
+  adding: lambertiana_glm_evaluation_data.rda (deflated 0%)
+  adding: lambertiana_glm_evaluation.rda (deflated 0%)
+  adding: lambertiana_rf_evaluation_data.rda (deflated 1%)
+  adding: lambertiana_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_lambertiana.tif (deflated 14%)
+  adding: continuous_predictions_glm_lambertiana.tif (deflated 15%)
+  adding: binary_predictions_gam_lambertiana.tif (deflated 77%)
+  adding: binary_predictions_glm_lambertiana.tif (deflated 78%)
+  adding: binary_predictions_rf_lambertiana.tif (deflated 78%)
+  adding: latteri_gam_evaluation_data.rda (deflated 0%)
+  adding: latteri_gam_evaluation.rda (deflated 1%)
+  adding: latteri_glm_evaluation_data.rda (deflated 0%)
+  adding: latteri_glm_evaluation.rda (deflated 1%)
+  adding: latteri_rf_evaluation_data.rda (deflated 1%)
+  adding: latteri_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_latteri.tif (deflated 9%)
+  adding: continuous_predictions_glm_latteri.tif (deflated 14%)
+  adding: binary_predictions_gam_latteri.tif (deflated 68%)
+  adding: binary_predictions_glm_latteri.tif (deflated 67%)
+  adding: binary_predictions_rf_latteri.tif (deflated 68%)
+  adding: lawsonii_gam_evaluation_data.rda (deflated 0%)
+  adding: lawsonii_gam_evaluation.rda (deflated 0%)
+  adding: lawsonii_glm_evaluation_data.rda (deflated 0%)
+  adding: lawsonii_glm_evaluation.rda (deflated 0%)
+  adding: lawsonii_rf_evaluation_data.rda (deflated 0%)
+  adding: lawsonii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_lawsonii.tif (deflated 22%)
+  adding: continuous_predictions_glm_lawsonii.tif (deflated 23%)
+  adding: binary_predictions_gam_lawsonii.tif (deflated 77%)
+  adding: binary_predictions_glm_lawsonii.tif (deflated 77%)
+  adding: binary_predictions_rf_lawsonii.tif (deflated 78%)
+  adding: longaeva_gam_evaluation_data.rda (deflated 0%)
+  adding: longaeva_gam_evaluation.rda (deflated 2%)
+  adding: longaeva_glm_evaluation_data.rda (deflated 0%)
+  adding: longaeva_glm_evaluation.rda (deflated 1%)
+  adding: longaeva_rf_evaluation_data.rda (deflated 1%)
+  adding: longaeva_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_longaeva.tif (deflated 14%)
+  adding: continuous_predictions_glm_longaeva.tif (deflated 15%)
+  adding: binary_predictions_gam_longaeva.tif (deflated 78%)
+  adding: binary_predictions_glm_longaeva.tif (deflated 77%)
+  adding: binary_predictions_rf_longaeva.tif (deflated 78%)
+  adding: luchuensis_gam_evaluation_data.rda (deflated 0%)
+  adding: luchuensis_gam_evaluation.rda (deflated 0%)
+  adding: luchuensis_glm_evaluation_data.rda (deflated 0%)
+  adding: luchuensis_glm_evaluation.rda (deflated 0%)
+  adding: luchuensis_rf_evaluation_data.rda (deflated 0%)
+  adding: luchuensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_luchuensis.tif (deflated 29%)
+  adding: continuous_predictions_glm_luchuensis.tif (deflated 30%)
+  adding: binary_predictions_gam_luchuensis.tif (deflated 64%)
+  adding: binary_predictions_glm_luchuensis.tif (deflated 65%)
+  adding: binary_predictions_rf_luchuensis.tif (deflated 63%)
+  adding: leiophylla_gam_evaluation_data.rda (deflated 0%)
+  adding: leiophylla_gam_evaluation.rda (deflated 0%)
+  adding: leiophylla_glm_evaluation_data.rda (deflated 0%)
+  adding: leiophylla_glm_evaluation.rda (deflated 0%)
+  adding: leiophylla_rf_evaluation_data.rda (deflated 0%)
+  adding: leiophylla_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_leiophylla.tif (deflated 12%)
+  adding: continuous_predictions_glm_leiophylla.tif (deflated 12%)
+  adding: binary_predictions_gam_leiophylla.tif (deflated 73%)
+  adding: binary_predictions_glm_leiophylla.tif (deflated 73%)
+  adding: binary_predictions_rf_leiophylla.tif (deflated 75%)
+  adding: maestrensis_gam_evaluation_data.rda (deflated 0%)
+  adding: maestrensis_gam_evaluation.rda (stored 0%)
+  adding: maestrensis_glm_evaluation_data.rda (deflated 0%)
+  adding: maestrensis_glm_evaluation.rda (deflated 0%)
+  adding: maestrensis_rf_evaluation_data.rda (deflated 0%)
+  adding: maestrensis_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_maestrensis.tif (deflated 45%)
+  adding: continuous_predictions_glm_maestrensis.tif (deflated 32%)
+  adding: binary_predictions_gam_maestrensis.tif (deflated 75%)
+  adding: binary_predictions_glm_maestrensis.tif (deflated 71%)
+  adding: binary_predictions_rf_maestrensis.tif (deflated 71%)
+  adding: lumholtzii_gam_evaluation_data.rda (deflated 0%)
+  adding: lumholtzii_gam_evaluation.rda (deflated 0%)
+  adding: lumholtzii_glm_evaluation_data.rda (deflated 0%)
+  adding: lumholtzii_glm_evaluation.rda (deflated 0%)
+  adding: lumholtzii_rf_evaluation_data.rda (deflated 1%)
+  adding: lumholtzii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_lumholtzii.tif (deflated 19%)
+  adding: continuous_predictions_glm_lumholtzii.tif (deflated 24%)
+  adding: binary_predictions_gam_lumholtzii.tif (deflated 76%)
+  adding: binary_predictions_glm_lumholtzii.tif (deflated 76%)
+  adding: binary_predictions_rf_lumholtzii.tif (deflated 77%)
+  adding: maximartinezii_gam_evaluation_data.rda (deflated 0%)
+  adding: maximartinezii_gam_evaluation.rda (stored 0%)
+  adding: maximartinezii_glm_evaluation_data.rda (deflated 0%)
+  adding: maximartinezii_glm_evaluation.rda (deflated 0%)
+  adding: maximartinezii_rf_evaluation_data.rda (deflated 0%)
+  adding: maximartinezii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_maximartinezii.tif (deflated 52%)
+  adding: continuous_predictions_glm_maximartinezii.tif (deflated 42%)
+  adding: binary_predictions_gam_maximartinezii.tif (deflated 80%)
+  adding: binary_predictions_glm_maximartinezii.tif (deflated 79%)
+  adding: binary_predictions_rf_maximartinezii.tif (deflated 79%)
+  adding: maximinoi_gam_evaluation_data.rda (deflated 0%)
+  adding: maximinoi_gam_evaluation.rda (deflated 0%)
+  adding: maximinoi_glm_evaluation_data.rda (deflated 0%)
+  adding: maximinoi_glm_evaluation.rda (deflated 1%)
+  adding: maximinoi_rf_evaluation_data.rda (deflated 1%)
+  adding: maximinoi_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_maximinoi.tif (deflated 21%)
+  adding: continuous_predictions_glm_maximinoi.tif (deflated 21%)
+  adding: binary_predictions_gam_maximinoi.tif (deflated 76%)
+  adding: binary_predictions_glm_maximinoi.tif (deflated 76%)
+  adding: binary_predictions_rf_maximinoi.tif (deflated 77%)
+  adding: massoniana_gam_evaluation_data.rda (deflated 0%)
+  adding: massoniana_gam_evaluation.rda (deflated 0%)
+  adding: massoniana_glm_evaluation_data.rda (deflated 0%)
+  adding: massoniana_glm_evaluation.rda (deflated 0%)
+  adding: massoniana_rf_evaluation_data.rda (deflated 1%)
+  adding: massoniana_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_massoniana.tif (deflated 9%)
+  adding: continuous_predictions_glm_massoniana.tif (deflated 9%)
+  adding: binary_predictions_gam_massoniana.tif (deflated 69%)
+  adding: binary_predictions_glm_massoniana.tif (deflated 68%)
+  adding: binary_predictions_rf_massoniana.tif (deflated 69%)
+  adding: merkusii_gam_evaluation_data.rda (deflated 0%)
+  adding: merkusii_gam_evaluation.rda (deflated 0%)
+  adding: merkusii_glm_evaluation_data.rda (deflated 0%)
+  adding: merkusii_glm_evaluation.rda (deflated 0%)
+  adding: merkusii_rf_evaluation_data.rda (deflated 0%)
+  adding: merkusii_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_merkusii.tif (deflated 9%)
+  adding: continuous_predictions_glm_merkusii.tif (deflated 13%)
+  adding: binary_predictions_gam_merkusii.tif (deflated 67%)
+  adding: binary_predictions_glm_merkusii.tif (deflated 67%)
+  adding: binary_predictions_rf_merkusii.tif (deflated 67%)
+  adding: monophylla_gam_evaluation_data.rda (deflated 0%)
+  adding: monophylla_gam_evaluation.rda (deflated 1%)
+  adding: monophylla_glm_evaluation_data.rda (deflated 0%)
+  adding: monophylla_glm_evaluation.rda (deflated 1%)
+  adding: monophylla_rf_evaluation_data.rda (deflated 0%)
+  adding: monophylla_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_monophylla.tif (deflated 14%)
+  adding: continuous_predictions_glm_monophylla.tif (deflated 14%)
+  adding: binary_predictions_gam_monophylla.tif (deflated 78%)
+  adding: binary_predictions_glm_monophylla.tif (deflated 78%)
+  adding: binary_predictions_rf_monophylla.tif (deflated 78%)
+  adding: montezumae_gam_evaluation_data.rda (deflated 0%)
+  adding: montezumae_gam_evaluation.rda (deflated 1%)
+  adding: montezumae_glm_evaluation_data.rda (deflated 0%)
+  adding: montezumae_glm_evaluation.rda (deflated 1%)
+  adding: montezumae_rf_evaluation_data.rda (deflated 1%)
+  adding: montezumae_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_montezumae.tif (deflated 12%)
+  adding: continuous_predictions_glm_montezumae.tif (deflated 14%)
+  adding: binary_predictions_gam_montezumae.tif (deflated 74%)
+  adding: binary_predictions_glm_montezumae.tif (deflated 72%)
+  adding: binary_predictions_rf_montezumae.tif (deflated 75%)
+  adding: morrisonicola_gam_evaluation_data.rda (deflated 0%)
+  adding: morrisonicola_gam_evaluation.rda (deflated 0%)
+  adding: morrisonicola_glm_evaluation_data.rda (deflated 0%)
+  adding: morrisonicola_glm_evaluation.rda (deflated 1%)
+  adding: morrisonicola_rf_evaluation_data.rda (deflated 1%)
+  adding: morrisonicola_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_morrisonicola.tif (deflated 11%)
+  adding: continuous_predictions_glm_morrisonicola.tif (deflated 15%)
+  adding: binary_predictions_gam_morrisonicola.tif (deflated 66%)
+  adding: binary_predictions_glm_morrisonicola.tif (deflated 64%)
+  adding: binary_predictions_rf_morrisonicola.tif (deflated 66%)
+  adding: monticola_gam_evaluation_data.rda (deflated 0%)
+  adding: monticola_gam_evaluation.rda (deflated 1%)
+  adding: monticola_glm_evaluation_data.rda (deflated 0%)
+  adding: monticola_glm_evaluation.rda (deflated 1%)
+  adding: monticola_rf_evaluation_data.rda (deflated 1%)
+  adding: monticola_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_monticola.tif (deflated 13%)
+  adding: continuous_predictions_glm_monticola.tif (deflated 13%)
+  adding: binary_predictions_gam_monticola.tif (deflated 76%)
+  adding: binary_predictions_glm_monticola.tif (deflated 75%)
+  adding: binary_predictions_rf_monticola.tif (deflated 75%)
+  adding: nelsonii_gam_evaluation_data.rda (deflated 0%)
+  adding: nelsonii_gam_evaluation.rda (deflated 0%)
+  adding: nelsonii_glm_evaluation_data.rda (deflated 0%)
+  adding: nelsonii_glm_evaluation.rda (deflated 0%)
+  adding: nelsonii_rf_evaluation_data.rda (deflated 1%)
+  adding: nelsonii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_nelsonii.tif (deflated 22%)
+  adding: continuous_predictions_glm_nelsonii.tif (deflated 20%)
+  adding: binary_predictions_gam_nelsonii.tif (deflated 78%)
+  adding: binary_predictions_glm_nelsonii.tif (deflated 76%)
+  adding: binary_predictions_rf_nelsonii.tif (deflated 78%)
+  adding: mugo_gam_evaluation_data.rda (deflated 0%)
+  adding: mugo_gam_evaluation.rda (deflated 0%)
+  adding: mugo_glm_evaluation_data.rda (deflated 0%)
+  adding: mugo_glm_evaluation.rda (deflated 0%)
+  adding: mugo_rf_evaluation_data.rda (deflated 1%)
+  adding: mugo_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_mugo.tif (deflated 10%)
+  adding: continuous_predictions_glm_mugo.tif  adding: muricata_gam_evaluation_data.rda (deflated 0%)
+  adding: muricata_gam_evaluation.rda (deflated 2%)
+  adding: muricata_glm_evaluation_data.rda (deflated 0%)
+  adding: muricata_glm_evaluation.rda (deflated 2%)
+  adding: muricata_rf_evaluation_data.rda (deflated 1%)
+  adding: muricata_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_muricata.tif (deflated 10%)
+  adding: binary_predictions_gam_mugo.tif (deflated 71%)
+  adding: binary_predictions_glm_mugo.tif (deflated 71%)
+  adding: binary_predictions_rf_mugo.tif (deflated 70%)
+ (deflated 14%)
+  adding: continuous_predictions_glm_muricata.tif (deflated 17%)
+  adding: binary_predictions_gam_muricata.tif (deflated 77%)
+  adding: binary_predictions_glm_muricata.tif (deflated 76%)
+  adding: binary_predictions_rf_muricata.tif (deflated 76%)
+  adding: occidentalis_gam_evaluation_data.rda (deflated 0%)
+  adding: occidentalis_gam_evaluation.rda (deflated 1%)
+  adding: occidentalis_glm_evaluation_data.rda (deflated 0%)
+  adding: occidentalis_glm_evaluation.rda (deflated 0%)
+  adding: occidentalis_rf_evaluation_data.rda (deflated 1%)
+  adding: occidentalis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_occidentalis.tif (deflated 27%)
+  adding: continuous_predictions_glm_occidentalis.tif (deflated 28%)
+  adding: binary_predictions_gam_occidentalis.tif (deflated 75%)
+  adding: binary_predictions_glm_occidentalis.tif (deflated 74%)
+  adding: binary_predictions_rf_occidentalis.tif (deflated 74%)
+  adding: nigra_gam_evaluation_data.rda (deflated 0%)
+  adding: nigra_gam_evaluation.rda (deflated 0%)
+  adding: nigra_glm_evaluation_data.rda (deflated 0%)
+  adding: nigra_glm_evaluation.rda (deflated 0%)
+  adding: nigra_rf_evaluation_data.rda (deflated 1%)
+  adding: nigra_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_nigra.tif (deflated 10%)
+  adding: continuous_predictions_glm_nigra.tif (deflated 10%)
+  adding: binary_predictions_gam_nigra.tif (deflated 69%)
+  adding: binary_predictions_glm_nigra.tif (deflated 68%)
+  adding: binary_predictions_rf_nigra.tif (deflated 70%)
+  adding: oocarpa_gam_evaluation_data.rda (deflated 0%)
+  adding: oocarpa_gam_evaluation.rda (deflated 1%)
+  adding: oocarpa_glm_evaluation_data.rda (deflated 0%)
+  adding: oocarpa_glm_evaluation.rda (deflated 1%)
+  adding: oocarpa_rf_evaluation_data.rda (deflated 1%)
+  adding: oocarpa_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_oocarpa.tif (deflated 17%)
+  adding: continuous_predictions_glm_oocarpa.tif (deflated 19%)
+  adding: binary_predictions_gam_oocarpa.tif (deflated 74%)
+  adding: binary_predictions_glm_oocarpa.tif (deflated 73%)
+  adding: binary_predictions_rf_oocarpa.tif (deflated 75%)
+  adding: parviflora_gam_evaluation_data.rda (deflated 0%)
+  adding: parviflora_gam_evaluation.rda (deflated 0%)
+  adding: parviflora_glm_evaluation_data.rda (deflated 0%)
+  adding: parviflora_glm_evaluation.rda (deflated 0%)
+  adding: parviflora_rf_evaluation_data.rda (deflated 1%)
+  adding: parviflora_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_parviflora.tif (deflated 10%)
+  adding: continuous_predictions_glm_parviflora.tif  adding: patula_gam_evaluation_data.rda (deflated 0%)
+  adding: patula_gam_evaluation.rda (deflated 0%)
+  adding: patula_glm_evaluation_data.rda (deflated 0%)
+  adding: patula_glm_evaluation.rda (deflated 1%)
+  adding: patula_rf_evaluation_data.rda (deflated 0%)
+  adding: patula_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_patula.tif (deflated 12%)
+  adding: binary_predictions_gam_parviflora.tif (deflated 68%)
+  adding: binary_predictions_glm_parviflora.tif (deflated 67%)
+  adding: binary_predictions_rf_parviflora.tif (deflated 67%)
+ (deflated 15%)
+  adding: continuous_predictions_glm_patula.tif (deflated 17%)
+  adding: binary_predictions_gam_patula.tif (deflated 75%)
+  adding: binary_predictions_glm_patula.tif (deflated 75%)
+  adding: binary_predictions_rf_patula.tif (deflated 77%)
+  adding: palustris_gam_evaluation_data.rda (deflated 0%)
+  adding: palustris_gam_evaluation.rda (deflated 1%)
+  adding: palustris_glm_evaluation_data.rda (deflated 0%)
+  adding: palustris_glm_evaluation.rda (deflated 1%)
+  adding: palustris_rf_evaluation_data.rda (deflated 1%)
+  adding: palustris_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_palustris.tif (deflated 13%)
+  adding: continuous_predictions_glm_palustris.tif (deflated 15%)
+  adding: binary_predictions_gam_palustris.tif (deflated 74%)
+  adding: binary_predictions_glm_palustris.tif (deflated 74%)
+  adding: binary_predictions_rf_palustris.tif (deflated 75%)
+  adding: peuce_gam_evaluation_data.rda (deflated 0%)
+  adding: peuce_gam_evaluation.rda (deflated 0%)
+  adding: peuce_glm_evaluation_data.rda (deflated 0%)
+  adding: peuce_glm_evaluation.rda (deflated 0%)
+  adding: peuce_rf_evaluation_data.rda (deflated 1%)
+  adding: peuce_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_peuce.tif (deflated 12%)
+  adding: continuous_predictions_glm_peuce.tif (deflated 13%)
+  adding: binary_predictions_gam_peuce.tif (deflated 66%)
+  adding: binary_predictions_glm_peuce.tif (deflated 66%)
+  adding: binary_predictions_rf_peuce.tif (deflated 68%)
+  adding: pinaster_gam_evaluation_data.rda (deflated 0%)
+  adding: pinaster_gam_evaluation.rda (deflated 0%)
+  adding: pinaster_glm_evaluation_data.rda (deflated 0%)
+  adding: pinaster_glm_evaluation.rda (deflated 0%)
+  adding: pinaster_rf_evaluation_data.rda (deflated 1%)
+  adding: pinaster_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_pinaster.tif (deflated 10%)
+  adding: continuous_predictions_glm_pinaster.tif (deflated 10%)
+  adding: binary_predictions_gam_pinaster.tif (deflated 70%)
+  adding: binary_predictions_glm_pinaster.tif (deflated 70%)
+  adding: binary_predictions_rf_pinaster.tif (deflated 73%)
+  adding: pinceana_gam_evaluation_data.rda (deflated 0%)
+  adding: pinceana_gam_evaluation.rda (deflated 0%)
+  adding: pinceana_glm_evaluation_data.rda (deflated 0%)
+  adding: pinceana_glm_evaluation.rda (deflated 0%)
+  adding: pinceana_rf_evaluation_data.rda (deflated 0%)
+  adding: pinceana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_pinceana.tif (deflated 14%)
+  adding: continuous_predictions_glm_pinceana.tif (deflated 18%)
+  adding: binary_predictions_gam_pinceana.tif (deflated 76%)
+  adding: binary_predictions_glm_pinceana.tif (deflated 77%)
+  adding: binary_predictions_rf_pinceana.tif (deflated 77%)
+  adding: praetermissa_gam_evaluation_data.rda (deflated 0%)
+  adding: praetermissa_gam_evaluation.rda (deflated 0%)
+  adding: praetermissa_glm_evaluation_data.rda (deflated 0%)
+  adding: praetermissa_glm_evaluation.rda (deflated 0%)
+  adding: praetermissa_rf_evaluation_data.rda (deflated 0%)
+  adding: praetermissa_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_praetermissa.tif (deflated 27%)
+  adding: continuous_predictions_glm_praetermissa.tif (deflated 34%)
+  adding: binary_predictions_gam_praetermissa.tif (deflated 77%)
+  adding: binary_predictions_glm_praetermissa.tif (deflated 77%)
+  adding: binary_predictions_rf_praetermissa.tif (deflated 77%)
+  adding: ponderosa_gam_evaluation_data.rda (deflated 0%)
+  adding: ponderosa_gam_evaluation.rda (deflated 0%)
+  adding: ponderosa_glm_evaluation_data.rda (deflated 0%)
+  adding: ponderosa_glm_evaluation.rda (deflated 0%)
+  adding: ponderosa_rf_evaluation_data.rda (deflated 1%)
+  adding: ponderosa_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_ponderosa.tif (deflated 12%)
+  adding: continuous_predictions_glm_ponderosa.tif (deflated 13%)
+  adding: binary_predictions_gam_ponderosa.tif (deflated 75%)
+  adding: binary_predictions_glm_ponderosa.tif (deflated 75%)
+  adding: binary_predictions_rf_ponderosa.tif (deflated 75%)
+  adding: pringlei_gam_evaluation_data.rda (deflated 0%)
+  adding: pringlei_gam_evaluation.rda (deflated 0%)
+  adding: pringlei_glm_evaluation_data.rda (deflated 0%)
+  adding: pringlei_glm_evaluation.rda (deflated 0%)
+  adding: pringlei_rf_evaluation_data.rda (deflated 0%)
+  adding: pringlei_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_pringlei.tif (deflated 24%)
+  adding: continuous_predictions_glm_pringlei.tif (deflated 23%)
+  adding: binary_predictions_gam_pringlei.tif (deflated 78%)
+  adding: binary_predictions_glm_pringlei.tif (deflated 78%)
+  adding: binary_predictions_rf_pringlei.tif (deflated 78%)
+  adding: pinea_gam_evaluation_data.rda (deflated 0%)
+  adding: pinea_gam_evaluation.rda (deflated 0%)
+  adding: pinea_glm_evaluation_data.rda (deflated 0%)
+  adding: pinea_glm_evaluation.rda (deflated 0%)
+  adding: pinea_rf_evaluation_data.rda (deflated 1%)
+  adding: pinea_rf_evaluation.rda (deflated 2%)
+  adding: continuous_predictions_gam_pinea.tif (deflated 10%)
+  adding: continuous_predictions_glm_pinea.tif (deflated 10%)
+  adding: binary_predictions_gam_pinea.tif (deflated 70%)
+  adding: binary_predictions_glm_pinea.tif (deflated 69%)
+  adding: binary_predictions_rf_pinea.tif (deflated 71%)
+  adding: pseudostrobus_gam_evaluation_data.rda (deflated 0%)
+  adding: pseudostrobus_gam_evaluation.rda (deflated 1%)
+  adding: pseudostrobus_glm_evaluation_data.rda (deflated 0%)
+  adding: pseudostrobus_glm_evaluation.rda (deflated 1%)
+  adding: pseudostrobus_rf_evaluation_data.rda (deflated 1%)
+  adding: pseudostrobus_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_pseudostrobus.tif (deflated 13%)
+  adding: continuous_predictions_glm_pseudostrobus.tif (deflated 15%)
+  adding: binary_predictions_gam_pseudostrobus.tif (deflated 72%)
+  adding: binary_predictions_glm_pseudostrobus.tif (deflated 72%)
+  adding: binary_predictions_rf_pseudostrobus.tif (deflated 75%)
+  adding: pungens_gam_evaluation_data.rda (deflated 0%)
+  adding: pungens_gam_evaluation.rda (deflated 0%)
+  adding: pungens_glm_evaluation_data.rda (deflated 0%)
+  adding: pungens_glm_evaluation.rda (deflated 0%)
+  adding: pungens_rf_evaluation_data.rda (deflated 1%)
+  adding: pungens_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_pungens.tif (deflated 19%)
+  adding: continuous_predictions_glm_pungens.tif (deflated 22%)
+  adding: binary_predictions_gam_pungens.tif (deflated 72%)
+  adding: binary_predictions_glm_pungens.tif (deflated 72%)
+  adding: binary_predictions_rf_pungens.tif (deflated 73%)
+  adding: quadrifolia_gam_evaluation_data.rda (deflated 0%)
+  adding: quadrifolia_gam_evaluation.rda (deflated 1%)
+  adding: quadrifolia_glm_evaluation_data.rda (deflated 0%)
+  adding: quadrifolia_glm_evaluation.rda (deflated 0%)
+  adding: quadrifolia_rf_evaluation_data.rda (deflated 1%)
+  adding: quadrifolia_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_quadrifolia.tif (deflated 23%)
+  adding: continuous_predictions_glm_quadrifolia.tif (deflated 23%)
+  adding: binary_predictions_gam_quadrifolia.tif (deflated 78%)
+  adding: binary_predictions_glm_quadrifolia.tif (deflated 78%)
+  adding: binary_predictions_rf_quadrifolia.tif (deflated 78%)
+  adding: radiata_gam_evaluation_data.rda (deflated 0%)
+  adding: radiata_gam_evaluation.rda (deflated 0%)
+  adding: radiata_glm_evaluation_data.rda (deflated 0%)
+  adding: radiata_glm_evaluation.rda (deflated 1%)
+  adding: radiata_rf_evaluation_data.rda (deflated 1%)
+  adding: radiata_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_radiata.tif (deflated 25%)
+  adding: continuous_predictions_glm_radiata.tif (deflated 31%)
+  adding: binary_predictions_gam_radiata.tif (deflated 80%)
+  adding: binary_predictions_glm_radiata.tif (deflated 79%)
+  adding: binary_predictions_rf_radiata.tif (deflated 79%)
+  adding: pumila_gam_evaluation_data.rda (deflated 0%)
+  adding: pumila_gam_evaluation.rda (deflated 0%)
+  adding: pumila_glm_evaluation_data.rda (deflated 0%)
+  adding: pumila_glm_evaluation.rda (deflated 0%)
+  adding: pumila_rf_evaluation_data.rda (deflated 1%)
+  adding: pumila_rf_evaluation.rda (deflated 8%)
+  adding: continuous_predictions_gam_pumila.tif (deflated 7%)
+  adding: continuous_predictions_glm_pumila.tif (deflated 7%)
+  adding: binary_predictions_gam_pumila.tif (deflated 61%)
+  adding: binary_predictions_glm_pumila.tif (deflated 62%)
+  adding: binary_predictions_rf_pumila.tif (deflated 55%)
+  adding: remota_gam_evaluation_data.rda (deflated 0%)
+  adding: remota_gam_evaluation.rda (deflated 0%)
+  adding: remota_glm_evaluation_data.rda (deflated 0%)
+  adding: remota_glm_evaluation.rda (deflated 0%)
+  adding: remota_rf_evaluation_data.rda (deflated 0%)
+  adding: remota_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_remota.tif (deflated 13%)
+  adding: continuous_predictions_glm_remota.tif (deflated 21%)
+  adding: binary_predictions_gam_remota.tif (deflated 75%)
+  adding: binary_predictions_glm_remota.tif (deflated 75%)
+  adding: binary_predictions_rf_remota.tif (deflated 76%)
+  adding: rzedowskii_gam_evaluation_data.rda (deflated 0%)
+  adding: rzedowskii_gam_evaluation.rda (deflated 0%)
+  adding: rzedowskii_glm_evaluation_data.rda (deflated 0%)
+  adding: rzedowskii_glm_evaluation.rda (deflated 0%)
+  adding: rzedowskii_rf_evaluation_data.rda (deflated 1%)
+  adding: rzedowskii_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_rzedowskii.tif (deflated 38%)
+  adding: continuous_predictions_glm_rzedowskii.tif (deflated 17%)
+  adding: binary_predictions_gam_rzedowskii.tif (deflated 80%)
+  adding: binary_predictions_glm_rzedowskii.tif (deflated 77%)
+  adding: binary_predictions_rf_rzedowskii.tif (deflated 80%)
+  adding: rigida_gam_evaluation_data.rda (deflated 0%)
+  adding: rigida_gam_evaluation.rda (deflated 1%)
+  adding: rigida_glm_evaluation_data.rda (deflated 0%)
+  adding: rigida_glm_evaluation.rda (deflated 1%)
+  adding: rigida_rf_evaluation_data.rda (deflated 1%)
+  adding: rigida_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_rigida.tif (deflated 13%)
+  adding: continuous_predictions_glm_rigida.tif (deflated 16%)
+  adding: binary_predictions_gam_rigida.tif (deflated 71%)
+  adding: binary_predictions_glm_rigida.tif (deflated 71%)
+  adding: binary_predictions_rf_rigida.tif (deflated 71%)
+  adding: roxburghii_gam_evaluation_data.rda (deflated 0%)
+  adding: roxburghii_gam_evaluation.rda (deflated 1%)
+  adding: roxburghii_glm_evaluation_data.rda (deflated 0%)
+  adding: roxburghii_glm_evaluation.rda (deflated 1%)
+  adding: roxburghii_rf_evaluation_data.rda (deflated 1%)
+  adding: roxburghii_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_roxburghii.tif (deflated 7%)
+  adding: continuous_predictions_glm_roxburghii.tif (deflated 7%)
+  adding: binary_predictions_gam_roxburghii.tif (deflated 58%)
+  adding: binary_predictions_glm_roxburghii.tif (deflated 60%)
+  adding: binary_predictions_rf_roxburghii.tif (deflated 60%)
+  adding: resinosa_gam_evaluation_data.rda (deflated 0%)
+  adding: resinosa_gam_evaluation.rda (deflated 0%)
+  adding: resinosa_glm_evaluation_data.rda (deflated 0%)
+  adding: resinosa_glm_evaluation.rda (deflated 0%)
+  adding: resinosa_rf_evaluation_data.rda (deflated 1%)
+  adding: resinosa_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_resinosa.tif (deflated 12%)
+  adding: continuous_predictions_glm_resinosa.tif  adding: sabiniana_gam_evaluation_data.rda (deflated 0%)
+  adding: sabiniana_gam_evaluation.rda (deflated 1%)
+  adding: sabiniana_glm_evaluation_data.rda (deflated 0%)
+  adding: sabiniana_glm_evaluation.rda (deflated 1%)
+  adding: sabiniana_rf_evaluation_data.rda (deflated 1%)
+  adding: sabiniana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_sabiniana.tif (deflated 14%)
+  adding: binary_predictions_gam_resinosa.tif (deflated 69%)
+  adding: binary_predictions_glm_resinosa.tif (deflated 68%)
+  adding: binary_predictions_rf_resinosa.tif (deflated 69%)
+ (deflated 14%)
+  adding: continuous_predictions_glm_sabiniana.tif (deflated 17%)
+  adding: binary_predictions_gam_sabiniana.tif (deflated 80%)
+  adding: binary_predictions_glm_sabiniana.tif (deflated 80%)
+  adding: binary_predictions_rf_sabiniana.tif (deflated 80%)
+  adding: serotina_gam_evaluation_data.rda (deflated 0%)
+  adding: serotina_gam_evaluation.rda (deflated 1%)
+  adding: serotina_glm_evaluation_data.rda (deflated 0%)
+  adding: serotina_glm_evaluation.rda (deflated 0%)
+  adding: serotina_rf_evaluation_data.rda (deflated 1%)
+  adding: serotina_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_serotina.tif (deflated 13%)
+  adding: continuous_predictions_glm_serotina.tif (deflated 15%)
+  adding: binary_predictions_gam_serotina.tif (deflated 73%)
+  adding: binary_predictions_glm_serotina.tif (deflated 73%)
+  adding: binary_predictions_rf_serotina.tif (deflated 73%)
+  adding: squamata_gam_evaluation_data.rda (deflated 0%)
+  adding: squamata_gam_evaluation.rda (deflated 1%)
+  adding: squamata_glm_evaluation_data.rda (deflated 0%)
+  adding: squamata_glm_evaluation.rda (deflated 0%)
+  adding: squamata_rf_evaluation_data.rda (deflated 1%)
+  adding: squamata_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_squamata.tif (deflated 9%)
+  adding: continuous_predictions_glm_squamata.tif (deflated 9%)
+  adding: binary_predictions_gam_squamata.tif (deflated 59%)
+  adding: binary_predictions_glm_squamata.tif (deflated 59%)
+  adding: binary_predictions_rf_squamata.tif (deflated 58%)
+  adding: strobiformis_gam_evaluation_data.rda (deflated 0%)
+  adding: strobiformis_gam_evaluation.rda (deflated 1%)
+  adding: strobiformis_glm_evaluation_data.rda (deflated 0%)
+  adding: strobiformis_glm_evaluation.rda (deflated 1%)
+  adding: strobiformis_rf_evaluation_data.rda (deflated 1%)
+  adding: strobiformis_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_strobiformis.tif (deflated 12%)
+  adding: continuous_predictions_glm_strobiformis.tif (deflated 15%)
+  adding: binary_predictions_gam_strobiformis.tif (deflated 72%)
+  adding: binary_predictions_glm_strobiformis.tif (deflated 72%)
+  adding: binary_predictions_rf_strobiformis.tif (deflated 73%)
+  adding: strobus_gam_evaluation_data.rda (deflated 0%)
+  adding: strobus_gam_evaluation.rda (deflated 0%)
+  adding: strobus_glm_evaluation_data.rda (deflated 0%)
+  adding: strobus_glm_evaluation.rda (deflated 0%)
+  adding: strobus_rf_evaluation_data.rda (deflated 1%)
+  adding: strobus_rf_evaluation.rda (deflated 3%)
+  adding: continuous_predictions_gam_strobus.tif (deflated 11%)
+  adding: continuous_predictions_glm_strobus.tif (deflated 12%)
+  adding: binary_predictions_gam_strobus.tif (deflated 69%)
+  adding: binary_predictions_glm_strobus.tif (deflated 68%)
+  adding: binary_predictions_rf_strobus.tif (deflated 69%)
+  adding: sibirica_gam_evaluation_data.rda (deflated 0%)
+  adding: sibirica_gam_evaluation.rda (deflated 0%)
+  adding: sibirica_glm_evaluation_data.rda (deflated 1%)
+  adding: sibirica_glm_evaluation.rda (deflated 0%)
+  adding: sibirica_rf_evaluation_data.rda (deflated 1%)
+  adding: sibirica_rf_evaluation.rda (deflated 10%)
+  adding: continuous_predictions_gam_sibirica.tif (deflated 8%)
+  adding: continuous_predictions_glm_sibirica.tif (deflated 9%)
+  adding: binary_predictions_gam_sibirica.tif (deflated 55%)
+  adding: binary_predictions_glm_sibirica.tif (deflated 56%)
+  adding: binary_predictions_rf_sibirica.tif (deflated 55%)
+  adding: tabuliformis_gam_evaluation_data.rda (deflated 0%)
+  adding: tabuliformis_gam_evaluation.rda (deflated 1%)
+  adding: tabuliformis_glm_evaluation_data.rda (deflated 0%)
+  adding: tabuliformis_glm_evaluation.rda (deflated 1%)
+  adding: tabuliformis_rf_evaluation_data.rda (deflated 1%)
+  adding: tabuliformis_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_tabuliformis.tif (deflated 8%)
+  adding: continuous_predictions_glm_tabuliformis.tif (deflated 8%)
+  adding: binary_predictions_gam_tabuliformis.tif (deflated 61%)
+  adding: binary_predictions_glm_tabuliformis.tif (deflated 61%)
+  adding: binary_predictions_rf_tabuliformis.tif (deflated 61%)
+  adding: taiwanensis_gam_evaluation_data.rda (deflated 0%)
+  adding: taiwanensis_gam_evaluation.rda (deflated 0%)
+  adding: taiwanensis_glm_evaluation_data.rda (deflated 0%)
+  adding: taiwanensis_glm_evaluation.rda (deflated 0%)
+  adding: taiwanensis_rf_evaluation_data.rda (deflated 1%)
+  adding: taiwanensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_taiwanensis.tif (deflated 11%)
+  adding: continuous_predictions_glm_taiwanensis.tif (deflated 14%)
+  adding: binary_predictions_gam_taiwanensis.tif (deflated 67%)
+  adding: binary_predictions_glm_taiwanensis.tif (deflated 68%)
+  adding: binary_predictions_rf_taiwanensis.tif (deflated 68%)
+  adding: taeda_gam_evaluation_data.rda (deflated 0%)
+  adding: taeda_gam_evaluation.rda (deflated 0%)
+  adding: taeda_glm_evaluation_data.rda (deflated 0%)
+  adding: taeda_glm_evaluation.rda (deflated 0%)
+  adding: taeda_rf_evaluation_data.rda (deflated 1%)
+  adding: taeda_rf_evaluation.rda (deflated 3%)
+  adding: continuous_predictions_gam_taeda.tif (deflated 12%)
+  adding: continuous_predictions_glm_taeda.tif (deflated 15%)
+  adding: binary_predictions_gam_taeda.tif (deflated 74%)
+  adding: binary_predictions_glm_taeda.tif (deflated 74%)
+  adding: binary_predictions_rf_taeda.tif (deflated 75%)
+  adding: thunbergii_gam_evaluation_data.rda (deflated 0%)
+  adding: thunbergii_gam_evaluation.rda (deflated 0%)
+  adding: thunbergii_glm_evaluation_data.rda (deflated 0%)
+  adding: thunbergii_glm_evaluation.rda (deflated 0%)
+  adding: thunbergii_rf_evaluation_data.rda (deflated 1%)
+  adding: thunbergii_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_thunbergii.tif (deflated 15%)
+  adding: continuous_predictions_glm_thunbergii.tif (deflated 19%)
+  adding: binary_predictions_gam_thunbergii.tif (deflated 69%)
+  adding: binary_predictions_glm_thunbergii.tif (deflated 69%)
+  adding: binary_predictions_rf_thunbergii.tif (deflated 69%)
+  adding: torreyana_gam_evaluation_data.rda (deflated 0%)
+  adding: torreyana_gam_evaluation.rda (deflated 0%)
+  adding: torreyana_glm_evaluation_data.rda (deflated 0%)
+  adding: torreyana_glm_evaluation.rda (deflated 0%)
+  adding: torreyana_rf_evaluation_data.rda (deflated 1%)
+  adding: torreyana_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_torreyana.tif (deflated 38%)
+  adding: continuous_predictions_glm_torreyana.tif (deflated 29%)
+  adding: binary_predictions_gam_torreyana.tif (deflated 79%)
+  adding: binary_predictions_glm_torreyana.tif (deflated 77%)
+  adding: binary_predictions_rf_torreyana.tif (deflated 79%)
+  adding: teocote_gam_evaluation_data.rda (deflated 0%)
+  adding: teocote_gam_evaluation.rda (deflated 0%)
+  adding: teocote_glm_evaluation_data.rda (deflated 0%)
+  adding: teocote_glm_evaluation.rda (deflated 1%)
+  adding: teocote_rf_evaluation_data.rda (deflated 1%)
+  adding: teocote_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_teocote.tif (deflated 13%)
+  adding: continuous_predictions_glm_teocote.tif (deflated 15%)
+  adding: binary_predictions_gam_teocote.tif (deflated 73%)
+  adding: binary_predictions_glm_teocote.tif (deflated 72%)
+  adding: binary_predictions_rf_teocote.tif (deflated 75%)
+  adding: tropicalis_gam_evaluation_data.rda (deflated 0%)
+  adding: tropicalis_gam_evaluation.rda (stored 0%)
+  adding: tropicalis_glm_evaluation_data.rda (deflated 0%)
+  adding: tropicalis_glm_evaluation.rda (deflated 0%)
+  adding: tropicalis_rf_evaluation_data.rda (deflated 1%)
+  adding: tropicalis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_tropicalis.tif (deflated 29%)
+  adding: continuous_predictions_glm_tropicalis.tif (deflated 39%)
+  adding: binary_predictions_gam_tropicalis.tif (deflated 72%)
+  adding: binary_predictions_glm_tropicalis.tif (deflated 70%)
+  adding: binary_predictions_rf_tropicalis.tif (deflated 69%)
+  adding: sylvestris_gam_evaluation_data.rda (deflated 1%)
+  adding: sylvestris_gam_evaluation.rda (deflated 0%)
+  adding: sylvestris_glm_evaluation_data.rda (deflated 1%)
+  adding: sylvestris_glm_evaluation.rda (deflated 0%)
+  adding: sylvestris_rf_evaluation_data.rda (deflated 1%)
+  adding: sylvestris_rf_evaluation.rda (deflated 6%)
+  adding: continuous_predictions_gam_sylvestris.tif (deflated 7%)
+  adding: continuous_predictions_glm_sylvestris.tif (deflated 6%)
+  adding: binary_predictions_gam_sylvestris.tif (deflated 55%)
+  adding: binary_predictions_glm_sylvestris.tif (deflated 58%)
+  adding: binary_predictions_rf_sylvestris.tif (deflated 53%)
+  adding: virginiana_gam_evaluation_data.rda (deflated 0%)
+  adding: virginiana_gam_evaluation.rda (deflated 0%)
+  adding: virginiana_glm_evaluation_data.rda (deflated 0%)
+  adding: virginiana_glm_evaluation.rda (deflated 0%)
+  adding: virginiana_rf_evaluation_data.rda (deflated 1%)
+  adding: virginiana_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_virginiana.tif (deflated 13%)
+  adding: continuous_predictions_glm_virginiana.tif (deflated 17%)
+  adding: binary_predictions_gam_virginiana.tif (deflated 74%)
+  adding: binary_predictions_glm_virginiana.tif (deflated 74%)
+  adding: binary_predictions_rf_virginiana.tif (deflated 74%)
+  adding: washoensis_gam_evaluation_data.rda (deflated 0%)
+  adding: washoensis_gam_evaluation.rda (deflated 0%)
+  adding: washoensis_glm_evaluation_data.rda (deflated 0%)
+  adding: washoensis_glm_evaluation.rda (deflated 0%)
+  adding: washoensis_rf_evaluation_data.rda (deflated 1%)
+  adding: washoensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_washoensis.tif (deflated 22%)
+  adding: continuous_predictions_glm_washoensis.tif (deflated 20%)
+  adding: binary_predictions_gam_washoensis.tif (deflated 80%)
+  adding: binary_predictions_glm_washoensis.tif (deflated 80%)
+  adding: binary_predictions_rf_washoensis.tif (deflated 79%)
+  adding: yecorensis_gam_evaluation_data.rda (deflated 0%)
+  adding: yecorensis_gam_evaluation.rda (deflated 0%)
+  adding: yecorensis_glm_evaluation_data.rda (deflated 0%)
+  adding: yecorensis_glm_evaluation.rda (deflated 0%)
+  adding: yecorensis_rf_evaluation_data.rda (deflated 1%)
+  adding: yecorensis_rf_evaluation.rda (stored 0%)
+  adding: continuous_predictions_gam_yecorensis.tif (deflated 37%)
+  adding: continuous_predictions_glm_yecorensis.tif (deflated 28%)
+  adding: binary_predictions_gam_yecorensis.tif (deflated 77%)
+  adding: binary_predictions_glm_yecorensis.tif (deflated 77%)
+  adding: binary_predictions_rf_yecorensis.tif (deflated 76%)
+  adding: wallichiana_gam_evaluation_data.rda (deflated 0%)
+  adding: wallichiana_gam_evaluation.rda (deflated 1%)
+  adding: wallichiana_glm_evaluation_data.rda (deflated 0%)
+  adding: wallichiana_glm_evaluation.rda (deflated 0%)
+  adding: wallichiana_rf_evaluation_data.rda (deflated 1%)
+  adding: wallichiana_rf_evaluation.rda (deflated 1%)
+  adding: continuous_predictions_gam_wallichiana.tif (deflated 7%)
+  adding: continuous_predictions_glm_wallichiana.tif (deflated 7%)
+  adding: binary_predictions_gam_wallichiana.tif (deflated 56%)
+  adding: binary_predictions_glm_wallichiana.tif (deflated 58%)
+  adding: binary_predictions_rf_wallichiana.tif (deflated 57%)
+  adding: yunnanensis_gam_evaluation_data.rda (deflated 0%)
+  adding: yunnanensis_gam_evaluation.rda (deflated 1%)
+  adding: yunnanensis_glm_evaluation_data.rda (deflated 0%)
+  adding: yunnanensis_glm_evaluation.rda (deflated 1%)
+  adding: yunnanensis_rf_evaluation_data.rda (deflated 1%)
+  adding: yunnanensis_rf_evaluation.rda (deflated 0%)
+  adding: continuous_predictions_gam_yunnanensis.tif (deflated 13%)
+  adding: continuous_predictions_glm_yunnanensis.tif (deflated 13%)
+  adding: binary_predictions_gam_yunnanensis.tif (deflated 67%)
+  adding: binary_predictions_glm_yunnanensis.tif (deflated 67%)
+  adding: binary_predictions_rf_yunnanensis.tif (deflated 67%)
+[[1]]
+[1] "albicaulis ended"
+
+[[2]]
+[1] "aristata ended"
+
+[[3]]
+[1] "amamiana ended"
+
+[[4]]
+[1] "arizonica ended"
+
+[[5]]
+[1] "armandii ended"
+
+[[6]]
+[1] "attenuata ended"
+
+[[7]]
+[1] "ayacahuite ended"
+
+[[8]]
+[1] "balfouriana ended"
+
+[[9]]
+[1] "banksiana ended"
+
+[[10]]
+[1] "bhutanica ended"
+
+[[11]]
+[1] "brutia ended"
+
+[[12]]
+[1] "bungeana ended"
+
+[[13]]
+[1] "canariensis ended"
+
+[[14]]
+[1] "caribaea ended"
+
+[[15]]
+[1] "cembra ended"
+
+[[16]]
+[1] "cembroides ended"
+
+[[17]]
+[1] "chiapensis ended"
+
+[[18]]
+[1] "clausa ended"
+
+[[19]]
+[1] "contorta ended"
+
+[[20]]
+[1] "cooperi ended"
+
+[[21]]
+[1] "coulteri ended"
+
+[[22]]
+[1] "cubensis ended"
+
+[[23]]
+[1] "culminicola ended"
+
+[[24]]
+[1] "dalatensis ended"
+
+[[25]]
+[1] "densata ended"
+
+[[26]]
+[1] "densiflora ended"
+
+[[27]]
+[1] "devoniana ended"
+
+[[28]]
+[1] "discolor ended"
+
+[[29]]
+[1] "douglasiana ended"
+
+[[30]]
+[1] "durangensis ended"
+
+[[31]]
+[1] "echinata ended"
+
+[[32]]
+[1] "edulis ended"
+
+[[33]]
+[1] "elliottii ended"
+
+[[34]]
+[1] "engelmannii ended"
+
+[[35]]
+[1] "fenzeliana ended"
+
+[[36]]
+[1] "flexilis ended"
+
+[[37]]
+[1] "fragilissima ended"
+
+[[38]]
+[1] "gerardiana ended"
+
+[[39]]
+[1] "glabra ended"
+
+[[40]]
+[1] "greggii ended"
+
+[[41]]
+[1] "halepensis ended"
+
+[[42]]
+[1] "hartwegii ended"
+
+[[43]]
+[1] "heldreichii ended"
+
+[[44]]
+[1] "herrerae ended"
+
+[[45]]
+[1] "hwangshanensis ended"
+
+[[46]]
+[1] "jeffreyi ended"
+
+[[47]]
+[1] "johannis ended"
+
+[[48]]
+[1] "juarezensis ended"
+
+[[49]]
+[1] "kesiya ended"
+
+[[50]]
+[1] "koraiensis ended"
+
+[[51]]
+[1] "krempfii ended"
+
+[[52]]
+[1] "kwangtungensis ended"
+
+[[53]]
+[1] "lambertiana ended"
+
+[[54]]
+[1] "latteri ended"
+
+[[55]]
+[1] "lawsonii ended"
+
+[[56]]
+[1] "leiophylla ended"
+
+[[57]]
+[1] "longaeva ended"
+
+[[58]]
+[1] "luchuensis ended"
+
+[[59]]
+[1] "lumholtzii ended"
+
+[[60]]
+[1] "maestrensis ended"
+
+[[61]]
+[1] "massoniana ended"
+
+[[62]]
+[1] "maximartinezii ended"
+
+[[63]]
+[1] "maximinoi ended"
+
+[[64]]
+[1] "merkusii ended"
+
+[[65]]
+[1] "monophylla ended"
+
+[[66]]
+[1] "montezumae ended"
+
+[[67]]
+[1] "monticola ended"
+
+[[68]]
+[1] "morrisonicola ended"
+
+[[69]]
+[1] "mugo ended"
+
+[[70]]
+[1] "muricata ended"
+
+[[71]]
+[1] "nelsonii ended"
+
+[[72]]
+[1] "nigra ended"
+
+[[73]]
+[1] "occidentalis ended"
+
+[[74]]
+[1] "oocarpa ended"
+
+[[75]]
+[1] "palustris ended"
+
+[[76]]
+[1] "parviflora ended"
+
+[[77]]
+[1] "patula ended"
+
+[[78]]
+[1] "peuce ended"
+
+[[79]]
+[1] "pinaster ended"
+
+[[80]]
+[1] "pinceana ended"
+
+[[81]]
+[1] "pinea ended"
+
+[[82]]
+[1] "ponderosa ended"
+
+[[83]]
+[1] "praetermissa ended"
+
+[[84]]
+[1] "pringlei ended"
+
+[[85]]
+[1] "pseudostrobus ended"
+
+[[86]]
+[1] "pumila ended"
+
+[[87]]
+[1] "pungens ended"
+
+[[88]]
+[1] "quadrifolia ended"
+
+[[89]]
+[1] "radiata ended"
+
+[[90]]
+[1] "remota ended"
+
+[[91]]
+[1] "resinosa ended"
+
+[[92]]
+[1] "rigida ended"
+
+[[93]]
+[1] "roxburghii ended"
+
+[[94]]
+[1] "rzedowskii ended"
+
+[[95]]
+[1] "sabiniana ended"
+
+[[96]]
+[1] "serotina ended"
+
+[[97]]
+[1] "sibirica ended"
+
+[[98]]
+[1] "squamata ended"
+
+[[99]]
+[1] "strobiformis ended"
+
+[[100]]
+[1] "strobus ended"
+
+[[101]]
+[1] "sylvestris ended"
+
+[[102]]
+[1] "tabuliformis ended"
+
+[[103]]
+[1] "taeda ended"
+
+[[104]]
+[1] "taiwanensis ended"
+
+[[105]]
+[1] "teocote ended"
+
+[[106]]
+[1] "thunbergii ended"
+
+[[107]]
+[1] "torreyana ended"
+
+[[108]]
+[1] "tropicalis ended"
+
+[[109]]
+[1] "virginiana ended"
+
+[[110]]
+[1] "wallichiana ended"
+
+[[111]]
+[1] "washoensis ended"
+
+[[112]]
+[1] "yecorensis ended"
+
+[[113]]
+[1] "yunnanensis ended"
+
+> 
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> proc.time()
+     user    system   elapsed 
+    0.622     0.691 47196.911 

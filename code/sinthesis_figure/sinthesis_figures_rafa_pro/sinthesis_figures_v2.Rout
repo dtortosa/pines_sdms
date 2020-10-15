@@ -1,0 +1,2009 @@
+
+R version 3.4.4 (2018-03-15) -- "Someone to Lean On"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+Loading required package: colorout
+[Previously saved workspace restored]
+
+> #set wroking directory
+> setwd("/Users/dsalazar/nicho_pinus")
+> 
+> #require packages
+> require(raster)
+Loading required package: raster
+Loading required package: sp
+> require(rgeos)
+Loading required package: rgeos
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.1-CAPI-1.10.1 r0 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #load species names
+> list_species = read.table("/Users/dsalazar/nicho_pinus/data/list_species.txt", sep="\t", header=TRUE)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     112 
+> #check
+> if(FALSE){
++     require(tidyverse)
++     paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
++ }#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check
+> c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+[1] FALSE FALSE FALSE
+> 
+> #load environment variables for using them as a background
+> clay = raster("/Users/dsalazar/nicho_pinus/data/climate/finals/clay.asc") 
+> bio1 = raster("/Users/dsalazar/nicho_pinus/data/climate/finals/bio1.asc") 
+> environment_var = clay*bio1 
+> environment_var[which(getValues(environment_var) >= min(getValues(environment_var), na.rm = TRUE))] <- 0 #set all continent areas as 0
+> 
+> #load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
+> buffer_albicaulis = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers/albicaulis_distribution_buffer", ".asc", sep=""))
+> 
+> #resample environment_var
+> environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
+> 
+> #open stacks for saving binary raster with current and future suitability
+> current_suit_stack = stack()
+> projected_suit_inside_range_stack = stack()
+> phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack()
+> projected_suit_stack = stack()
+> phylo_ensamble_intersect_projected_suit_stack = stack()
+> sum_distributions = stack()
+> raster_range_calc_stack = stack()
+> 
+> #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Becasue of this, I have carefully masked and cropped all the predicions (current, future and phylogenetic)
+> 
+> #open data frame to save metrics of suitability change
+> suitability_changes = data.frame(species=NA, range_loss_no_phylo=NA, range_loss_phylo=NA, range_change_no_phylo=NA, range_change_phylo=NA)
+> 
+> #for each species
+> for(i in 1:length(epithet_species_list)){
++     
++     #select the [i] epithet
++     species = epithet_species_list[i]
++ 
++     #print species name
++     print(species)
++ 
++     #load distribution buffer
++     ocurrences_buffer = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers/", species, "_distribution_buffer", ".asc", sep=""))
++ 
++     #drop sea areas inside the ocurrences_buffer
++     ocurrences_buffer = mask(ocurrences_buffer, environment_var_low_res, inverse=FALSE)     
++ 
++     #convert NAs into 0 to avoid problems in the sum
++     ocurrences_buffer[which(is.na(getValues(ocurrences_buffer)))] <- 0
++ 
++     #save it
++     sum_distributions = stack(sum_distributions, ocurrences_buffer)
++ 
++     #load the polygon used for calculations of changes of substitutability (calc_ranges)
++     if(!species=="pumila"){
++         raster_range_calc = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers_range_calc/", species, "_range_calc_buffer.asc", sep=""))
++     } else {
++         raster_range_calc = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers_range_calc/", species, "_buffer_range_calc.asc", sep=""))        
++     }                
++     polygon_range_calc = rasterToPolygons(raster_range_calc, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
++ 
++     #crop and mask clay (this raster will be used to remove sea areas from polygon_range_calc)
++     environment_var_cropped = crop(environment_var, polygon_range_calc)
++     environment_var_cropped = mask(environment_var_cropped, polygon_range_calc)
++     environment_var_low_res_cropped = crop(environment_var_low_res, polygon_range_calc)
++     environment_var_low_res_cropped = mask(environment_var_low_res_cropped, polygon_range_calc)
++ 
++     #we want to save raster_range_calc for all species in a stack to have the area terrestrial area considered in the range calculations
++     #crop current suitability to reduce map size
++     raster_range_calc = crop(raster_range_calc, polygon_range_calc)
++     
++     #mask current suitability to remove all areas outside the buffer calc range
++     raster_range_calc = mask(raster_range_calc, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     raster_range_calc = mask(raster_range_calc, environment_var_low_res_cropped)
++ 
++     #extend the raster
++     raster_range_calc = extend(raster_range_calc, environment_var_low_res)
++     
++     #convert NAs into 0 to avoid problems in the sum
++     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
++ 
++     #save raster_range_calc
++     raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
++ 
++     #load predicted suitability
++     current_suit = raster(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))    
++ 
++     #crop current suitability to reduce map size
++     current_suit = crop(current_suit, polygon_range_calc)
++     
++     #mask current suitability to remove all areas outside the buffer calc range
++     current_suit = mask(current_suit, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     current_suit = mask(current_suit, environment_var_cropped)
++ 
++     #load projected suitability
++     projected_suit = raster(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_projections_bin/ensamble_projections_bin_", species, ".tif", sep=""))
++ 
++     #crop current suitability to reduce map size
++     projected_suit = crop(projected_suit, polygon_range_calc)
++     
++     #mask current suitability to remove all areas outside the buffer calc range
++     projected_suit = mask(projected_suit, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     projected_suit = mask(projected_suit, environment_var_cropped)
++ 
++     #load phylo ensamble with proportion
++     phylo_ensamble = raster(paste("/Users/dsalazar/nicho_pinus/results/phylo_ensamble/with_proportions/", species, "_phylo_ensamble_with_proportions.asc", sep=""))
++ 
++     #crop phylo ensamble to reduce map size
++     phylo_ensamble = crop(phylo_ensamble, polygon_range_calc)
++     
++     #mask phylo ensamble to remove all areas outside the buffer calc range
++     phylo_ensamble = mask(phylo_ensamble, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     phylo_ensamble = mask(phylo_ensamble, environment_var_cropped) #in the case of pumila, masking with the polygon_range_calc buffer leaves the sea of japan with zero instead of NA. This is caused when removing sea areas from the raster of that buffer, the two extremes of the Japan's sea almost touch and the area inside is included. This is not a problem because after that, we mask with the environmnetal varaible (bio1 and clay), so sea areas are removed. In species with several polygons of disitribution is not a problem because: 1) The calc_range_buffer is ver big, so in almost all cases all polygons are included within it. If sea areas inside of them they will be removedd with environment_var. 
++ 
++     #obtain maps with zero and ones from suitability maps (1 means suitable). Threshold for pre and projections of suitabiity is equal or higher 75. Threshold for phylosuitability higher than 0.25 (we remove areas very close to the ancestors or very variable across scenairos, being in the phylo range of both climatic variables (only areas inside both were considered, which is strict) is itself an indicative of suitability.)
++     #current suitability
++     current_suit[which(getValues(current_suit) < 75)] <- 0 #set as zero those areas with suitability lower than 75
++     current_suit[which(getValues(current_suit) > 0)] <- 1 #set as 1 all areas with suitability higher than zero (i.e. all with suit equal or higher than 75)
++ 
++     #future suitability
++     projected_suit[which(getValues(projected_suit) < 75)] <- 0 #set as zero those areas with suitability lower than 75
++     projected_suit[which(getValues(projected_suit) > 0)] <- 1 #set as 1 all areas with suitability higher than zero (i.e. all with suit equal or higher than 75)
++ 
++     #current suitability
++     phylo_ensamble[which(getValues(phylo_ensamble) < 0.1)] <- 0 #set as zero those areas with phylo suitability lower than 0.25
++     phylo_ensamble[which(getValues(phylo_ensamble) > 0)] <- 1 #set as 1 all areas with suitability higher than zero (i.e. all with suit equal or higher than 0.1)
++ 
++     #extract suitability under future conditions from areas that are currently suitables
++     projected_suit_inside_range = projected_suit
++     projected_suit_inside_range[which(!getValues(current_suit)==1)] <- 0
++ 
++     #extract phylo suitability under future conditions from areas that are currently suitables
++     phylo_ensamble_inside_range = phylo_ensamble
++     phylo_ensamble_inside_range[which(!getValues(current_suit)==1)] <- 0
++ 
++     #calculate the intersection between phylo_ensamble and projected_suit to get all suitable areas under future conditions according to both, SDMs and phylogenetic correction
++     #empty raster for suitability elsewhere
++     phylo_ensamble_intersect_projected_suit = raster()
++     extent(phylo_ensamble_intersect_projected_suit) = extent(projected_suit)
++     res(phylo_ensamble_intersect_projected_suit) = res(projected_suit)
++     #empty raster for suitability inside current suitable areas    
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = raster()
++     extent(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) = extent(projected_suit_inside_range)
++     res(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) = res(projected_suit_inside_range)
++ 
++     #set as 1 those cells with 1 in projected_suit and the phylo_ensamble raster
++     phylo_ensamble_intersect_projected_suit[c(which(getValues(projected_suit) == 1), which(getValues(phylo_ensamble) == 1))] <- 1
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range[c(which(getValues(projected_suit_inside_range) == 1), which(getValues(phylo_ensamble_inside_range) == 1))] <- 1
++ 
++     #crop phylo ensamble to reduce map size
++     phylo_ensamble_intersect_projected_suit = crop(phylo_ensamble_intersect_projected_suit, polygon_range_calc)
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = crop(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, polygon_range_calc)
++ 
++     #mask phylo ensamble to remove all areas outside the buffer calc range
++     phylo_ensamble_intersect_projected_suit = mask(phylo_ensamble_intersect_projected_suit, polygon_range_calc)
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = mask(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, polygon_range_calc)
++ 
++     #mask with environment_var to remove water bodies
++     phylo_ensamble_intersect_projected_suit = mask(phylo_ensamble_intersect_projected_suit, environment_var_cropped)    
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = mask(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var_cropped)
++ 
++     #check that all cells with 1 with and without phylo are included in the phinal raster
++     #inside-outside current range
++     print(summary(which(getValues(projected_suit) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
++     print(summary(which(getValues(phylo_ensamble) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
++     print(length(which(getValues(projected_suit) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)) + length(which(getValues(phylo_ensamble) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)) == length(na.omit(getValues(phylo_ensamble_intersect_projected_suit))))
++     #inside current range
++     print(summary(which(getValues(projected_suit_inside_range) == 1) %in% which(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) == 1)))
++     print(summary(which(getValues(phylo_ensamble_inside_range) == 1) %in% which(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) == 1)))
++     print(length(which(getValues(projected_suit_inside_range) == 1) %in% which(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) == 1)) + length(which(getValues(phylo_ensamble_inside_range) == 1) %in% which(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range) == 1)) == length(na.omit(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range))))
++ 
++     #extract size of area suitable
++     current_suitable_area = length(which(getValues(current_suit)==1))
++     future_suitable_area_no_phylo_inside_current_range = length(which(getValues(projected_suit_inside_range)==1))
++     future_suitable_area_phylo_inside_current_range = length(which(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)==1))    
++     future_suitable_area_no_phylo_elsewhere = length(which(getValues(projected_suit)==1))
++     future_suitable_area_phylo_elsewhere = length(which(getValues(phylo_ensamble_intersect_projected_suit)==1))
++ 
++     #calculate range loss as (current suitable area - nº cells of that area that remain suitable ) / current suitable area, then multiplied by 100
++     range_loss_no_phylo = ((current_suitable_area - future_suitable_area_no_phylo_inside_current_range) / current_suitable_area ) * 100
++     range_loss_phylo = ((current_suitable_area - future_suitable_area_phylo_inside_current_range) / current_suitable_area ) * 100    
++ 
++     #check that phylosuitaiblity increase suitable areas
++     print(future_suitable_area_phylo_elsewhere >= future_suitable_area_no_phylo_elsewhere)
++     print(future_suitable_area_phylo_inside_current_range >= future_suitable_area_no_phylo_inside_current_range)
++ 
++     #check that suitability outside current range and under future conditons is at least equal to the suitability inside areas that are currently suitable
++     print(future_suitable_area_no_phylo_elsewhere >= future_suitable_area_no_phylo_inside_current_range)
++     print(future_suitable_area_phylo_elsewhere >= future_suitable_area_phylo_inside_current_range)
++ 
++     #calculate range change as (nº cells of that area that are suitable across the whole calc_range_buffer - current suitable areas) / current suitable area, then multiplied by 100. Here we consider future suitability of both areas that are suitable or unsuitable currently
++     range_change_no_phylo = ((future_suitable_area_no_phylo_elsewhere - current_suitable_area) / current_suitable_area ) * 100
++     range_change_phylo = ((future_suitable_area_phylo_elsewhere - current_suitable_area) / current_suitable_area ) * 100   
++ 
++     #save metrics of suitability changes
++     suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, range_loss_no_phylo, range_loss_phylo, range_change_no_phylo,range_change_phylo))
++ 
++     #extend the extent of the predictions to the whole globe
++     current_suit = extend(current_suit, environment_var)
++     projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
++     projected_suit = extend(projected_suit, environment_var)
++     phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
++ 
++     #set NAs as zero to avoid propagation of NAs in the sum
++     current_suit[which(is.na(getValues(current_suit)))] <- 0      
++     projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
++     projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
++     phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
++ 
++     #save rasters
++     current_suit_stack = stack(current_suit_stack, current_suit)
++     projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
++     phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
++     projected_suit_stack = stack(projected_suit_stack, projected_suit)
++     phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
++ }
+[1] "albicaulis"
+   Mode    TRUE 
+logical   30467 
+   Mode    TRUE 
+logical      25 
+[1] TRUE
+   Mode    TRUE 
+logical   26962 
+   Mode    TRUE 
+logical      25 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "aristata"
+   Mode    TRUE 
+logical    9917 
+   Mode    TRUE 
+logical    1540 
+[1] TRUE
+   Mode    TRUE 
+logical    9334 
+   Mode    TRUE 
+logical     887 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "amamiana"
+   Mode    TRUE 
+logical    1682 
+   Mode    TRUE 
+logical      14 
+[1] TRUE
+   Mode    TRUE 
+logical    1675 
+   Mode    TRUE 
+logical      13 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "arizonica"
+   Mode    TRUE 
+logical   16874 
+   Mode    TRUE 
+logical       9 
+[1] TRUE
+   Mode    TRUE 
+logical   16535 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "armandii"
+   Mode    TRUE 
+logical   42878 
+   Mode    TRUE 
+logical    1823 
+[1] TRUE
+   Mode    TRUE 
+logical   41657 
+   Mode    TRUE 
+logical      36 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "attenuata"
+   Mode    TRUE 
+logical    6221 
+   Mode    TRUE 
+logical      18 
+[1] TRUE
+   Mode    TRUE 
+logical    6121 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "ayacahuite"
+   Mode    TRUE 
+logical   14419 
+   Mode    TRUE 
+logical     992 
+[1] TRUE
+   Mode    TRUE 
+logical   14287 
+   Mode    TRUE 
+logical     512 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "balfouriana"
+   Mode    TRUE 
+logical    4561 
+   Mode    TRUE 
+logical     448 
+[1] TRUE
+   Mode    TRUE 
+logical    4351 
+   Mode    TRUE 
+logical     289 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "banksiana"
+   Mode    TRUE 
+logical  121440 
+   Mode    TRUE 
+logical   14010 
+[1] TRUE
+   Mode    TRUE 
+logical  100949 
+   Mode    TRUE 
+logical    6142 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "bhutanica"
+   Mode    TRUE 
+logical   18590 
+   Mode    TRUE 
+logical    2268 
+[1] TRUE
+   Mode    TRUE 
+logical   17344 
+   Mode    TRUE 
+logical    1283 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "brutia"
+   Mode    TRUE 
+logical   26820 
+   Mode    TRUE 
+logical      74 
+[1] TRUE
+   Mode    TRUE 
+logical   25020 
+   Mode    TRUE 
+logical      56 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "bungeana"
+   Mode    TRUE 
+logical   16533 
+   Mode    TRUE 
+logical    1392 
+[1] TRUE
+   Mode    TRUE 
+logical   14203 
+   Mode    TRUE 
+logical     935 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "canariensis"
+   Mode    TRUE 
+logical     153 
+   Mode    TRUE 
+logical     134 
+[1] TRUE
+   Mode    TRUE 
+logical     143 
+   Mode    TRUE 
+logical      95 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "caribaea"
+   Mode    TRUE 
+logical   13656 
+   Mode    TRUE 
+logical     499 
+[1] TRUE
+   Mode    TRUE 
+logical   13266 
+   Mode    TRUE 
+logical     125 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "cembra"
+   Mode    TRUE 
+logical   25311 
+   Mode    TRUE 
+logical    3913 
+[1] TRUE
+   Mode    TRUE 
+logical   24087 
+   Mode    TRUE 
+logical     432 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "cembroides"
+   Mode    TRUE 
+logical   23022 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+   Mode    TRUE 
+logical   21986 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "chiapensis"
+   Mode    TRUE 
+logical   11288 
+   Mode    TRUE 
+logical     981 
+[1] TRUE
+   Mode    TRUE 
+logical   11264 
+   Mode    TRUE 
+logical     259 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "clausa"
+   Mode    TRUE 
+logical     513 
+   Mode    TRUE 
+logical    2708 
+[1] TRUE
+   Mode    TRUE 
+logical     508 
+   Mode    TRUE 
+logical    2439 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "contorta"
+   Mode    TRUE 
+logical   57944 
+   Mode    TRUE 
+logical      42 
+[1] TRUE
+   Mode    TRUE 
+logical   50541 
+   Mode    TRUE 
+logical      42 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "cooperi"
+   Mode    TRUE 
+logical    6266 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+   Mode    TRUE 
+logical    5817 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "coulteri"
+   Mode    TRUE 
+logical    3195 
+   Mode    TRUE 
+logical      88 
+[1] TRUE
+   Mode    TRUE 
+logical    3171 
+   Mode    TRUE 
+logical      10 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "cubensis"
+   Mode    TRUE 
+logical    1355 
+   Mode    TRUE 
+logical    1199 
+[1] TRUE
+   Mode    TRUE 
+logical    1283 
+   Mode    TRUE 
+logical     258 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "culminicola"
+   Mode    TRUE 
+logical    4834 
+   Mode    TRUE 
+logical      42 
+[1] TRUE
+   Mode    TRUE 
+logical    4078 
+   Mode    TRUE 
+logical       5 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "dalatensis"
+   Mode    TRUE 
+logical   10101 
+   Mode    TRUE 
+logical    2396 
+[1] TRUE
+   Mode    TRUE 
+logical    9603 
+   Mode    TRUE 
+logical     148 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "densata"
+   Mode    TRUE 
+logical   18756 
+   Mode    TRUE 
+logical    1402 
+[1] TRUE
+   Mode    TRUE 
+logical   16505 
+   Mode    TRUE 
+logical     724 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "densiflora"
+   Mode    TRUE 
+logical   31142 
+   Mode    TRUE 
+logical     494 
+[1] TRUE
+   Mode    TRUE 
+logical   27348 
+   Mode    TRUE 
+logical      35 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "devoniana"
+   Mode    TRUE 
+logical   13682 
+   Mode    TRUE 
+logical     771 
+[1] TRUE
+   Mode    TRUE 
+logical   13275 
+   Mode    TRUE 
+logical     549 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "douglasiana"
+   Mode    TRUE 
+logical   11614 
+   Mode    TRUE 
+logical      62 
+[1] TRUE
+   Mode    TRUE 
+logical   11091 
+   Mode    TRUE 
+logical      10 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "durangensis"
+   Mode    TRUE 
+logical   15633 
+   Mode 
+logical 
+[1] TRUE
+   Mode    TRUE 
+logical   14827 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "echinata"
+   Mode    TRUE 
+logical   27308 
+   Mode    TRUE 
+logical    1181 
+[1] TRUE
+   Mode    TRUE 
+logical   26752 
+   Mode    TRUE 
+logical     751 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "edulis"
+   Mode    TRUE 
+logical   28573 
+   Mode    TRUE 
+logical    3498 
+[1] TRUE
+   Mode    TRUE 
+logical   24733 
+   Mode    TRUE 
+logical      75 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "elliottii"
+   Mode    TRUE 
+logical     373 
+   Mode    TRUE 
+logical    2486 
+[1] TRUE
+   Mode    TRUE 
+logical     261 
+   Mode    TRUE 
+logical    2486 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "engelmannii"
+   Mode    TRUE 
+logical   14721 
+   Mode    TRUE 
+logical       8 
+[1] TRUE
+   Mode    TRUE 
+logical   13888 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "fenzeliana"
+   Mode    TRUE 
+logical   17986 
+   Mode    TRUE 
+logical      69 
+[1] TRUE
+   Mode    TRUE 
+logical   17359 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "flexilis"
+   Mode    TRUE 
+logical   40783 
+   Mode    TRUE 
+logical     507 
+[1] TRUE
+   Mode    TRUE 
+logical   38548 
+   Mode    TRUE 
+logical     334 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "fragilissima"
+   Mode    TRUE 
+logical    1746 
+   Mode 
+logical 
+[1] TRUE
+   Mode    TRUE 
+logical    1622 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "gerardiana"
+   Mode    TRUE 
+logical   23783 
+   Mode    TRUE 
+logical     625 
+[1] TRUE
+   Mode    TRUE 
+logical   22771 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "glabra"
+   Mode    TRUE 
+logical     189 
+   Mode    TRUE 
+logical    4390 
+[1] TRUE
+   Mode    TRUE 
+logical      57 
+   Mode    TRUE 
+logical    4389 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "greggii"
+   Mode    TRUE 
+logical    5257 
+   Mode    TRUE 
+logical     111 
+[1] TRUE
+   Mode    TRUE 
+logical    5149 
+   Mode    TRUE 
+logical      68 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "halepensis"
+   Mode    TRUE 
+logical   41263 
+   Mode    TRUE 
+logical      40 
+[1] TRUE
+   Mode    TRUE 
+logical   35687 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "hartwegii"
+   Mode    TRUE 
+logical   20099 
+   Mode 
+logical 
+[1] TRUE
+   Mode    TRUE 
+logical   20024 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "heldreichii"
+   Mode    TRUE 
+logical    8948 
+   Mode    TRUE 
+logical     332 
+[1] TRUE
+   Mode    TRUE 
+logical    8608 
+   Mode    TRUE 
+logical     139 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "herrerae"
+   Mode    TRUE 
+logical    9993 
+   Mode    TRUE 
+logical     241 
+[1] TRUE
+   Mode    TRUE 
+logical    9306 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "hwangshanensis"
+   Mode    TRUE 
+logical   25339 
+   Mode    TRUE 
+logical      72 
+[1] TRUE
+   Mode    TRUE 
+logical   25048 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "jeffreyi"
+   Mode    TRUE 
+logical    7934 
+   Mode    TRUE 
+logical      93 
+[1] TRUE
+   Mode    TRUE 
+logical    7825 
+   Mode    TRUE 
+logical       9 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "johannis"
+   Mode    TRUE 
+logical    6380 
+   Mode    TRUE 
+logical     248 
+[1] TRUE
+   Mode    TRUE 
+logical    6337 
+   Mode    TRUE 
+logical     141 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "juarezensis"
+   Mode    TRUE 
+logical    2153 
+   Mode    TRUE 
+logical       5 
+[1] TRUE
+   Mode    TRUE 
+logical    2141 
+   Mode    TRUE 
+logical       3 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "kesiya"
+   Mode    TRUE 
+logical   43281 
+   Mode    TRUE 
+logical    1890 
+[1] TRUE
+   Mode    TRUE 
+logical   40923 
+   Mode    TRUE 
+logical     494 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "koraiensis"
+   Mode    TRUE 
+logical   37320 
+   Mode    TRUE 
+logical    1607 
+[1] TRUE
+   Mode    TRUE 
+logical   28224 
+   Mode    TRUE 
+logical     205 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "krempfii"
+   Mode    TRUE 
+logical    4286 
+   Mode    TRUE 
+logical    1443 
+[1] TRUE
+   Mode    TRUE 
+logical    3923 
+   Mode    TRUE 
+logical     548 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "kwangtungensis"
+   Mode    TRUE 
+logical   18029 
+   Mode    TRUE 
+logical      53 
+[1] TRUE
+   Mode    TRUE 
+logical   17452 
+   Mode    TRUE 
+logical       3 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "lambertiana"
+   Mode    TRUE 
+logical    8064 
+   Mode    TRUE 
+logical    1807 
+[1] TRUE
+   Mode    TRUE 
+logical    7923 
+   Mode    TRUE 
+logical    1227 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "latteri"
+   Mode    TRUE 
+logical   22605 
+   Mode    TRUE 
+logical     159 
+[1] TRUE
+   Mode    TRUE 
+logical   21942 
+   Mode    TRUE 
+logical      20 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "lawsonii"
+   Mode    TRUE 
+logical   10632 
+   Mode    TRUE 
+logical     696 
+[1] TRUE
+   Mode    TRUE 
+logical   10465 
+   Mode    TRUE 
+logical     120 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "leiophylla"
+   Mode    TRUE 
+logical   22091 
+   Mode    TRUE 
+logical     426 
+[1] TRUE
+   Mode    TRUE 
+logical   20738 
+   Mode    TRUE 
+logical      11 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "longaeva"
+   Mode    TRUE 
+logical   18058 
+   Mode    TRUE 
+logical    2892 
+[1] TRUE
+   Mode    TRUE 
+logical   16408 
+   Mode    TRUE 
+logical     567 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "luchuensis"
+   Mode    TRUE 
+logical     211 
+   Mode    TRUE 
+logical      36 
+[1] TRUE
+   Mode    TRUE 
+logical     210 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "lumholtzii"
+   Mode    TRUE 
+logical   10546 
+   Mode    TRUE 
+logical     274 
+[1] TRUE
+   Mode    TRUE 
+logical    9840 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "maestrensis"
+   Mode    TRUE 
+logical    1306 
+   Mode    TRUE 
+logical    1245 
+[1] TRUE
+   Mode    TRUE 
+logical    1221 
+   Mode    TRUE 
+logical     276 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "massoniana"
+   Mode    TRUE 
+logical   35207 
+   Mode    TRUE 
+logical     948 
+[1] TRUE
+   Mode    TRUE 
+logical   34180 
+   Mode    TRUE 
+logical      15 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "maximartinezii"
+   Mode    TRUE 
+logical    3267 
+   Mode    TRUE 
+logical     356 
+[1] TRUE
+   Mode    TRUE 
+logical    2746 
+   Mode    TRUE 
+logical     120 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "maximinoi"
+   Mode    TRUE 
+logical   16142 
+   Mode    TRUE 
+logical     774 
+[1] TRUE
+   Mode    TRUE 
+logical   15992 
+   Mode    TRUE 
+logical     257 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "merkusii"
+   Mode    TRUE 
+logical   23111 
+   Mode    TRUE 
+logical     430 
+[1] TRUE
+   Mode    TRUE 
+logical   22520 
+   Mode    TRUE 
+logical      66 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "monophylla"
+   Mode    TRUE 
+logical   24422 
+   Mode    TRUE 
+logical     810 
+[1] TRUE
+   Mode    TRUE 
+logical   22972 
+   Mode    TRUE 
+logical      49 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "montezumae"
+   Mode    TRUE 
+logical   18859 
+   Mode    TRUE 
+logical     268 
+[1] TRUE
+   Mode    TRUE 
+logical   18712 
+   Mode    TRUE 
+logical      24 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "monticola"
+   Mode    TRUE 
+logical   30159 
+   Mode    TRUE 
+logical      16 
+[1] TRUE
+   Mode    TRUE 
+logical   25950 
+   Mode    TRUE 
+logical       4 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "morrisonicola"
+   Mode    TRUE 
+logical    1078 
+   Mode    TRUE 
+logical     992 
+[1] TRUE
+   Mode    TRUE 
+logical    1044 
+   Mode    TRUE 
+logical      43 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "mugo"
+   Mode    TRUE 
+logical   44704 
+   Mode    TRUE 
+logical    6781 
+[1] TRUE
+   Mode    TRUE 
+logical   41340 
+   Mode    TRUE 
+logical     670 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "muricata"
+   Mode    TRUE 
+logical    3329 
+   Mode    TRUE 
+logical       5 
+[1] TRUE
+   Mode    TRUE 
+logical    3263 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "nelsonii"
+   Mode    TRUE 
+logical    3896 
+   Mode    TRUE 
+logical     907 
+[1] TRUE
+   Mode    TRUE 
+logical    3840 
+   Mode    TRUE 
+logical     461 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "nigra"
+   Mode    TRUE 
+logical   51413 
+   Mode    TRUE 
+logical    8562 
+[1] TRUE
+   Mode    TRUE 
+logical   45840 
+   Mode    TRUE 
+logical    4371 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "occidentalis"
+   Mode    TRUE 
+logical    2171 
+   Mode    TRUE 
+logical     282 
+[1] TRUE
+   Mode    TRUE 
+logical    2167 
+   Mode    TRUE 
+logical     179 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "oocarpa"
+   Mode    TRUE 
+logical   19353 
+   Mode    TRUE 
+logical     972 
+[1] TRUE
+   Mode    TRUE 
+logical   18999 
+   Mode    TRUE 
+logical      71 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "palustris"
+   Mode    TRUE 
+logical   11501 
+   Mode    TRUE 
+logical     918 
+[1] TRUE
+   Mode    TRUE 
+logical   11456 
+   Mode    TRUE 
+logical     417 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "parviflora"
+   Mode    TRUE 
+logical    9386 
+   Mode    TRUE 
+logical    1062 
+[1] TRUE
+   Mode    TRUE 
+logical    8894 
+   Mode    TRUE 
+logical     148 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "patula"
+   Mode    TRUE 
+logical   11376 
+   Mode    TRUE 
+logical     432 
+[1] TRUE
+   Mode    TRUE 
+logical   11194 
+   Mode    TRUE 
+logical      69 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "peuce"
+   Mode    TRUE 
+logical    7824 
+   Mode    TRUE 
+logical     191 
+[1] TRUE
+   Mode    TRUE 
+logical    7368 
+   Mode    TRUE 
+logical      80 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pinaster"
+   Mode    TRUE 
+logical   23693 
+   Mode    TRUE 
+logical      55 
+[1] TRUE
+   Mode    TRUE 
+logical   17865 
+   Mode    TRUE 
+logical      48 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pinceana"
+   Mode    TRUE 
+logical    6988 
+   Mode    TRUE 
+logical      28 
+[1] TRUE
+   Mode    TRUE 
+logical    6851 
+   Mode    TRUE 
+logical      24 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pinea"
+   Mode    TRUE 
+logical   34427 
+   Mode    TRUE 
+logical      15 
+[1] TRUE
+   Mode    TRUE 
+logical   25490 
+   Mode    TRUE 
+logical       6 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "ponderosa"
+   Mode    TRUE 
+logical   61153 
+   Mode    TRUE 
+logical    1185 
+[1] TRUE
+   Mode    TRUE 
+logical   58876 
+   Mode    TRUE 
+logical      65 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "praetermissa"
+   Mode    TRUE 
+logical    6389 
+   Mode    TRUE 
+logical     259 
+[1] TRUE
+   Mode    TRUE 
+logical    5788 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pringlei"
+   Mode    TRUE 
+logical    7659 
+   Mode    TRUE 
+logical    1587 
+[1] TRUE
+   Mode    TRUE 
+logical    7304 
+   Mode    TRUE 
+logical     264 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pseudostrobus"
+   Mode    TRUE 
+logical   23107 
+   Mode    TRUE 
+logical       5 
+[1] TRUE
+   Mode    TRUE 
+logical   22893 
+   Mode    TRUE 
+logical       2 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pumila"
+   Mode    TRUE 
+logical  214683 
+   Mode    TRUE 
+logical    4062 
+[1] TRUE
+   Mode    TRUE 
+logical  187332 
+   Mode    TRUE 
+logical    1687 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "pungens"
+   Mode    TRUE 
+logical   11055 
+   Mode    TRUE 
+logical      42 
+[1] TRUE
+   Mode    TRUE 
+logical   10273 
+   Mode    TRUE 
+logical      18 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "quadrifolia"
+   Mode    TRUE 
+logical    3176 
+   Mode    TRUE 
+logical       4 
+[1] TRUE
+   Mode    TRUE 
+logical    3153 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "radiata"
+   Mode    TRUE 
+logical    1516 
+   Mode    TRUE 
+logical     166 
+[1] TRUE
+   Mode    TRUE 
+logical    1492 
+   Mode    TRUE 
+logical       3 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "remota"
+   Mode    TRUE 
+logical    8537 
+   Mode    TRUE 
+logical      41 
+[1] TRUE
+   Mode    TRUE 
+logical    8489 
+   Mode    TRUE 
+logical      14 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "resinosa"
+   Mode    TRUE 
+logical   49827 
+   Mode    TRUE 
+logical    9033 
+[1] TRUE
+   Mode    TRUE 
+logical   30344 
+   Mode    TRUE 
+logical    6399 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "rigida"
+   Mode    TRUE 
+logical   34173 
+   Mode    TRUE 
+logical     168 
+[1] TRUE
+   Mode    TRUE 
+logical   29347 
+   Mode    TRUE 
+logical     122 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "roxburghii"
+   Mode    TRUE 
+logical   56487 
+   Mode    TRUE 
+logical      34 
+[1] TRUE
+   Mode    TRUE 
+logical   54414 
+   Mode    TRUE 
+logical      27 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "rzedowskii"
+   Mode    TRUE 
+logical    2668 
+   Mode    TRUE 
+logical    1213 
+[1] TRUE
+   Mode    TRUE 
+logical    2318 
+   Mode    TRUE 
+logical     933 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "sabiniana"
+   Mode    TRUE 
+logical    4706 
+   Mode    TRUE 
+logical       8 
+[1] TRUE
+   Mode    TRUE 
+logical    4567 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "serotina"
+   Mode    TRUE 
+logical   12646 
+   Mode    TRUE 
+logical    1816 
+[1] TRUE
+   Mode    TRUE 
+logical   12377 
+   Mode    TRUE 
+logical    1217 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "sibirica"
+   Mode    TRUE 
+logical   84473 
+   Mode    TRUE 
+logical   44446 
+[1] TRUE
+   Mode    TRUE 
+logical   52330 
+   Mode    TRUE 
+logical   38550 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "squamata"
+   Mode    TRUE 
+logical    6318 
+   Mode    TRUE 
+logical    2507 
+[1] TRUE
+   Mode    TRUE 
+logical    5658 
+   Mode    TRUE 
+logical     300 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "strobiformis"
+   Mode    TRUE 
+logical   21746 
+   Mode    TRUE 
+logical       1 
+[1] TRUE
+   Mode    TRUE 
+logical   20750 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "strobus"
+   Mode    TRUE 
+logical   83145 
+   Mode    TRUE 
+logical   11036 
+[1] TRUE
+   Mode    TRUE 
+logical   60032 
+   Mode    TRUE 
+logical    4071 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "sylvestris"
+   Mode    TRUE 
+logical  376025 
+   Mode    TRUE 
+logical   11618 
+[1] TRUE
+   Mode    TRUE 
+logical  300373 
+   Mode    TRUE 
+logical     543 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "tabuliformis"
+   Mode    TRUE 
+logical   45176 
+   Mode    TRUE 
+logical    3525 
+[1] TRUE
+   Mode    TRUE 
+logical   33748 
+   Mode    TRUE 
+logical     408 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "taeda"
+   Mode    TRUE 
+logical   19484 
+   Mode    TRUE 
+logical     371 
+[1] TRUE
+   Mode    TRUE 
+logical   19223 
+   Mode    TRUE 
+logical     356 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "taiwanensis"
+   Mode    TRUE 
+logical    1192 
+   Mode 
+logical 
+[1] TRUE
+   Mode    TRUE 
+logical    1147 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "teocote"
+   Mode    TRUE 
+logical   21834 
+   Mode 
+logical 
+[1] TRUE
+   Mode    TRUE 
+logical   21435 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "thunbergii"
+   Mode    TRUE 
+logical    9298 
+   Mode    TRUE 
+logical     194 
+[1] TRUE
+   Mode    TRUE 
+logical    8952 
+   Mode    TRUE 
+logical     115 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "torreyana"
+   Mode    TRUE 
+logical    1104 
+   Mode    TRUE 
+logical      72 
+[1] TRUE
+   Mode    TRUE 
+logical    1099 
+   Mode    TRUE 
+logical      10 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "tropicalis"
+   Mode    TRUE 
+logical    1090 
+   Mode    TRUE 
+logical    1481 
+[1] TRUE
+   Mode    TRUE 
+logical     847 
+   Mode    TRUE 
+logical     527 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "virginiana"
+   Mode    TRUE 
+logical   18769 
+   Mode    TRUE 
+logical     509 
+[1] TRUE
+   Mode    TRUE 
+logical   17903 
+   Mode    TRUE 
+logical     309 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "wallichiana"
+   Mode    TRUE 
+logical   58944 
+   Mode    TRUE 
+logical     929 
+[1] TRUE
+   Mode    TRUE 
+logical   46819 
+   Mode    TRUE 
+logical       6 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "washoensis"
+   Mode    TRUE 
+logical    3050 
+   Mode    TRUE 
+logical    1440 
+[1] TRUE
+   Mode    TRUE 
+logical    2447 
+   Mode    TRUE 
+logical     362 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "yecorensis"
+   Mode    TRUE 
+logical    4133 
+   Mode    TRUE 
+logical     401 
+[1] TRUE
+   Mode    TRUE 
+logical    3730 
+   Mode 
+logical 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] "yunnanensis"
+   Mode    TRUE 
+logical   21455 
+   Mode    TRUE 
+logical    1424 
+[1] TRUE
+   Mode    TRUE 
+logical   20425 
+   Mode    TRUE 
+logical     111 
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+> 
+> #remove first row without NAs
+> suitability_changes = suitability_changes[-1,]
+> 
+> #check all species are included in the table
+> nrow(suitability_changes) == length(epithet_species_list)
+[1] TRUE
+> 
+> #check all species are included in the stacks
+> nlayers(current_suit_stack) == 112
+[1] TRUE
+> nlayers(projected_suit_inside_range_stack) == 112
+[1] TRUE
+> nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
+[1] TRUE
+> nlayers(projected_suit_stack) == 112
+[1] TRUE
+> nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
+[1] TRUE
+> nlayers(raster_range_calc_stack)
+[1] 112
+> nlayers(sum_distributions)
+[1] 112
+> 
+> #sum predictions under current and future conditions
+> current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
+> projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
+> projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
+> sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
+> raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+> 
+> #save the rasters
+> writeRaster(current_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/current_suit_stack_sum.asc", overwrite=TRUE)
+> writeRaster(projected_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_stack_sum.asc", overwrite=TRUE)
+> writeRaster(projected_suit_phylo_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_phylo_stack_sum.asc", overwrite=TRUE)
+> writeRaster(sum_distributions_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/sum_distributions_sum.asc", overwrite=TRUE)
+> writeRaster(raster_range_calc_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/raster_range_calc_stack_sum.asc", overwrite=TRUE)
+> 
+> #save the table
+> write.table(suitability_changes, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/suitability_changes.csv", sep=",", row.names=FALSE, col.names=TRUE)
+> 
+> proc.time()
+   user  system elapsed 
+732.613 172.261 905.563 

@@ -1,0 +1,153 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+</head>
+<body>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Variables</th>
+<th align="left">Bioclim abbreviations</th>
+<th align="center">Sum of ranks</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Temperature Seasonality (standard deviation *100)</td>
+<td align="left">BIO4</td>
+<td align="center">593</td>
+</tr>
+<tr class="even">
+<td align="left">Mean Temperature of Coldest Quarter</td>
+<td align="left">BIO11</td>
+<td align="center">740</td>
+</tr>
+<tr class="odd">
+<td align="left">Temperature Annual Range (BIO5-BIO6)</td>
+<td align="left">BIO7</td>
+<td align="center">745</td>
+</tr>
+<tr class="even">
+<td align="left">Isothermality (BIO2/BIO7) (* 100)</td>
+<td align="left">BIO3</td>
+<td align="center">809</td>
+</tr>
+<tr class="odd">
+<td align="left">Min Temperature of Coldest Month</td>
+<td align="left">BIO6</td>
+<td align="center">893</td>
+</tr>
+<tr class="even">
+<td align="left">Mean Temperature of Wettest Quarter</td>
+<td align="left">BIO8</td>
+<td align="center">1048</td>
+</tr>
+<tr class="odd">
+<td align="left">Annual Mean Temperature</td>
+<td align="left">BIO1</td>
+<td align="center">1191</td>
+</tr>
+<tr class="even">
+<td align="left">Mean Temperature of Warmest Quarter</td>
+<td align="left">BIO10</td>
+<td align="center">1886</td>
+</tr>
+<tr class="odd">
+<td align="left">Mean Diurnal Range (Mean of monthly (max temp - min temp))</td>
+<td align="left">BIO2</td>
+<td align="center">1904</td>
+</tr>
+<tr class="even">
+<td align="left">Max Temperature of Warmest Month</td>
+<td align="left">BIO5</td>
+<td align="center">1904</td>
+</tr>
+<tr class="odd">
+<td align="left">Mean Temperature of Driest Quarter</td>
+<td align="left">BIO9</td>
+<td align="center">1935</td>
+</tr>
+<tr class="even">
+<td align="left">Moisture of Driest Quarter</td>
+<td align="left">BIO17</td>
+<td align="center">1109</td>
+</tr>
+<tr class="odd">
+<td align="left">Moisture of Driest Month</td>
+<td align="left">BIO14</td>
+<td align="center">1161</td>
+</tr>
+<tr class="even">
+<td align="left">Moisture of Warmest Quarter</td>
+<td align="left">BIO18</td>
+<td align="center">1180</td>
+</tr>
+<tr class="odd">
+<td align="left">Moisture of Coldest Quarter</td>
+<td align="left">BIO19</td>
+<td align="center">1384</td>
+</tr>
+<tr class="even">
+<td align="left">Total (annual) moisture</td>
+<td align="left">BIO12</td>
+<td align="center">1471</td>
+</tr>
+<tr class="odd">
+<td align="left">Moisture Seasonality (standard deviation)</td>
+<td align="left">BIO15</td>
+<td align="center">1911</td>
+</tr>
+<tr class="even">
+<td align="left">Moisture of Wettest Quarter</td>
+<td align="left">BIO16</td>
+<td align="center">1994</td>
+</tr>
+<tr class="odd">
+<td align="left">Moisture of Wettest Month</td>
+<td align="left">BIO13</td>
+<td align="center">2017</td>
+</tr>
+<tr class="even">
+<td align="left">Clay content (%)</td>
+<td align="left"></td>
+<td align="center">1418</td>
+</tr>
+<tr class="odd">
+<td align="left">Ph (index * 10)</td>
+<td align="left"></td>
+<td align="center">1649</td>
+</tr>
+<tr class="even">
+<td align="left">Sand content (%)</td>
+<td align="left"></td>
+<td align="center">1873</td>
+</tr>
+<tr class="odd">
+<td align="left">Silt content (%)</td>
+<td align="left"></td>
+<td align="center">1933</td>
+</tr>
+<tr class="even">
+<td align="left">Organic carbon (g/kg)</td>
+<td align="left"></td>
+<td align="center">2095</td>
+</tr>
+<tr class="odd">
+<td align="left">Absolute depth to bedrock (cm)</td>
+<td align="left"></td>
+<td align="center">2211</td>
+</tr>
+<tr class="even">
+<td align="left">Cation-exchange capacity (CEC; cmolc/kg)</td>
+<td align="left"></td>
+<td align="center">2258</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

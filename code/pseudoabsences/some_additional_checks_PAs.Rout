@@ -1,0 +1,279 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #loop that cleans ocurrences and save them for modelling
+> 
+> ###definimos el directorio de trabajo
+> setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus")
+> 
+> #Librerias
+> require(raster) #for work with rasters
+Loading required package: raster
+Loading required package: sp
+> require(rgeos) #for creating the buffer and the centroids of the cells without gbif points
+Loading required package: rgeos
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.2-CAPI-1.10.2 4d2925d6 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #load list of species
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     114 
+> #check
+> require(tidyverse)
+Loading required package: tidyverse
+── Attaching packages ────────────────────────────────── tidyverse 1.2.1.9000 ──
+✔ ggplot2 3.0.0     ✔ purrr   0.2.5
+✔ tibble  1.4.2     ✔ dplyr   0.7.6
+✔ tidyr   0.8.1     ✔ stringr 1.3.1
+✔ readr   1.1.1     ✔ forcats 0.3.0
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ tidyr::extract() masks raster::extract()
+✖ dplyr::filter()  masks stats::filter()
+✖ dplyr::lag()     masks stats::lag()
+✖ dplyr::select()  masks raster::select()
+Warning messages:
+1: package ‘ggplot2’ was built under R version 3.4.4 
+2: package ‘tidyr’ was built under R version 3.4.4 
+3: package ‘purrr’ was built under R version 3.4.4 
+4: package ‘dplyr’ was built under R version 3.4.4 
+5: package ‘stringr’ was built under R version 3.4.4 
+> paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
+  [1] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [16] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [31] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [46] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [61] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [76] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [91] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+[106] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+> 
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check
+> c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+[1] FALSE FALSE FALSE
+> 
+> 
+> #make the loop for calculating the number of occurrences per species and checking that all species have lon-lat indicated in that name
+> ratio_PA_occurrence_df = data.frame(selected_species=NA, n_row_PAs=NA, n_row_occurr=NA, ratio_PA_occurrence=NA)
+> test_PA_weight = NULL
+> for (i in 1:length(epithet_species_list)){
++ 
++     #select the [i] species
++     selected_species = epithet_species_list[i]
++ 
++     #load complete presences
++     complete_presences = read.table(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/pseudo_absences", paste(selected_species, "complete.presences.csv", sep="_"),sep="/"), sep=",", header=T)
++ 
++     #extract number of rows with PAs and occurrences
++     n_row_PAs = nrow(complete_presences[which(complete_presences$presence == 0),])
++     n_row_occurr = nrow(complete_presences[which(complete_presences$presence == 1),])
++ 
++     #calculate the ratio
++     ratio_PA_occurrence = n_row_PAs/n_row_occurr
++ 
++     #save it
++     ratio_PA_occurrence_df = rbind.data.frame(ratio_PA_occurrence_df, cbind.data.frame(selected_species, n_row_PAs, n_row_occurr, ratio_PA_occurrence))
++ 
++     #calculate PA weight with the final data
++     calculate_PA_weight = sum(complete_presences[which(complete_presences$presence == 1),]$precision_weight) / n_row_PAs
++ 
++     #extract the PA weight calculate when the PAs were calculated
++     current_PA_weight = unique(complete_presences[which(complete_presences$presence == 0),]$precision_weight)
++ 
++     #check that both are equal and save
++     test_PA_weight = append(test_PA_weight, round(calculate_PA_weight, 4) == round(current_PA_weight, 4))
++ }
+> 
+> #remove the first row with NA from ratio_PA_occurrence_df
+> ratio_PA_occurrence_df = ratio_PA_occurrence_df[-1,]
+> #check that you have 112 nrows
+> nrow(ratio_PA_occurrence_df) == 112
+[1] TRUE
+> #take a look
+> ratio_PA_occurrence_df
+    selected_species n_row_PAs n_row_occurr ratio_PA_occurrence
+2         albicaulis     10090         1009            10.00000
+3           amamiana       960           14            68.57143
+4           aristata      1520          152            10.00000
+5          arizonica      3560          356            10.00000
+6           armandii      7360          736            10.00000
+7          attenuata      2820          282            10.00000
+8         ayacahuite      2820          282            10.00000
+9        balfouriana      1050          101            10.39604
+10         banksiana     30440         3044            10.00000
+11         bhutanica      2020          202            10.00000
+12            brutia      4820          482            10.00000
+13          bungeana      3430          343            10.00000
+14       canariensis      1350           34            39.70588
+15          caribaea      2570          257            10.00000
+16            cembra      3770          377            10.00000
+17        cembroides      6730          673            10.00000
+18        chiapensis      1670          167            10.00000
+19            clausa      1260          120            10.50000
+20          contorta     24040         2404            10.00000
+21           cooperi      1230          123            10.00000
+22          coulteri      1710          171            10.00000
+23          cubensis      1080           26            41.53846
+24       culminicola      1110           29            38.27586
+25        dalatensis      1050           88            11.93182
+26           densata      3550          355            10.00000
+27        densiflora      6710          671            10.00000
+28         devoniana      2920          292            10.00000
+29       douglasiana      2300          230            10.00000
+30       durangensis      2700          270            10.00000
+31          echinata      9010          901            10.00000
+32            edulis      5680          568            10.00000
+33         elliottii      2580          258            10.00000
+34       engelmannii      3260          326            10.00000
+35        fenzeliana      2550          255            10.00000
+36          flexilis     10400         1040            10.00000
+37      fragilissima       990           29            34.13793
+38        gerardiana      2200          220            10.00000
+39            glabra      2590          259            10.00000
+40           greggii      1110           96            11.56250
+41        halepensis     12570         1257            10.00000
+42         hartwegii      3960          396            10.00000
+43       heldreichii      1490          149            10.00000
+44          herrerae      2010          201            10.00000
+45    hwangshanensis      3770          377            10.00000
+46          jeffreyi      3850          385            10.00000
+47          johannis      1340          134            10.00000
+48       juarezensis      1050           55            19.09091
+49            kesiya      7490          749            10.00000
+50        koraiensis      6980          698            10.00000
+51          krempfii       870           31            28.06452
+52    kwangtungensis      2610          261            10.00000
+53       lambertiana      4170          417            10.00000
+54           latteri      3660          366            10.00000
+55          lawsonii      1900          190            10.00000
+56        leiophylla      5430          543            10.00000
+57          longaeva      2420          242            10.00000
+58        luchuensis      1080           28            38.57143
+59        lumholtzii      2530          253            10.00000
+60       maestrensis      1080           22            49.09091
+61        massoniana      9180          918            10.00000
+62    maximartinezii      1170           40            29.25000
+63         maximinoi      4380          438            10.00000
+64          merkusii      1190          119            10.00000
+65        monophylla      5680          568            10.00000
+66        montezumae      3450          345            10.00000
+67         monticola      7680          768            10.00000
+68     morrisonicola       990           36            27.50000
+69              mugo     10810         1081            10.00000
+70          muricata      1310          131            10.00000
+71          nelsonii      1140           78            14.61538
+72             nigra     14490         1449            10.00000
+73      occidentalis      1140           81            14.07407
+74           oocarpa      5710          571            10.00000
+75         palustris      4820          482            10.00000
+76        parviflora      2750          275            10.00000
+77            patula      2190          219            10.00000
+78             peuce      1430          143            10.00000
+79          pinaster     10760         1076            10.00000
+80          pinceana      1470          147            10.00000
+81             pinea     10600         1060            10.00000
+82         ponderosa     18080         1808            10.00000
+83      praetermissa      1510          151            10.00000
+84          pringlei      1340          134            10.00000
+85     pseudostrobus      5550          555            10.00000
+86            pumila     48070         4807            10.00000
+87           pungens      2290          229            10.00000
+88       quadrifolia      1050           70            15.00000
+89           radiata      1020           51            20.00000
+90            remota      1800          180            10.00000
+91          resinosa     13610         1361            10.00000
+92            rigida      6230          623            10.00000
+93        roxburghii      3320          332            10.00000
+94        rzedowskii      1170           52            22.50000
+95         sabiniana      2680          268            10.00000
+96          serotina      3090          309            10.00000
+97          sibirica     41320         4132            10.00000
+98          squamata      1170           48            24.37500
+99      strobiformis      5170          517            10.00000
+100          strobus     19760         1976            10.00000
+101       sylvestris    122980        12298            10.00000
+102     tabuliformis      7330          733            10.00000
+103            taeda      6980          698            10.00000
+104      taiwanensis       990           48            20.62500
+105          teocote      5260          526            10.00000
+106       thunbergii      3040          304            10.00000
+107        torreyana      1050           45            23.33333
+108       tropicalis      1020           27            37.77778
+109       virginiana      5450          545            10.00000
+110      wallichiana      5790          579            10.00000
+111       washoensis       990           50            19.80000
+112       yecorensis      1110          100            11.10000
+113      yunnanensis      3510          351            10.00000
+> 
+> #see speceis whose PA/occurrence ratio is not 10
+> ratio_PA_occurrence_df[ratio_PA_occurrence_df$ratio_PA_occurrence != 10,]#No problem, all speices with less than 120 occurrences, so it possible that n_occrruence*10 does not reach to 30 PAs per strata in these species
+    selected_species n_row_PAs n_row_occurr ratio_PA_occurrence
+3           amamiana       960           14            68.57143
+9        balfouriana      1050          101            10.39604
+14       canariensis      1350           34            39.70588
+19            clausa      1260          120            10.50000
+23          cubensis      1080           26            41.53846
+24       culminicola      1110           29            38.27586
+25        dalatensis      1050           88            11.93182
+37      fragilissima       990           29            34.13793
+40           greggii      1110           96            11.56250
+48       juarezensis      1050           55            19.09091
+51          krempfii       870           31            28.06452
+58        luchuensis      1080           28            38.57143
+60       maestrensis      1080           22            49.09091
+62    maximartinezii      1170           40            29.25000
+68     morrisonicola       990           36            27.50000
+71          nelsonii      1140           78            14.61538
+73      occidentalis      1140           81            14.07407
+88       quadrifolia      1050           70            15.00000
+89           radiata      1020           51            20.00000
+94        rzedowskii      1170           52            22.50000
+98          squamata      1170           48            24.37500
+104      taiwanensis       990           48            20.62500
+107        torreyana      1050           45            23.33333
+108       tropicalis      1020           27            37.77778
+111       washoensis       990           50            19.80000
+112       yecorensis      1110          100            11.10000
+> 
+> #check the test
+> summary(test_PA_weight)#ALL true. The PA weight is ok taking into account all the dataset, but this does not take into account the partition of the data!! This will be done in model_loop_v4 (or higher) in Rafa pro.
+   Mode    TRUE 
+logical     112 
+> 
+> proc.time()
+   user  system elapsed 
+  9.155   0.440  10.450 

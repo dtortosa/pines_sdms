@@ -1,0 +1,652 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> ###definimos el directorio de trabajo
+> setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus")
+> 
+> #library
+> require(foreach) #for repeat a process several times 
+Loading required package: foreach
+> require(doParallel) #for parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+> 
+> 
+> #######################################
+> ###########Load variables##############
+> ####################################### 
+> list_variables = list.files("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/finals", full.names=TRUE, pattern=".asc")
+> require(raster)
+Loading required package: raster
+Loading required package: sp
+> variables = stack(list_variables)
+> 
+> 
+> ##################################
+> ########Extract D2################
+> ##################################
+> 
+> #requireed functions
+> Dsquared = function(model, adjust = TRUE) {
++   # version 1.1 (13 Aug 2013)
++   # calculates the explained deviance of a GLM
++   # model: a model object of class "glm"
++   # adjust: logical, whether or not to use the adjusted deviance taking into acount the nr of observations and parameters (Weisberg 1980; Guisan & Zimmermann 2000). More data used for fitting enhance d2, whilst more parameters lower it.
++   d2 <- (model$null.deviance - model$deviance) / model$null.deviance
++   if (adjust) {
++     n <- length(model$fitted.values)
++     p <- length(model$coefficients)
++     d2 <- 1 - ((n - 1) / (n - p)) * (1 - d2)
++   }
++   return(d2)
++ } #D2. If you have problem with this you can use Dsquared function of modEvA (http://modeva.r-forge.r-project.org/). 
+> 
+> ###list ocurrences
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     114 
+> #check
+> if(FALSE){
++     require(tidyverse)
++     paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
++ }#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check
+> c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+[1] FALSE FALSE FALSE
+> 
+> #make a function
+> d2_total = function(i){
++     print(i)
++     ocurrences_data = read.csv(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/pseudo_absences", paste(i, "complete.presences.csv", sep="_"), sep="/"), header=TRUE)
++ 
++     #extract values of variables in each point for creating predictors variables
++     predictors = as.data.frame(extract(x=variables, y=ocurrences_data[,c("longitude", "latitude")])) #The order of the returned values corresponds to the order of object ‘y’.
++ 
++     #create a unique data frame with response (points) and predictors (environmental variables)
++     data = cbind(ocurrences_data, predictors)
++ 
++     #if there are not presences with high precision (i.e. precision weight=1) we will change the precision weight of low precision points to 1
++     if(!1 %in% unique(data$precision_weight)){
++ 
++         #create a new variable with precision weights
++         data$weight_2_times_for_model <- data$precision_weight
++ 
++         #change the precision weight of all presences (i.e. low precision presences) to 1
++         data[which(data$presence==1 & data$weight_2_times_for_model==0.5),]$weight_2_times_for_model <- 1
++ 
++         #calculate again the weight of PAs in data
++         correct_PA_weight_for_model = sum(data[which(data$presence==1),]$weight_2_times_for_model)/nrow(data[which(data$presence==0),])
++ 
++         #set the new weight for PAs according to the final number of PAs in the data set
++         data[which(data$presence==0),]$weight_2_times_for_model <- correct_PA_weight_for_model  
++ 
++         #weights for glm and gam
++         weigth_glm = data$weight_2_times_for_model
++             #In that way, low precision points are now considered always at the maximum probability. The models retaining weight=0.5 for these points have exactly the same coefficients in glm and mostly in gam (so predictions should be similar), BUT the deviance values and AIC was different, so maybe this could affect to the stepwise regression during modelling. Indeed, in Pinus arizonica, selection of preditors in the stepwise regression changed. Because of this, I have amended the wight of low precision occurrences for SDMs and I am also applying this change here, although in this case Deviance is exactly the same
++                 #Now, the weight of PAs when only low precision presences are present are the same than in RAndom forest. For random forest we considered that the same number of PAs were selected relative to the number of low precision points when high precision points are not present.
++         
++         #check
++         #summary(round(data$weight_2_times_for_model,4) == round(data$precision_weight*2,4))
++ 
++         #remove data$weight_2_times_for_model
++         data$weight_2_times_for_model <- NULL        
++     } else{#if high precision points are present, then we will use the initial precision weight, with 1, 0.5...
++ 
++         #weights for glm and gam
++         weigth_glm = data$precision_weight        
++ 
++     }
++ 
++     #loop for extract D2 for each variable 
++     d2=NULL
++     for (k in 1:ncol(predictors)){
++         model = glm(data$presence ~ poly(data[,c(5:30)][,k], 2), family=binomial(link=logit), weights=weigth_glm) #I have used quasibinomial becasue I have weighted the response variable with precision_weight variable, thus we have decimals between 0 and 1. With binomial family we would obtain the following error "fitted probabilities numerically 0 or 1 occurred", but the results are the same.
++         d2 = append(d2, Dsquared(model))
++     }
++ 
++     d2_data_frame = data.frame()
++     d2_data_frame = rbind(d2_data_frame, d2)
++     d2_data_frame = cbind(i, d2_data_frame)
++     names(d2_data_frame) = c("species", names(variables))
++     d2_data_frame
++ }
+> 
+> #create a vector with all species
+> species = epithet_species_list
+> 
+> # set up cluster
+> clust <- makeCluster(2) 
+> registerDoParallel(clust)
+> 
+> # run for all species
+> d2.final = foreach(i = species, .packages = "raster", .combine="rbind") %dopar% { 
++     d2_total(i = i)
++ } #the "stringr" package is used for "str_split_fixed" function
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> #check if all is correct
+> str(d2.final)
+'data.frame':	112 obs. of  27 variables:
+ $ species: Factor w/ 112 levels "albicaulis","amamiana",..: 1 2 3 4 5 6 7 8 9 10 ...
+ $ bio1   : num  0.389 0.619 0.307 0.251 0.279 ...
+ $ bio10  : num  0.2817 0.2901 0.1938 0.0314 0.0929 ...
+ $ bio11  : num  0.423 0.719 0.409 0.413 0.428 ...
+ $ bio12  : num  0.0851 0.6616 0.0811 0.4178 0.1442 ...
+ $ bio13  : num  0.2278 0.799 0.1455 0.2798 0.0232 ...
+ $ bio14  : num  0.0609 0.7921 0.1736 0.215 0.2991 ...
+ $ bio15  : num  0.365 0.404 0.23 0.37 0.109 ...
+ $ bio16  : num  0.2371 0.7172 0.1252 0.342 0.0182 ...
+ $ bio17  : num  0.089 0.758 0.177 0.266 0.29 ...
+ $ bio18  : num  0.0908 0.4461 0.3488 0.1595 0.2955 ...
+ $ bio19  : num  0.262 0.147 0.187 0.502 0.246 ...
+ $ bio2   : num  0.0418 0.3499 0.2369 0.1853 0.1469 ...
+ $ bio3   : num  0.2833 0.4064 0.3898 0.4845 0.0714 ...
+ $ bio4   : num  0.267 0.746 0.398 0.534 0.342 ...
+ $ bio5   : num  0.2361 0.0829 0.1371 0.0206 0.1169 ...
+ $ bio6   : num  0.367 0.655 0.437 0.384 0.338 ...
+ $ bio7   : num  0.153 0.653 0.322 0.458 0.309 ...
+ $ bio8   : num  0.373 0.563 0.419 0.313 0.33 ...
+ $ bio9   : num  0.2445 0.0931 0.221 0.0204 0.153 ...
+ $ carbon : num  0.1437 0.3599 0.106 0.0913 0.0653 ...
+ $ cec    : num  0.1676 0.2505 0.114 0.0288 0.1011 ...
+ $ clay   : num  0.166 0.5436 0.1873 0.5185 0.0338 ...
+ $ depth  : num  0.022 0.424 0.0309 0.203 0.0643 ...
+ $ ph     : num  0.0363 0.2944 0.0517 0.0882 0.1237 ...
+ $ sand   : num  0.0674 0.4586 0.1691 0.3405 0.1024 ...
+ $ silt   : num  0.112 0.173 0.137 0.248 0.148 ...
+> 
+> #write the rank
+> write.csv(d2.final, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results/d2_species_variables.csv", row.names=FALSE)
+> 
+> #create the rank 
+> d2_rank  = data.frame(t(apply(-d2.final[-1], 1, rank, ties.method='min')))#we put negative to the d2.final data.frame becuase in that way the varialves with the higher D2 will have the lower, being selected by "min"
+> d2_rank = cbind(d2.final$species, d2_rank)
+> names(d2_rank)[which(names(d2_rank)=="d2.final$species")] <- "species" 
+> write.csv(d2_rank, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results/d2_rank_species_variables.csv", row.names=FALSE)
+> 
+> ### comparison con results run during WSL stay
+> #d2.final
+> d2.final_ancient = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results_v0/d2_species_variables_wsl.csv", sep=",", header=T) #load d2 values per variable calculated at WSL
+> identical(d2.final, d2.final_ancient) #check identical. No TRUE because of the decimals 
+[1] FALSE
+> sum_differences = NULL #calculate the difference between both datasets
+> for(i in 1:nrow(d2.final)){ #for each row of d2.final
++ 
++     #select the [i] row without species column for both data.sets
++     selected_row_new = d2.final[i,-1]
++     selected_row_ancient = d2.final_ancient[i,-1]
++ 
++     #calculate differences between both data set for each cell of the [i] row. Round to 5 and sum. There are liiiitle differences, 1.5*10^-6 y so on... 
++     differences = sum(round(selected_row_new - selected_row_ancient,5))
++ 
++     #save it
++     sum_differences = append(sum_differences, differences)
++ }
+> length(sum_differences) #113, one per species
+[1] 112
+> unique(sum_differences) #there are differences, but because we know used new climatic variables (without the error of mixing WC1.4 and WC2.0 or errors in the order of the months). In addition, some distribution maps are different. When we compared ancient with new using the same variables, the results were similar (see species_clustering_v2.R)
+  [1]  -0.32761   5.34306 -11.40333  -2.78171  -1.82048  -1.37624   0.06821
+  [8]  -0.92534  -1.49645  -2.29283  -3.72326  -5.43075  -3.64379   7.92703
+ [15]  -3.29804  -2.01343  -0.31003  -0.39444   0.59489 -16.18809  -2.72002
+ [22]  -2.94552  -1.61771  -4.05317  -3.36843  -2.78873   4.06178  -8.96754
+ [29]  -3.09009  -1.93592  -3.08331   0.25398  -3.40594  -1.03035  -6.44723
+ [36]   1.21411  -7.12023   4.59244  -4.61597  -1.41348 -10.34773   5.28665
+ [43] -11.95716   5.66752  -7.05030   3.36761  -5.85559  -3.33498  -3.10438
+ [50]   2.42252  -3.73768 -13.04292   0.70012 -14.85647  -3.31711  -0.97009
+ [57]   5.33812 -24.37402   4.25200  -3.63416  -7.71967 -21.23420   2.58252
+ [64]  -2.40587  -9.35103   0.88835   3.48237  -3.14576  -5.40184   1.38055
+ [71]   2.78479  -5.53483   4.74579   0.36981  -0.92728  -4.24954   0.45910
+ [78]  -4.05746  -3.13865  -2.64064  -5.23764  -9.74555 -13.75740 -13.92997
+ [85]  -1.44107  -0.88839  -6.50631  -1.53419  -1.33287  -2.86074  -0.63444
+ [92]  -7.11946  -5.33211  -4.59617   1.17957  -1.67071  -0.78470  -8.45985
+ [99]   0.06368  -0.91524  -4.06490   1.61617  -0.21071  -3.86487   0.63010
+[106]  -1.63981   1.74430 -19.42133  -7.73046   5.14265  -2.31282   2.90061
+> 
+> #d.2_rank
+> d2_rank_ancient = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results_v0/d2_rank_species_variables_wsl.csv", sep=",", header=T) #load d2.rank per species calculated at WSL
+> identical(d2_rank, d2_rank_ancient) #Not equal, see previous lines for details
+[1] FALSE
+> 
+> 
+> #############################
+> ######Cluster analysys#######
+> #############################
+> 
+> #load the data set with the rank
+> d2_rank = read.csv("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results/d2_rank_species_variables.csv", header=TRUE, row.names=NULL)
+> str(d2_rank)
+'data.frame':	112 obs. of  27 variables:
+ $ species: Factor w/ 112 levels "albicaulis","amamiana",..: 1 2 3 4 5 6 7 8 9 10 ...
+ $ bio1   : int  2 10 8 15 9 8 17 9 4 24 ...
+ $ bio10  : int  7 21 12 23 20 14 25 17 6 14 ...
+ $ bio11  : int  1 5 3 7 1 4 10 2 3 16 ...
+ $ bio12  : int  21 7 24 6 14 26 20 18 15 8 ...
+ $ bio13  : int  13 1 18 13 25 19 19 13 19 22 ...
+ $ bio14  : int  23 2 16 17 6 2 15 3 18 5 ...
+ $ bio15  : int  5 17 10 9 17 10 21 1 9 26 ...
+ $ bio16  : int  11 6 21 10 26 21 22 14 17 21 ...
+ $ bio17  : int  20 3 15 14 8 7 14 6 13 3 ...
+ $ bio18  : int  19 14 6 20 7 5 11 8 12 7 ...
+ $ bio19  : int  9 24 14 3 10 16 7 12 16 13 ...
+ $ bio2   : int  24 19 9 19 13 23 23 24 8 15 ...
+ $ bio3   : int  6 16 5 4 21 1 3 4 2 2 ...
+ $ bio4   : int  8 4 4 1 2 6 2 11 10 1 ...
+ $ bio5   : int  12 26 19 25 16 15 24 22 1 9 ...
+ $ bio6   : int  4 8 1 8 3 9 9 7 5 18 ...
+ $ bio7   : int  16 9 7 5 5 11 1 15 14 4 ...
+ $ bio8   : int  3 11 2 12 4 3 6 5 11 23 ...
+ $ bio9   : int  10 25 11 26 11 13 26 19 7 6 ...
+ $ carbon : int  17 18 23 21 22 12 16 10 20 10 ...
+ $ cec    : int  14 22 22 24 19 20 18 23 22 25 ...
+ $ clay   : int  15 12 13 2 24 17 4 16 26 20 ...
+ $ depth  : int  26 15 26 18 23 25 5 26 23 17 ...
+ $ ph     : int  25 20 25 22 15 18 12 21 21 11 ...
+ $ sand   : int  22 13 17 11 18 24 8 20 24 19 ...
+ $ silt   : int  18 23 20 16 12 22 13 25 25 12 ...
+> 
+> ###list ocurrences
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     114 
+> #check
+> if(FALSE){
++     require(tidyverse)
++     paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
++ }#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check
+> c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+[1] FALSE FALSE FALSE
+> 
+> #Load the grid where all the species of the group are stored.
+> require(raster)
+> distribution = NULL
+> for (i in epithet_species_list){
++     distri = raster(paste("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p", paste(i, "01.img", sep="_"), sep="_"))
++     distribution = append(distribution, distri)
++ }
+> 
+> all_species_grid = stack(distribution)
+> nlayers(all_species_grid) #112, one for each species
+[1] 112
+> names(all_species_grid) <- epithet_species_list #change the name for match with name sof rank data set speices
+> 
+> #calculate euclidean distance between species 
+> dendogram_table = d2_rank[-1] #select all columns except species column
+> rownames(dendogram_table) = epithet_species_list #put species names as row names
+> #check row names
+> rownames(dendogram_table) == d2_rank[1]
+       species
+  [1,]    TRUE
+  [2,]    TRUE
+  [3,]    TRUE
+  [4,]    TRUE
+  [5,]    TRUE
+  [6,]    TRUE
+  [7,]    TRUE
+  [8,]    TRUE
+  [9,]    TRUE
+ [10,]    TRUE
+ [11,]    TRUE
+ [12,]    TRUE
+ [13,]    TRUE
+ [14,]    TRUE
+ [15,]    TRUE
+ [16,]    TRUE
+ [17,]    TRUE
+ [18,]    TRUE
+ [19,]    TRUE
+ [20,]    TRUE
+ [21,]    TRUE
+ [22,]    TRUE
+ [23,]    TRUE
+ [24,]    TRUE
+ [25,]    TRUE
+ [26,]    TRUE
+ [27,]    TRUE
+ [28,]    TRUE
+ [29,]    TRUE
+ [30,]    TRUE
+ [31,]    TRUE
+ [32,]    TRUE
+ [33,]    TRUE
+ [34,]    TRUE
+ [35,]    TRUE
+ [36,]    TRUE
+ [37,]    TRUE
+ [38,]    TRUE
+ [39,]    TRUE
+ [40,]    TRUE
+ [41,]    TRUE
+ [42,]    TRUE
+ [43,]    TRUE
+ [44,]    TRUE
+ [45,]    TRUE
+ [46,]    TRUE
+ [47,]    TRUE
+ [48,]    TRUE
+ [49,]    TRUE
+ [50,]    TRUE
+ [51,]    TRUE
+ [52,]    TRUE
+ [53,]    TRUE
+ [54,]    TRUE
+ [55,]    TRUE
+ [56,]    TRUE
+ [57,]    TRUE
+ [58,]    TRUE
+ [59,]    TRUE
+ [60,]    TRUE
+ [61,]    TRUE
+ [62,]    TRUE
+ [63,]    TRUE
+ [64,]    TRUE
+ [65,]    TRUE
+ [66,]    TRUE
+ [67,]    TRUE
+ [68,]    TRUE
+ [69,]    TRUE
+ [70,]    TRUE
+ [71,]    TRUE
+ [72,]    TRUE
+ [73,]    TRUE
+ [74,]    TRUE
+ [75,]    TRUE
+ [76,]    TRUE
+ [77,]    TRUE
+ [78,]    TRUE
+ [79,]    TRUE
+ [80,]    TRUE
+ [81,]    TRUE
+ [82,]    TRUE
+ [83,]    TRUE
+ [84,]    TRUE
+ [85,]    TRUE
+ [86,]    TRUE
+ [87,]    TRUE
+ [88,]    TRUE
+ [89,]    TRUE
+ [90,]    TRUE
+ [91,]    TRUE
+ [92,]    TRUE
+ [93,]    TRUE
+ [94,]    TRUE
+ [95,]    TRUE
+ [96,]    TRUE
+ [97,]    TRUE
+ [98,]    TRUE
+ [99,]    TRUE
+[100,]    TRUE
+[101,]    TRUE
+[102,]    TRUE
+[103,]    TRUE
+[104,]    TRUE
+[105,]    TRUE
+[106,]    TRUE
+[107,]    TRUE
+[108,]    TRUE
+[109,]    TRUE
+[110,]    TRUE
+[111,]    TRUE
+[112,]    TRUE
+> #calculate distance between species
+> species.dist<-dist(abs(dendogram_table), method="euclidean") #We will use the typical euclidean distance: The sum of the squared differences for each value of two vectors ((x[1]-y[1])+(x[2]-y[2])....). Usual distance between the two vectors (2 norm aka L_2), sqrt(sum((x_i - y_i)^2)).
+> 
+> #make a dendrongram with hclust
+> species_dendogram<-hclust(species.dist) 
+> plot(species_dendogram)
+> 
+> #save it
+> png("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results/species_dendogram.png", width=1500, height=800, pointsize=30 )
+> plot(species_dendogram, cex=0.5)
+> dev.off()
+pdf 
+  2 
+> 
+> #load the package neccesary
+> require(NbClust)
+Loading required package: NbClust
+> source("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/nbclust_modified.R") #load the nbclust function modified. The rationale is that I obtain an error with complete method: "Error in solve.default(W) : system is computationally singular: reciprocal condition number = 1.12144e-16". 
+> #solve(w) is used internally by nbclust to calculate the index of friedman, one of the index for evaluate the quality of the number of clusters. Thus is not ver very important because we have other index. The problem is caused because solve is a numerical way to calculate the inverse of the covariance matrix. Unfortunately, if some of the numbers used in the inverse calculation are very small, it assumes that they are zero, leading to the assumption that it is a singular matrix. This is why it specifies that they are computationally singular, because the matrix might not be singular given a different tolerance. The solution is use a smaller tolerance in solve functuin, like solve(..., tol = 1e-19). This should be fine since you get reciprocal condition number = 1.16873e-16 (see http://stackoverflow.com/questions/21451664/system-is-computationally-singular-error). 
+> 
+> 
+> #create a function for make clusters and plot the results
+> species_clustering = function(min_groups, max_groups, method){
++ 
++     #load the data set with the rank
++     d2_rank = read.csv("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/clustering_results/d2_rank_species_variables.csv", header=TRUE, row.names=NULL)
++     str(d2_rank)
++ 
++     ###list ocurrences
++     list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
++ 
++     #extract epithet from species list
++     epithet_species_list = NULL
++     for(i in 1:nrow(list_species)){
++ 
++         #selected species
++         selected_species = as.vector(list_species[i,])
++ 
++         #extract epithet
++         epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++     }
++     summary(is.na(epithet_species_list)) #all false
++     #check
++     if(FALSE){
++         require(tidyverse)
++         paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
++     }#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
++ 
++     #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
++     epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
++     #check
++     c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
++ 
++ 
++     #Load the grid where all the species of the group are stored.
++     require(raster)
++     distribution = NULL
++     for (i in epithet_species_list){
++         distri = raster(paste("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p", paste(i, "01.img", sep="_"), sep="_"))
++         distribution = append(distribution, distri)
++     }
++ 
++     all_species_grid = stack(distribution)
++     nlayers(all_species_grid) #112, one for each species
++     names(all_species_grid) <- epithet_species_list #change the name for match with name sof rank data set speices
++ 
++     # Create the empty results list
++     final_results <- list()
++ 
++     #run the cluster
++     cluster = NbClust(data=d2_rank[-1], #data: matrix or dataset.
++         diss=NULL, #dissimilarity matrix to be used (matriz de distancias). You can used one make it before, or if NULL the matrix will be created by means of the distance methos indicated in the next argument. I have test if there is differences between make the matrix before or use the matrix created by nbclust with kmeans method, and there is not differences (see kmeans_2_10_g_3_distances_nbclust.png). 
++         distance = "euclidean", #distance: the distance measure to be used to compute the dissimilarity matrix (euclidean, maximum, etc..). It is not neccesary if we introduce the matrix created before. 
++         min.nc=min_groups, #minimal number of clusters, between 1 and (number of objects - 1)
++         max.nc=max_groups, #maximal number of clusters, between 2 and (number of objects - 1), greater or equal to min.nc. By default, max.nc=15.
++         method = method, #the cluster analysis method to be used. This should be one of: "ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median", "centroid", "kmeans". Achilleas told me thay I should use complete (The distance between two clusters and is the maximum distance between two points x and y). Info of kmeans (see documentation of NbClust function and diapo7 in http://slideplayer.com/slide/5178523/).
++         index = "all") #the index to be calculated. They inform about the quality of each proposed clustering (2,3,4,... clusters). If you use more than 1 index, the function summarize how many index consider each number of cluster as optimal, thus how much more index use better). index="all" include a lot of index, but not all. For more info see "https://mail.google.com/mail/u/0/#starred/162867b038d6aa92". 
++ 
++     #Extracting clustering parameters
++     cluster$All.index #results of all index for each number of clusters. Values of indices for each partition of the dataset obtained with a number of clusters between min.nc and max.nc.
++     cluster$Best.nc #Best number of clusters proposed by each index and the corresponding index value.
++     cluster$All.CriticalValues #Critical values of some indices for each partition obtained with a number of clusters between min.nc and max.nc.
++ 
++     #Extracting clusterings GROUP details
++     groups <- cluster$Best.partition #Partition that corresponds to the best number of clusters
++     print(table(groups)) #number of species by group
++     num_groups <- length(unique(groups)) #numbe of groups
++     group_ids <- unique(groups) #id of the groups
++     final_results[[1]] <- cluster #save all results of cluster in final_results
++     d2_rank = cbind(d2_rank, groups) #combine d2_rank with the group factor
++ 
++     #export the group variable with the species names
++     write.csv(d2_rank, paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/_tables/", method, "_", min_groups ,"_", max_groups,"_","g","_", num_groups,".csv",sep=""), row.names = FALSE)
++ 
++     # Creating the spatial distribution of groups
++     groups_final <- list() 
++     species_grids <- list()
++     for(i in 1:length(group_ids)){ #for each group
++         group_grids <- list()
++         groups_final[[i]] <- d2_rank[which(groups == group_ids[i]),] #select rows of d2_rank of the group [i]
++         sp_names <- as.character(d2_rank[which(groups == group_ids[i]),]$species) #select the speceis of the group [i]
++         species_grids[[i]] <- all_species_grid[[match(sp_names,names(all_species_grid))]] #select the distribution grids of the species of the group [i]
++     }
++     final_results[[2]] <- species_grids #species_grids is a list with the distribution rasters of each species
++ 
++     # Exporting the rasters with the spatial distribution of groups
++     for(j in 1:num_groups){
++         print("Exporting raster")
++         print(j)
++         print("**************")
++         writeRaster(species_grids[[j]], paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/_grids/", "_", min_groups ,"_", max_groups,"_","g","_", num_groups,"_group_",j ,"_species_",nlayers(species_grids[[j]]), method,".grd",sep=""), overwrite=T)
++     } #for each group plot all distribution rasters
++ 
++     # Plotting the spatial distribution of groups
++     png(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/figures/", method, "_", min_groups ,"_", max_groups,"_","g","_", num_groups, ".png",sep=""),width= 3000, height = 2000, bg="white",res=150)
++     par(mfcol=c(2,ceiling(num_groups/2)))
++     for(j in 1:num_groups){ #for each group
++         print("**************")
++         print(j)
++         print("**************")
++         if(length(species_grids[[j]])!=1){ #if there more than 1 layer
++           #writeRaster(species_grids[[j]],paste("S:/psomas/requests/scenario_comparison/species_clustering/_grids/",output_name, "_", min_groups ,"_", max_groups,"_","g","_",num_groups,"_group_",j,"_species_",nlayers(species_grids[[j]]),".grd",sep=""))
++           plot(sum(species_grids[[j]]>0),main="") #sum all raster of each group, but only the areas with value higher than 1. Plot it. 
++           title(main=paste("Species:",nlayers(species_grids[[j]]), sep=" "), cex.main=3)          
++         }
++         if(length(species_grids[[j]])==1){ #if there is only one layer
++           #writeRaster(species_grids[[j]],paste("S:/psomas/requests/scenario_comparison/species_clustering/_grids/",output_name, "_", min_groups ,"_", max_groups,"_","g","_",num_groups,"_group_",j,"_species_",nlayers(species_grids[[j]]),".grd",sep=""))
++           plot(species_grids[[j]]>0,main=paste("Species:",nlayers(species_grids[[j]]),sep=" "))
++         }
++     }
++     dev.off()
++ }
+> 
+> ###Paralellize
+> # set up cluster
+> clust <- makeCluster(2)
+> registerDoParallel(clust)
+> 
+> #methods to make the clustering
+> methods = c("average", "centroid", "complete", "kmeans", "mcquitty", "median", "single", "ward.D", "ward.D2")
+> 
+> #run for all species
+> foreach(method = methods) %dopar% { 
++     species_clustering(min_groups=2, max_groups=10, method=method)
++ } #the "stringr" package is used for "str_split_fixed" function
+[[1]]
+pdf 
+  2 
+
+[[2]]
+pdf 
+  2 
+
+[[3]]
+pdf 
+  2 
+
+[[4]]
+pdf 
+  2 
+
+[[5]]
+pdf 
+  2 
+
+[[6]]
+pdf 
+  2 
+
+[[7]]
+pdf 
+  2 
+
+[[8]]
+pdf 
+  2 
+
+[[9]]
+pdf 
+  2 
+
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> 
+> ####visualization of complete and kmeans
+> #load data
+> complete_data = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", sep=",", header=T)
+> kmeans_data = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/_tables/kmeans_2_10_g_2.csv", sep=",", header=T)
+> 
+> #extract the group of 25 species that are the frist in being separated in the dendogram and complete separate in a specific group.
+> complete_group_1 = complete_data[which(complete_data$group==1),]$species
+> 
+> #extract the first group with kmeans
+> kmeans_group_1 = kmeans_data[which(kmeans_data$group==1),]$species
+> 
+> #which species of the first group in kmeans are not included in the first group of complete? I'm interested in these species because I need to know if they are very far away from the 25-pine group in the dendogram
+> kmeans_group_1[which(!kmeans_group_1 %in% complete_group_1)]
+ [1] amamiana       aristata       armandii       attenuata      balfouriana   
+ [6] cembra         coulteri       densiflora     echinata       fenzeliana    
+[11] flexilis       heldreichii    jeffreyi       juarezensis    kwangtungensis
+[16] lambertiana    luchuensis     monophylla     mugo           muricata      
+[21] palustris      parviflora     peuce          ponderosa      pungens       
+[26] quadrifolia    radiata        remota         rigida         sabiniana     
+[31] serotina       squamata       strobus        taeda          thunbergii    
+[36] torreyana      virginiana     washoensis     yunnanensis   
+112 Levels: albicaulis amamiana aristata arizonica armandii ... yunnanensis
+>     #And this is the case, we have species like armandii or juarezensis that are in the group of the other extreme, very far away in ecological distance. 
+> 
+> considering as 1 for low quality presences where there were not high precision occurrences, kmeans changes a lot with a new group. This change makes no sense, beucase the only difference is the movemente of depth in pinus teocote from the 26 to 5th position. The rest is THE SAME across variables and species. I do not trust kmeans, and I see ecologically meaninful the complete method, which was stable to the change in weights. 
+Error: unexpected symbol in "considering as"
+Execution halted

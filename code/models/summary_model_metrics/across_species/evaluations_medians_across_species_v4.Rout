@@ -1,0 +1,190 @@
+
+R version 3.6.3 (2020-02-29) -- "Holding the Windsock"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 125133  6.7     350000 18.7   201111 10.8
+Vcells 242045  1.9    8388608 64.0   997272  7.7
+Loading required package: colorout
+Loading required package: SistWrapper
+> ##code for obtaining global metrics of model evaluation across species
+> 
+> #load evaluation metrics for all species
+> evaluations = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/evaluations/medians_evaluations_v4.csv", sep=",", header=TRUE)
+> str(evaluations)
+'data.frame':	112 obs. of  17 variables:
+ $ species       : Factor w/ 112 levels "albicaulis","amamiana",..: 1 3 2 4 5 6 7 8 9 10 ...
+ $ glm_kappa_mean: num  0.686 0.751 0.385 0.74 0.655 ...
+ $ glm_kappa_sd  : num  0.0162 0.0427 0.0842 0.0108 0.0168 ...
+ $ glm_tss_mean  : num  0.79 0.894 0.937 0.912 0.814 ...
+ $ glm_tss_sd    : num  0.0141 0.024 0.0246 0.0113 0.0156 ...
+ $ glm_auc_mean  : num  0.96 0.977 0.966 0.98 0.961 ...
+ $ glm_auc_sd    : num  0.00267 0.00668 0.01268 0.00155 0.00304 ...
+ $ gam_kappa_mean: num  0.698 0.761 0.419 0.794 0.725 ...
+ $ gam_kappa_sd  : num  0.0152 0.0433 0.1392 0.0136 0.0192 ...
+ $ gam_tss_mean  : num  0.814 0.898 0.938 0.929 0.872 ...
+ $ gam_tss_sd    : num  0.01019 0.01995 0.02512 0.00862 0.01403 ...
+ $ gam_auc_mean  : num  0.966 0.978 0.971 0.986 0.978 ...
+ $ gam_auc_sd    : num  0.0021 0.00597 0.0131 0.0012 0.00247 ...
+ $ rf_kappa_mean : num  0.705 0.674 0.131 0.788 0.745 ...
+ $ rf_kappa_sd   : num  0.0151 0.0546 0.0272 0.0235 0.0138 ...
+ $ rf_tss_mean   : num  0.861 0.83 0.841 0.928 0.911 ...
+ $ rf_tss_sd     : num  0.0119 0.0532 0.0311 0.012 0.0114 ...
+> 
+> #caculate the mean and sd by columns considering all columns except the specie name column. This will include model metrics considering all species
+> means_across_sp = apply(evaluations[,-1], 2, mean)
+> sd_across_species = apply(evaluations[,-1], 2, sd)
+> 
+> #see differences auc, kappa and tss between models
+> 
+> 
+> #kappa
+> means_across_sp["glm_kappa_mean"]; means_across_sp["gam_kappa_mean"]; means_across_sp["rf_kappa_mean"]
+glm_kappa_mean 
+  0.7505453125 
+gam_kappa_mean 
+  0.7916043155 
+rf_kappa_mean 
+ 0.7390518207 
+> sd_across_species["glm_kappa_mean"]; sd_across_species["gam_kappa_mean"]; sd_across_species["rf_kappa_mean"]
+glm_kappa_mean 
+  0.1234400514 
+gam_kappa_mean 
+  0.1071148304 
+rf_kappa_mean 
+ 0.1405665585 
+> wilcox.test(evaluations$glm_kappa_mean, evaluations$gam_kappa_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$glm_kappa_mean and evaluations$gam_kappa_mean
+W = 5039, p-value = 0.01104179
+alternative hypothesis: true location shift is not equal to 0
+
+> wilcox.test(evaluations$glm_kappa_mean, evaluations$rf_kappa_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$glm_kappa_mean and evaluations$rf_kappa_mean
+W = 6312, p-value = 0.935086
+alternative hypothesis: true location shift is not equal to 0
+
+> wilcox.test(evaluations$gam_kappa_mean, evaluations$rf_kappa_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$gam_kappa_mean and evaluations$rf_kappa_mean
+W = 7644, p-value = 0.004684173
+alternative hypothesis: true location shift is not equal to 0
+
+> 
+> #tss
+> means_across_sp["glm_tss_mean"]; means_across_sp["gam_tss_mean"]; means_across_sp["rf_tss_mean"]
+glm_tss_mean 
+0.8991299851 
+gam_tss_mean 
+0.9138427083 
+rf_tss_mean 
+0.912461702 
+> sd_across_species["glm_tss_mean"]; sd_across_species["gam_tss_mean"]; sd_across_species["rf_tss_mean"]
+ glm_tss_mean 
+0.06404657084 
+ gam_tss_mean 
+0.05487109853 
+  rf_tss_mean 
+0.03949070661 
+> wilcox.test(evaluations$glm_tss_mean, evaluations$gam_tss_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$glm_tss_mean and evaluations$gam_tss_mean
+W = 5428, p-value = 0.08198753
+alternative hypothesis: true location shift is not equal to 0
+
+> wilcox.test(evaluations$glm_tss_mean, evaluations$rf_tss_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$glm_tss_mean and evaluations$rf_tss_mean
+W = 5873, p-value = 0.4112514
+alternative hypothesis: true location shift is not equal to 0
+
+> wilcox.test(evaluations$gam_tss_mean, evaluations$rf_tss_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$gam_tss_mean and evaluations$rf_tss_mean
+W = 6841, p-value = 0.2411057
+alternative hypothesis: true location shift is not equal to 0
+
+> 
+> #auc (we dont have auc for RF as its predictions were obteind direclty as binary, so no thresholds could be calculated)
+> means_across_sp["glm_auc_mean"]; means_across_sp["gam_auc_mean"]
+glm_auc_mean 
+0.9769366652 
+gam_auc_mean 
+0.9831724106 
+> sd_across_species["glm_auc_mean"]; sd_across_species["gam_auc_mean"]
+ glm_auc_mean 
+0.01749471878 
+ gam_auc_mean 
+0.01316010577 
+> wilcox.test(evaluations$glm_auc_mean, evaluations$gam_auc_mean)
+
+	Wilcoxon rank sum test with continuity correction
+
+data:  evaluations$glm_auc_mean and evaluations$gam_auc_mean
+W = 4894, p-value = 0.004506305
+alternative hypothesis: true location shift is not equal to 0
+
+> 
+> #see summary of these metrics between different models
+> summary(evaluations$glm_kappa_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.3846083 0.6704104 0.7573167 0.7505453 0.8405333 0.9560667 
+> summary(evaluations$gam_kappa_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.4190667 0.7259542 0.7979917 0.7916043 0.8676250 0.9759667 
+> summary(evaluations$rf_kappa_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.1307770 0.6917460 0.7656202 0.7390518 0.8278719 0.9385604 
+> 
+> summary(evaluations$glm_tss_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.7058167 0.8690354 0.9093083 0.8991300 0.9482375 0.9874583 
+> summary(evaluations$gam_tss_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.7469167 0.8824083 0.9256625 0.9138427 0.9538771 0.9891333 
+> summary(evaluations$rf_tss_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.7967172 0.8863352 0.9200616 0.9124617 0.9389845 0.9823092 
+> 
+> summary(evaluations$glm_auc_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.9216810 0.9683216 0.9810879 0.9769367 0.9906731 0.9990935 
+> summary(evaluations$gam_auc_mean)
+     Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+0.9344374 0.9756558 0.9858608 0.9831724 0.9938424 0.9992635 
+> 
+> proc.time()
+   user  system elapsed 
+  0.141   0.020   0.164 

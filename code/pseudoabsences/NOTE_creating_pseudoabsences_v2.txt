@@ -1,0 +1,1 @@
+Si miras "creating_pseudoabsences_v2.Rout" y está sin temrinar de correr no te asustes, es que hubo un error con pumila, su PA buffer se calcula en otr codigo y se guarda en la carpeta de PAs, pero al hacer la nueva version de PAs borré todo. Por eso al correr el codigo faltaba el PA buffer de pumila. Ya está todo bien. Todas las especies tienen su PA buffer.

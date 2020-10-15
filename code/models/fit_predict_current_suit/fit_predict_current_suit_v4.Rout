@@ -1,0 +1,1168 @@
+
+R version 3.4.4 (2018-03-15) -- "Someone to Lean On"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+Loading required package: colorout
+> #SEWAL. Code for modelling and project into the future. It is prepared for run in sewall.  
+> 
+> ###################################
+> #ESTABLECE EL DIRECTORIO DE TRABAJO
+> ###################################
+> #DIRECTORIO DE TRABAJO
+> setwd("/Users/dsalazar/nicho_pinus/")
+> 
+> 
+> ####################################################
+> ########### Loop preparing data #########################
+> ####################################################
+> ##RUN only ONE time. Already runned. 
+> 
+> #function for preparing data (extract data of variables in ocurrences points)
+> prepar_data = function(species) {
++ 
++     #required libraries
++     #library(raster)
++     #library(dismo)
++ 
++     #load the group of species according to cluster
++     group_species = read.csv("/Users/dsalazar/nicho_pinus/data/climate/complete_2_10_g_5.csv", header=TRUE)  
++     
++     #select the group of the corresponding species
++     variables_cluster = group_species[which(group_species$species == species),]$groups   
++     #select the number cluster of this species 
++     rasters_list = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=TRUE) #list the corresponding group of variables
++     rasters_names = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=FALSE) #list names of raster
++     names_variables = NULL #loop for separate raster names from extension ".asc"
++     for (i in rasters_names){
++         names_variables = append(names_variables, strsplit(i, split=".asc")[[1]])
++     }
++     variables_stack = stack(rasters_list) #stack them 
++     names(variables_stack) = names_variables #give the names to layers of the stack
++ 
++     #load names of selected variables  
++     load("/Users/dsalazar/nicho_pinus/data/climate/list_selected_variables.rda") 
++ 
++     #take selected variables from the list of variables
++     selected_variables = ultimate_variables[[variables_cluster]]
++ 
++     #calculate the number of ocurrences for each species 
++     number_ocurrences = read.csv("/Users/dsalazar/nicho_pinus/data/ocurrences/ocurrences_per_species.csv", header=TRUE)
++     n_ocurrence = number_ocurrences[number_ocurrences$species==species,]$number_ocurrences
++ 
++     #load names of selected variables 
++     if (n_ocurrence<length(selected_variables)*10){ #if there is not 10 ocurrences for each variable 
++         
++         #load the names of selected variables of low number ocurrences species
++         load("/Users/dsalazar/nicho_pinus/data/climate/finals/final_variables_low_number_ocurrence_species.rda")
++ 
++         #select the selecte variables for low number ocurrences species
++         variables_stack = variables_stack[[final_variables_low_number_ocurrence_species_new[[species]]]]    
++     
++     } else {
++ 
++         variables_stack = variables_stack[[selected_variables]]
++     
++     }     
++  
++     ##Extract values of variables 
++     presences = read.csv(paste("/Users/dsalazar/nicho_pinus/data/pseudo_absences", paste(species, "complete.presences.csv", sep="_"), sep="/")) #read the data final data with presences and pseudoabsences
++     variables = extract(variables_stack, presences[, c("longitude", "latitude")]) #extract the value of the variable in these points
++     data = cbind(presences, variables) #bind the presence data and the variable data in one data frame 
++ 
++     #change the names of variables if the number of selected variables is 1 (it is to say, only 5 columns in data)
++     if (ncol(data)<6){
++         colnames(data)[5] = names(variables_stack)
++     }
++ 
++     #write the final.data file
++     write.csv(data, paste("/Users/dsalazar/nicho_pinus/data/data_prepare_modelling", paste(species, "csv", sep="."), sep="/"), row.names=FALSE) 
++ 
++     #name of species
++     print(paste(species, "ended"))   
++ }
+> 
+> 
+> ####################################################
+> ########### Loop of fitting ########################
+> ####################################################
+> 
+> #In each step we will create a dataset for training and evaluation and make both process, then we will repeat with other partition of training and evaluation. 
+> #We have to create a loop with for each species and before create empty lists (glm_species...) for include all the models for each species. In these lists we will sabe XX_resample lists
+> 
+> 
+> #function for fitting models of current habitat suitability
+> fit_eval_models = function(species){ #for the corresponding species 
++     
++     #required libraries
++     #library(raster)
++     #library(dismo)
++     #library(gam) #OTRA LIBRERIA PARA GAM
++     #library(randomForest) #RANDOM FOREST
++ 
++     #begin the species
++     print(paste("begin",species))
++ 
++     #load cluster number for each species
++     group_species = read.csv("/Users/dsalazar/nicho_pinus/data/climate/complete_2_10_g_5.csv", header=TRUE)[,c("species", "groups")] 
++ 
++     #select the group of the corresponding species
++     variables_cluster = group_species[which(group_species$species == species),]$groups 
++     #Load data with presences and values of environmental variables
++     data = read.csv(paste("/Users/dsalazar/nicho_pinus/data/data_prepare_modelling", paste(species, "csv", sep="."), sep="/"), header=TRUE)
++ 
++     #select the number cluster of this species 
++     rasters_list = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=TRUE) #list the corresponding group of variables
++     rasters_names = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=FALSE) #list names of raster
++     names_variables = NULL #loop for separate raster names from extension ".asc"
++     for (i in rasters_names){
++         names_variables = append(names_variables, strsplit(i, split=".asc")[[1]])
++     }
++     variables_stack = stack(rasters_list) #stack them 
++     names(variables_stack) = names_variables #give the names to layers of the stack
++ 
++     #load names of selected variables  
++     load("/Users/dsalazar/nicho_pinus/data/climate/list_selected_variables.rda") 
++ 
++     #take selected variables from the list of variables
++     selected_variables = ultimate_variables[[variables_cluster]]
++ 
++     #calculate the number of ocurrences for each species 
++     number_ocurrences = read.csv("/Users/dsalazar/nicho_pinus/data/ocurrences/ocurrences_per_species.csv", header=TRUE)
++     n_ocurrence = number_ocurrences[number_ocurrences$species==species,]$number_ocurrences
++ 
++     if (n_ocurrence<length(selected_variables)*10){ #if there is not 10 ocurrences for each variable 
++         
++         #load the names of selected variables for los number ocurrences species
++         load("/Users/dsalazar/nicho_pinus/data/climate/finals/final_variables_low_number_ocurrence_species.rda")
++ 
++         #select the selecte variables for low number ocurrences species
++         variables_stack = variables_stack[[final_variables_low_number_ocurrence_species_new[[species]]]]    
++     
++     } else {
++ 
++         variables_stack = variables_stack[[selected_variables]]
++     
++     }       
++  
++     #load raster of PA buffer
++     raster_PA_buffer = raster(paste("/Users/dsalazar/nicho_pinus/data/pa_buffers", paste(species, "PA_buffer.asc", sep="_"), sep="/"))
++ 
++     #crop variables using distribution buffer
++     variables_stack = crop(variables_stack, raster_PA_buffer)
++ 
++     #lists for saving models 
++     glm_resample = list() 
++     gam_resample = list() 
++     rf_resample = list()
++ 
++     #lists for saving predictions 
++     glm_predict = list() 
++     gam_predict = list() 
++     rf_predict = list()
++ 
++     #lists for saving predicted values on evaluation points 
++     glm_evaluation_predict = list() 
++     gam_evaluation_predict = list() 
++     rf_evaluation_predict = list()
++ 
++     #lists for saving evaluation of models 
++     glm_evaluation = list()
++     gam_evaluation = list()
++     rf_evaluation = list()
++ 
++     #list for save training data
++     training_data = list()
++     
++     #set the seed for reproducibility
++     set.seed(56756)
++ 
++     #For 12 times 
++     for (k in 1:12){
++ 
++         ######################################################
++         ######separate data for training and evaluation#######
++         ######################################################        
++         presences = data[data$presence==1,] #subset the presences of the final data
++         presences = presences[sample(1:nrow(presences), nrow(presences)),] #random sort of the presences for avoid that some aggregations of low or high precision occurrences could induce bias
++         pseudo_absences = data[data$presence==0,] #subset the psuedo-absences
++         pseudo_absences = pseudo_absences[sample(1:nrow(pseudo_absences), nrow(pseudo_absences)),] #random reorder of the pseudoabsences for following a similar approach than in occurrences. 
++         index_evaluating_presences = sample(1:nrow(presences), round((nrow(presences)*30)/100)) #create index for selecting randmoly the 30% of presences for evaluation
++         index_evaluating_absences = sample(1:nrow(pseudo_absences), round((nrow(pseudo_absences)*30)/100)) #create index for selecting randmoly the 70% of presences for training
++         evaluate_presen = presences[index_evaluating_presences, ] #subset presences for evaluation
++         evaluate_pseudo_absences = pseudo_absences[index_evaluating_absences,] #subset PAs for evaluation
++         train_presen = presences[-index_evaluating_presences, ]
++         train_pseudo_absences = pseudo_absences[-index_evaluating_absences,] #the same but wit the rest of ocurrences for obtaining the training data set. 
++         training = rbind(train_presen, train_pseudo_absences) #bind presences and PAs for training
++         evaluation = rbind(evaluate_presen, evaluate_pseudo_absences) #bind presences and PAs for evaluation
++ 
++         #calculate again the weight in training data
++         correct_PA_weight = sum(training[which(training$presence==1),]$precision_weight)/nrow(training[which(training$presence==0),])
++ 
++         #set the new weight
++         training[which(training$presence==0),]$precision_weight <- correct_PA_weight
++        
++         ###################################
++         ############Fit models ############
++         ###################################
++ 
++         ################################
++         #GENERALIZED LINEAR MODELS (GLM)
++         ################################
++         formula.regresion.poly = as.formula(paste("presence ~ poly(", paste(names(training)[-c(1:4)], collapse=", 2) + poly("), ", 2)", collapse=""))
++         glm_pseudo_absence<-glm(formula.regresion.poly, family=binomial(link=logit), weights=precision_weight, data=training) #usa presencia como variable respuesta y como predictores solo dos variable. La familia e sbinomial porque nuestros datos de presencia tienen 1 y 0, y la curva que voy a usar es logística (polínomo de primer grado). Scamos los datos de la tabla presencia.pseudoausencia.entrenamiento, que tiene todas las presencias menos las de evaluacion, y todas las pseudoausencias. "quasibinomial" family bacause of the presences are weighted by precision_weight, and thus there is numbers with decimals, not only 0 and 1. We will use polynomial the level 2 with the purpose that the response curve can differ from the lineality, but no more than 2, because we want a simple model. 
++ 
++         #make stepwise
++         glm_pseudo_absence = step(glm_pseudo_absence, direction="both", trace=0) #direction: the mode the mode of stepwise search, can be one of ‘"both"’, ‘"backward"’, or ‘"forward"’, with a default of ‘"both"’. 
++             #trace: if positive, information is printed during the running of ‘step’. Larger values may give more detailed information. 
++ 
++         #####################################
++         #MODELOS ADITIVOS GENERALIZADOS (GAM)
++         #####################################
++         formula.gam<-as.formula(paste("presence ~ s(", paste(names(training)[-c(1:4)], collapse=",4) + s("), ",4)", collapse="")) #cada varaible está envuelta en una funcion que suaviza (smooth), gam traaja sobre valore suavizados de las variables. Por eso es s(). 
++         if (is.element("package:mgcv", search())) detach("package:mgcv", force=TRUE) #make sure the mgcv package is not loaded to avoid conflicts with gam package.   
++         gam_pseudo_absence<-gam(formula.gam, family=binomial(link=logit), data=training, weights=precision_weight)
++ 
++         #make stepwise
++         #genereate a scope for step.gam
++         #Given a data.frame as an argument, generate a scope list for use in step.gam, each element of which gives the candidates for that term.
++         gam_scope = gam.scope(frame=training[,-c(1:3)], response=1, smoother="s", arg="df=4") #frame is the data: response variable and explicativa variables; response indicate the column of the response; smoother is the type of smooth that we use; arg: additional argument, like for example the freedom degree of smooth.
++ 
++         #In the case of luchuensis, no one model is included in the output, maybe the reason is that if there is only one variable and it is not significant. In other species with only one variable but significant like amamiana there is not problem. I have compared the final ensamble made with this code with the example made one year ago, the results are exactly equal.
++         if(species == "luchuensis"){
++             gam_pseudo_absence = gam_pseudo_absence
++         } else {
++             gam_pseudo_absence = step.Gam(gam_pseudo_absence, scope=gam_scope, direction="both", trace=0, data=training) #we include the list of terms in scope.             
++         }    
++         
++         ##############
++         #RANDOM FOREST
++         ##############
++ 
++         ###WEIGHT the random forest analysis###
++         ##Strata variable
++         #create a strata variable with diferent value for each precision_weight. This variables let us increase the probability of sample of data in relation to precision weight. Points with higher precision weight were more proably sampled than those with lower precision weight. We will give a letter to each point according to the precision weight (A = high precision presences; B = low precision presences; C = pseudoabsences).  
++         if(nrow(training[training$precision_weight==1,])>0){ #if there are points with high precision (we have to consider the posibility that some species don't have high precision points)
++             if(nrow(training[training$precision_weight==0.5,])>0){ #if there is low precision ocurrences
++ 
++                 training$strata = factor(NA, levels=c("A", "B", "C")) #create an empty factor 
++                 training[training$precision_weight==1,]$strata <- "A" #if precision_weight==1 strata is equal to "A"
++                 training[training$precision_weight==0.5,]$strata <- "B" #if precision_weight==0.5 strata is equal to "B"
++                 training[!(training$precision_weight==1 | training$precision_weight==0.5),]$strata <- "C" #if precision_weight is different of 1 and 0.5, strata is equal to "C"
++             } else { #if there is not low precision ocurrences
++                 training$strata = factor(NA, levels=c("A", "C")) #create an empty factor 
++                 training[training$precision_weight==1,]$strata <- "A" #if precision_weight==0.5 strata is equal to "B"
++                 training[!(training$precision_weight==1 | training$precision_weight==0.5),]$strata <- "C" #if precision_weight is different of 1 and 0.5, strata is equal to "C"
++             }
++         } else { #if there is not high precision points 
++             training$strata = factor(NA, levels=c("B", "C")) #create an empty factor 
++             training[training$precision_weight==0.5,]$strata <- "B" #if precision_weight==0.5 strata is equal to "B"
++             training[!(training$precision_weight==1 | training$precision_weight==0.5),]$strata <- "C" #if precision_weight is different of 1 and 0.5, strata is equal to "C"
++         }
++ 
++         #comprobation
++         #table(training[training$strata=="A",]$precision_weight)
++         #table(training[training$strata=="B",]$precision_weight)
++         #table(training[training$strata=="C",]$precision_weight)
++ 
++         #save the new factor as a vector 
++         strata_vector = training$strata 
++ 
++         #delete the factor from the data.frame         
++         training = training[,-which(names(training)=="strata")] 
++ 
++         ##N sample size
++         #create the N sample size
++         #this vector have the same length than unique(strata_vector), and indicate the number of rows that will be taken for each strata (category=high precision, low precision and PAs).
++         #we need that the probaiblity of a high precision point to be take is 1 (take all of them), the probability for a low precision point the half (take half of low precision points), and the probability for a PA probability of high + low divided by total number of PAs. If only high or low precision points exist, all of them are taken (high and low for each case) and the same number for PAs. The occurrence type with the highest precision is taken in a probability of 1, and the PAs are taken with a lower probaiblity (sum of occurrence weight/number PAs)
++  
++         if (nrow(training[training$precision_weight==1,])>0){ #if there are points with high precision (A higher than 0):
++             if(nrow(training[training$precision_weight==0.5,])>0){ #if there is low precision ocurrences
++ 
++                 #select all high precision points (probability  of a high precision point to be taken = 1)
++                 a = nrow(training[training$precision_weight==1,])
++ 
++                 #select half of low precision points (probability  of a high precision point to be taken = 0.5)
++                 b = nrow(training[training$precision_weight==0.5,])/2
++ 
++                 #select the same number of PAs than total occurrences selected (probability  of a PA to be taken = occurrence_weight/number total PAs)
++                 c = a + b 
++                 #c/nrow(training[which(training$presence==0),]) == unique(training[which(training$presence==0),]$precision_weight) #as internal checking, the number of PAs selected divided by the total number of PAs is equal to PA weight previously established for PA in training data set.  
++ 
++                 #bind all numbers in a unique vector of length equal to 3. 
++                 sampsize_vector = c("A"=as.vector(a), "B"=as.vector(b), "C"=as.vector(c)) 
++ 
++                 #Not rounded. Results are similar without rounding, rounding to floor or ceiling, so we use not rounded value to obtain exactly the same proportion than used in GLM and GAM (I have checked this for P. canariensis).
++ 
++             } else { #if there is not low precision ocurrences. We take all high precision points (P(A) = 1) and the same number of PAs (P = P(A)/nº PAs)
++                 
++                 #select all high precision points (probability  of a high precision point to be taken = 1)
++                 a = nrow(training[training$precision_weight==1,])
++ 
++                 #select the same number of PAs than high precision occurrences selected (probability  of a PA to be taken = high precision occurrence weight/total PAs)
++                 c = a 
++                 #c/nrow(training[which(training$presence==0),]) == unique(training[which(training$presence==0),]$precision_weight) #as internal checking, the number of PAs selected divided by the total number of PAs is equal to PA weight previously established for PA in training data set.
++ 
++                 sampsize_vector = c("A"=as.vector(a), "C"=as.vector(c)) #bind all numbers in a unique vector of length equal to 2 (there is no ocurrences with high precision, A=0)  
++             }
++         } else { #if not, it is to say, there is not high precision ocurrences (A=0), We take all low precision points (P(B) = 1) and the same number of PAs (P = P(B)/nº PAs)
++ 
++             #select all low precision points (probability  of a low precision point to be taken = 1)
++             b = nrow(training[training$precision_weight==0.5,])
++ 
++             #select the same number of PAs than low precision occurrences selected (probability of a PA point to be taken = low precision occurrence weight/total PAs)
++             c = b
++             #c/nrow(training[which(training$presence==0),]) == unique(training[which(training$presence==0),]$precision_weight) #as internal checking, the number of PAs selected divided by the total number of PAs is equal to PA weight previously established for PA in training data set.
++ 
++             sampsize_vector = c("B"=as.vector(b), "C"=as.vector(c)) #bind all numbers in a unique vector of length equal to 2 (there is no ocurrences with high precision, A=0)     
++         }
++ 
++         #write regresion formula
++         formula.regresion<-as.formula(paste("as.factor(presence) ~ ", paste(names(training)[-c(1:4)], collapse="+"), collapse=""))
++ 
++         #run the model
++         rf_pseudo_absence<-randomForest(formula.regresion, data=training, importance=TRUE, ntree=500, strata=strata_vector, sampsize=sampsize_vector) #It is a classification tree, we select this becasue our variable is a factor of two levels. See "http://www.simafore.com/blog/bid/62482/2-main-differences-between-classification-and-regression-trees" for further information. 
++ 
++         ###################################
++         ############Save training data ####
++         ###################################
++         #save training data and sample size used for stratified random forest
++         training_data[[k]]=list(sampsize_vector, training)
++         names(training_data[[k]]) <- c("sampsize_rf", "training_data")
++ 
++         ###################################
++         ############Save models ###########
++         ###################################
++         glm_resample[[k]] = glm_pseudo_absence
++         gam_resample[[k]] = gam_pseudo_absence
++         rf_resample[[k]] = rf_pseudo_absence
++ 
++         ###################################
++         ############Predictions############
++         ################################### 
++ 
++         glm_predict[[k]] = predict(variables_stack, glm_resample[[k]], type="response")
++         gam_predict[[k]] = predict(variables_stack, gam_resample[[k]], type="response")
++         rf_predict[[k]] = predict(variables_stack, rf_resample[[k]], type="response") #the prediction of rf is binary because we are using classification forest. therefore, we don't have to binarize the predictions of this model. 
++ 
++ 
++         ###################################
++         ############Evaluation ############
++         ################################### 
++ 
++         #extract presence probability on evaluation points
++         predict_glm = extract(glm_predict[[k]], evaluation[,c("longitude", "latitude")])
++         predict_gam = extract(gam_predict[[k]], evaluation[,c("longitude", "latitude")])
++         predict_rf = extract(rf_predict[[k]], evaluation[,c("longitude", "latitude")])
++ 
++ 
++         #bind predictions and cordinates of evaluation points
++         glm_evaluation_predict[[k]] = cbind(evaluation[,c("longitude", "latitude", "presence")], predict_glm)
++         gam_evaluation_predict[[k]] = cbind(evaluation[,c("longitude", "latitude", "presence")], predict_gam)
++         rf_evaluation_predict[[k]] = cbind(evaluation[,c("longitude", "latitude", "presence")], predict_rf)     
++ 
++         #make the evaluation
++         glm_evaluation[[k]] = evaluate(p=glm_evaluation_predict[[k]][glm_evaluation_predict[[k]]$presence==1, "predict_glm"], a=glm_evaluation_predict[[k]][glm_evaluation_predict[[k]]$presence==0, "predict_glm"])
++         gam_evaluation[[k]] = evaluate(p=gam_evaluation_predict[[k]][gam_evaluation_predict[[k]]$presence==1, "predict_gam"], a=gam_evaluation_predict[[k]][gam_evaluation_predict[[k]]$presence==0, "predict_gam"])
++         rf_evaluation[[k]] = evaluate(p=rf_evaluation_predict[[k]][rf_evaluation_predict[[k]]$presence==1, "predict_rf"], a=rf_evaluation_predict[[k]][rf_evaluation_predict[[k]]$presence==0, "predict_rf"])
++     }
++ 
++     #stack all continuous predictions 
++     continuous_predictions_glm= stack(glm_predict)
++     continuous_predictions_gam= stack(gam_predict)
++ 
++     #strack predictions of random forest (binary)
++     binary_predictions_rf = stack(rf_predict)   
++ 
++     #save the training data
++     save(training_data, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "training_data.rda", sep="_"), sep="/"))
++ 
++     #save models 
++     save(glm_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "glm_model.rda", sep="_"), sep="/"))
++     save(gam_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "gam_model.rda", sep="_"), sep="/"))
++     save(rf_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "rf_model.rda", sep="_"), sep="/"))  
++ 
++     #save the continuous predictions
++     writeRaster(continuous_predictions_glm, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_glm", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
++     writeRaster(continuous_predictions_gam, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_gam", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
++ 
++     #save the predictions of random forest (binary)
++     writeRaster(binary_predictions_rf, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions_rf", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
++ 
++     #save data for evaluation
++     save(glm_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation_data.rda", sep="_"), sep="/"))
++     save(gam_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation_data.rda", sep="_"), sep="/"))
++     save(rf_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation_data.rda", sep="_"), sep="/")) 
++ 
++     #save evaluations
++     save(glm_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation.rda", sep="_"), sep="/"))
++     save(gam_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation.rda", sep="_"), sep="/"))
++     save(rf_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation.rda", sep="_"), sep="/"))
++ 
++     #name of species
++     print(paste(species, "ended"))  
++ }
+> 
+> 
+> ########Paralelize the process######
+> require(foreach)
+Loading required package: foreach
+> require(doParallel) #for parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+> 
+> 
+> #load data about problem with weight of PAs
+> list_species = read.table("/Users/dsalazar/nicho_pinus/data/list_species.txt", sep="\t", header=TRUE)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     113 
+> 
+> # set up cluster
+> clust <- makeCluster(16) 
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+> registerDoParallel(clust)
+> 
+> #####################
+> ###PREPARING DATA####
+> #####################
+> #preparing data for non-problematic species
+> foreach(i = epithet_species_list, .packages=c("raster", "dismo")) %dopar% { 
++     prepar_data(species = i)
++ } 
+[[1]]
+[1] "albicaulis ended"
+
+[[2]]
+[1] "aristata ended"
+
+[[3]]
+[1] "amamiana ended"
+
+[[4]]
+[1] "arizonica ended"
+
+[[5]]
+[1] "armandii ended"
+
+[[6]]
+[1] "attenuata ended"
+
+[[7]]
+[1] "ayacahuite ended"
+
+[[8]]
+[1] "balfouriana ended"
+
+[[9]]
+[1] "banksiana ended"
+
+[[10]]
+[1] "bhutanica ended"
+
+[[11]]
+[1] "brutia ended"
+
+[[12]]
+[1] "bungeana ended"
+
+[[13]]
+[1] "canariensis ended"
+
+[[14]]
+[1] "caribaea ended"
+
+[[15]]
+[1] "cembra ended"
+
+[[16]]
+[1] "cembroides ended"
+
+[[17]]
+[1] "chiapensis ended"
+
+[[18]]
+[1] "clausa ended"
+
+[[19]]
+[1] "contorta ended"
+
+[[20]]
+[1] "cooperi ended"
+
+[[21]]
+[1] "coulteri ended"
+
+[[22]]
+[1] "cubensis ended"
+
+[[23]]
+[1] "culminicola ended"
+
+[[24]]
+[1] "dalatensis ended"
+
+[[25]]
+[1] "densata ended"
+
+[[26]]
+[1] "densiflora ended"
+
+[[27]]
+[1] "devoniana ended"
+
+[[28]]
+[1] "discolor ended"
+
+[[29]]
+[1] "douglasiana ended"
+
+[[30]]
+[1] "durangensis ended"
+
+[[31]]
+[1] "echinata ended"
+
+[[32]]
+[1] "edulis ended"
+
+[[33]]
+[1] "elliottii ended"
+
+[[34]]
+[1] "engelmannii ended"
+
+[[35]]
+[1] "fenzeliana ended"
+
+[[36]]
+[1] "flexilis ended"
+
+[[37]]
+[1] "fragilissima ended"
+
+[[38]]
+[1] "gerardiana ended"
+
+[[39]]
+[1] "glabra ended"
+
+[[40]]
+[1] "greggii ended"
+
+[[41]]
+[1] "halepensis ended"
+
+[[42]]
+[1] "hartwegii ended"
+
+[[43]]
+[1] "heldreichii ended"
+
+[[44]]
+[1] "herrerae ended"
+
+[[45]]
+[1] "hwangshanensis ended"
+
+[[46]]
+[1] "jeffreyi ended"
+
+[[47]]
+[1] "johannis ended"
+
+[[48]]
+[1] "juarezensis ended"
+
+[[49]]
+[1] "kesiya ended"
+
+[[50]]
+[1] "koraiensis ended"
+
+[[51]]
+[1] "krempfii ended"
+
+[[52]]
+[1] "kwangtungensis ended"
+
+[[53]]
+[1] "lambertiana ended"
+
+[[54]]
+[1] "latteri ended"
+
+[[55]]
+[1] "lawsonii ended"
+
+[[56]]
+[1] "leiophylla ended"
+
+[[57]]
+[1] "longaeva ended"
+
+[[58]]
+[1] "luchuensis ended"
+
+[[59]]
+[1] "lumholtzii ended"
+
+[[60]]
+[1] "maestrensis ended"
+
+[[61]]
+[1] "massoniana ended"
+
+[[62]]
+[1] "maximartinezii ended"
+
+[[63]]
+[1] "maximinoi ended"
+
+[[64]]
+[1] "merkusii ended"
+
+[[65]]
+[1] "monophylla ended"
+
+[[66]]
+[1] "montezumae ended"
+
+[[67]]
+[1] "monticola ended"
+
+[[68]]
+[1] "morrisonicola ended"
+
+[[69]]
+[1] "mugo ended"
+
+[[70]]
+[1] "muricata ended"
+
+[[71]]
+[1] "nelsonii ended"
+
+[[72]]
+[1] "nigra ended"
+
+[[73]]
+[1] "occidentalis ended"
+
+[[74]]
+[1] "oocarpa ended"
+
+[[75]]
+[1] "palustris ended"
+
+[[76]]
+[1] "parviflora ended"
+
+[[77]]
+[1] "patula ended"
+
+[[78]]
+[1] "peuce ended"
+
+[[79]]
+[1] "pinaster ended"
+
+[[80]]
+[1] "pinceana ended"
+
+[[81]]
+[1] "pinea ended"
+
+[[82]]
+[1] "ponderosa ended"
+
+[[83]]
+[1] "praetermissa ended"
+
+[[84]]
+[1] "pringlei ended"
+
+[[85]]
+[1] "pseudostrobus ended"
+
+[[86]]
+[1] "pumila ended"
+
+[[87]]
+[1] "pungens ended"
+
+[[88]]
+[1] "quadrifolia ended"
+
+[[89]]
+[1] "radiata ended"
+
+[[90]]
+[1] "remota ended"
+
+[[91]]
+[1] "resinosa ended"
+
+[[92]]
+[1] "rigida ended"
+
+[[93]]
+[1] "roxburghii ended"
+
+[[94]]
+[1] "rzedowskii ended"
+
+[[95]]
+[1] "sabiniana ended"
+
+[[96]]
+[1] "serotina ended"
+
+[[97]]
+[1] "sibirica ended"
+
+[[98]]
+[1] "squamata ended"
+
+[[99]]
+[1] "strobiformis ended"
+
+[[100]]
+[1] "strobus ended"
+
+[[101]]
+[1] "sylvestris ended"
+
+[[102]]
+[1] "tabuliformis ended"
+
+[[103]]
+[1] "taeda ended"
+
+[[104]]
+[1] "taiwanensis ended"
+
+[[105]]
+[1] "teocote ended"
+
+[[106]]
+[1] "thunbergii ended"
+
+[[107]]
+[1] "torreyana ended"
+
+[[108]]
+[1] "tropicalis ended"
+
+[[109]]
+[1] "virginiana ended"
+
+[[110]]
+[1] "wallichiana ended"
+
+[[111]]
+[1] "washoensis ended"
+
+[[112]]
+[1] "yecorensis ended"
+
+[[113]]
+[1] "yunnanensis ended"
+
+> 
+> 
+> ###########################
+> ###FITTING & EVALUATION####
+> ###########################
+> #fitting and evaluation for non-problematic species
+> foreach(i = epithet_species_list, .packages=c("raster", "dismo", "gam", "randomForest")) %dopar% { 
++     fit_eval_models(species = i)
++ } 
+[[1]]
+[1] "albicaulis ended"
+
+[[2]]
+[1] "aristata ended"
+
+[[3]]
+[1] "amamiana ended"
+
+[[4]]
+[1] "arizonica ended"
+
+[[5]]
+[1] "armandii ended"
+
+[[6]]
+[1] "attenuata ended"
+
+[[7]]
+[1] "ayacahuite ended"
+
+[[8]]
+[1] "balfouriana ended"
+
+[[9]]
+[1] "banksiana ended"
+
+[[10]]
+[1] "bhutanica ended"
+
+[[11]]
+[1] "brutia ended"
+
+[[12]]
+[1] "bungeana ended"
+
+[[13]]
+[1] "canariensis ended"
+
+[[14]]
+[1] "caribaea ended"
+
+[[15]]
+[1] "cembra ended"
+
+[[16]]
+[1] "cembroides ended"
+
+[[17]]
+[1] "chiapensis ended"
+
+[[18]]
+[1] "clausa ended"
+
+[[19]]
+[1] "contorta ended"
+
+[[20]]
+[1] "cooperi ended"
+
+[[21]]
+[1] "coulteri ended"
+
+[[22]]
+[1] "cubensis ended"
+
+[[23]]
+[1] "culminicola ended"
+
+[[24]]
+[1] "dalatensis ended"
+
+[[25]]
+[1] "densata ended"
+
+[[26]]
+[1] "densiflora ended"
+
+[[27]]
+[1] "devoniana ended"
+
+[[28]]
+[1] "discolor ended"
+
+[[29]]
+[1] "douglasiana ended"
+
+[[30]]
+[1] "durangensis ended"
+
+[[31]]
+[1] "echinata ended"
+
+[[32]]
+[1] "edulis ended"
+
+[[33]]
+[1] "elliottii ended"
+
+[[34]]
+[1] "engelmannii ended"
+
+[[35]]
+[1] "fenzeliana ended"
+
+[[36]]
+[1] "flexilis ended"
+
+[[37]]
+[1] "fragilissima ended"
+
+[[38]]
+[1] "gerardiana ended"
+
+[[39]]
+[1] "glabra ended"
+
+[[40]]
+[1] "greggii ended"
+
+[[41]]
+[1] "halepensis ended"
+
+[[42]]
+[1] "hartwegii ended"
+
+[[43]]
+[1] "heldreichii ended"
+
+[[44]]
+[1] "herrerae ended"
+
+[[45]]
+[1] "hwangshanensis ended"
+
+[[46]]
+[1] "jeffreyi ended"
+
+[[47]]
+[1] "johannis ended"
+
+[[48]]
+[1] "juarezensis ended"
+
+[[49]]
+[1] "kesiya ended"
+
+[[50]]
+[1] "koraiensis ended"
+
+[[51]]
+[1] "krempfii ended"
+
+[[52]]
+[1] "kwangtungensis ended"
+
+[[53]]
+[1] "lambertiana ended"
+
+[[54]]
+[1] "latteri ended"
+
+[[55]]
+[1] "lawsonii ended"
+
+[[56]]
+[1] "leiophylla ended"
+
+[[57]]
+[1] "longaeva ended"
+
+[[58]]
+[1] "luchuensis ended"
+
+[[59]]
+[1] "lumholtzii ended"
+
+[[60]]
+[1] "maestrensis ended"
+
+[[61]]
+[1] "massoniana ended"
+
+[[62]]
+[1] "maximartinezii ended"
+
+[[63]]
+[1] "maximinoi ended"
+
+[[64]]
+[1] "merkusii ended"
+
+[[65]]
+[1] "monophylla ended"
+
+[[66]]
+[1] "montezumae ended"
+
+[[67]]
+[1] "monticola ended"
+
+[[68]]
+[1] "morrisonicola ended"
+
+[[69]]
+[1] "mugo ended"
+
+[[70]]
+[1] "muricata ended"
+
+[[71]]
+[1] "nelsonii ended"
+
+[[72]]
+[1] "nigra ended"
+
+[[73]]
+[1] "occidentalis ended"
+
+[[74]]
+[1] "oocarpa ended"
+
+[[75]]
+[1] "palustris ended"
+
+[[76]]
+[1] "parviflora ended"
+
+[[77]]
+[1] "patula ended"
+
+[[78]]
+[1] "peuce ended"
+
+[[79]]
+[1] "pinaster ended"
+
+[[80]]
+[1] "pinceana ended"
+
+[[81]]
+[1] "pinea ended"
+
+[[82]]
+[1] "ponderosa ended"
+
+[[83]]
+[1] "praetermissa ended"
+
+[[84]]
+[1] "pringlei ended"
+
+[[85]]
+[1] "pseudostrobus ended"
+
+[[86]]
+[1] "pumila ended"
+
+[[87]]
+[1] "pungens ended"
+
+[[88]]
+[1] "quadrifolia ended"
+
+[[89]]
+[1] "radiata ended"
+
+[[90]]
+[1] "remota ended"
+
+[[91]]
+[1] "resinosa ended"
+
+[[92]]
+[1] "rigida ended"
+
+[[93]]
+[1] "roxburghii ended"
+
+[[94]]
+[1] "rzedowskii ended"
+
+[[95]]
+[1] "sabiniana ended"
+
+[[96]]
+[1] "serotina ended"
+
+[[97]]
+[1] "sibirica ended"
+
+[[98]]
+[1] "squamata ended"
+
+[[99]]
+[1] "strobiformis ended"
+
+[[100]]
+[1] "strobus ended"
+
+[[101]]
+[1] "sylvestris ended"
+
+[[102]]
+[1] "tabuliformis ended"
+
+[[103]]
+[1] "taeda ended"
+
+[[104]]
+[1] "taiwanensis ended"
+
+[[105]]
+[1] "teocote ended"
+
+[[106]]
+[1] "thunbergii ended"
+
+[[107]]
+[1] "torreyana ended"
+
+[[108]]
+[1] "tropicalis ended"
+
+[[109]]
+[1] "virginiana ended"
+
+[[110]]
+[1] "wallichiana ended"
+
+[[111]]
+[1] "washoensis ended"
+
+[[112]]
+[1] "yecorensis ended"
+
+[[113]]
+[1] "yunnanensis ended"
+
+> 
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> proc.time()
+    user   system  elapsed 
+   1.082    0.117 4132.159 

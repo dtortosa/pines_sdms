@@ -1,0 +1,75 @@
+-Mediterraneos
+    -Nigra, mugo y cembra. Son tres especies y supone un incremento importante del area a la que se puede migrar. 
+    -Nigra y mugo tienen parientes cercanos de zonas más fricas como resinosa y sylvestris
+    -Lo mismo para cembra, que tiene a sibirica y pumila
+    -Por el contrario a halepensis, pinea, y pinaster no le sirve, su estdo ancestral es cais igual o un poco más calido (menos variabilida dde temperatura)...
+    -Datos BIO4
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_cembra    15    7421.956299    132    11594.04649    11591.74477    11596.3482
+        Pinus_mugo    68    7164.511719    220    8368.606827    8364.891547    8372.322106
+        Pinus_nigra    71    7044.161133    222    8789.455471    8786.056172    8792.854771    
+
+
+-Siberianos:  
+    -Sylvestrs, pumila, sibirica. Son tres especies, pero no afecta mucho a la migracion. Casi todo el avance lo predicen los SDMs y no termino de tener claro a que se debe ese incremento porque no tienen especies empearantadas más frias. Parece que es poruque tienen nicho ancestral mas humedo? Es posible que ahí bio17 esté actuando como proxy de otras cosa (capacidad de crecer en ambientes humedos, compitiendo bien.. etc?)
+    -Datos BIO4
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_pumila    85    17404.98242    131    11804.32349    11801.98366    11806.66332
+        Pinus_sibirica    96    14669.88477    132    11594.04649    11591.74477    11596.3482
+        Pinus_sylvestris    100    12721.47266    221    10481.98241    10478.73061    10485.23422
+    -Datos BIO17:
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_pumila    85    -349.2542419    131    -347.9501284    -350.2899619    -345.6102949
+        Pinus_sibirica    96    -375.4985657    132    -345.5062346    -347.8079493    -343.2045199
+        Pinus_sylvestris    100    -375.7055664    221    -330.1131178    -333.3649211    -326.8613144    
+
+-Himalayan Range:
+    -Wallichiana, gerardiana, squamata, kesiya, tabuliformis, yunnanensis. Son más de tres especies supone incremento importante en al posibilidad de migracion.
+    -Wallichicina tiene parientes de zonas más frias como sibirica y pumila.
+    -Squatama tiene parientes de zonas más fricas
+    -Gerariana no tiene parientes de zonas mas frias, pero tampoco le afecta mucho la correccion en comparacion con las otras
+    -Kesiya tiene parientes de zonas más frias  
+    -yunnanensis tiene parientes de zonas más frias  
+    -tabuliformis no tiene parientes de zonas mas frias, pero la correccion casi no le afecta en comparacion con las otras especies.
+    -Datos BIO4:
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_gerardiana    37    8656.027344    139    8227.989865    8223.814772    8232.164959
+        Pinus_kesiya    48    3513.941406    213    5199.656033    5197.383579    5201.928488
+        Pinus_squamata    97    5399.385254    138    7390.571287    7385.823323    7395.319252
+        Pinus_tabuliformis    101    10166.86914    214    7071.186079    7068.388501    7073.983656
+        Pinus_wallichiana    109    6442.569092    129    8800.645347    8798.358287    8802.932407
+        Pinus_yunnanensis    112    4773.894287    214    7071.186079    7068.388501    7073.983656
+    -Datos BIO17:
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_gerardiana    37    -547.8110046    139    -454.4084707    -458.5835642    -450.2333771
+        Pinus_kesiya    48    -466.5263672    213    -354.0998672    -356.3723216    -351.8274128
+        Pinus_squamata    97    -314.4265442    138    -429.5995866    -434.3475511    -424.851622
+        Pinus_tabuliformis    101    -435.2774963    214    -375.2342345    -378.0318123    -372.4366566
+        Pinus_wallichiana    109    -425.4500885    129    -360.2918471    -362.5789072    -358.004787
+        Pinus_yunnanensis    112    -350.4442139    214    -375.2342345    -378.0318123    -372.4366566   
+
+-florida - caribe
+    -Clausa, virginiana, elliottii, equinata, glabra, palustris, serotina, taeda. Son mas de tres especies y supone cambios muy importantes. 
+    -Clausa y virginiana tienene parietne de zonas más secas (contorta)
+    -elliottii, equinata, palustris tienene parietne de zonas más secas (occidentailis, pringlei y herrerae)
+    -serotina y taeda tienene parietne de zonas más secas (greggii y leiophylla)
+    -glabra tienene parietne de zonas más secas (attenuata)
+    -Datos BIO17:
+        species    node_species    current_value    node_antecesor    ace    ace_low_bound    ace_upper_bound
+        Pinus_attenuata    6    -718.3897095    175    -566.4877509    -569.9065137    -563.0689881
+        Pinus_clausa    18    -350.121582    199    -390.0638475    -393.8946337    -386.2330614
+        Pinus_contorta    19    -434.4884338    199    -390.0638475    -393.8946337    -386.2330614
+        Pinus_echinata    30    -337.4593201    190    -425.3568921    -427.7975753    -422.9162088
+        Pinus_elliottii    32    -339.7545471    188    -448.6271708    -451.0753885    -446.1789532
+        Pinus_glabra    38    -336.3667145    175    -566.4877509    -569.9065137    -563.0689881
+        Pinus_greggii    39    -497.3121033    193    -513.638485    -516.5123844    -510.7645856
+        Pinus_herrerae    43    -590.4524536    191    -524.0647483    -526.8486524    -521.2808441
+        Pinus_leiophylla    55    -597.6449585    193    -513.638485    -516.5123844    -510.7645856
+        Pinus_occidentalis    72    -429.6142578    190    -425.3568921    -427.7975753    -422.9162088
+        Pinus_palustris    74    -338.0273895    179    -479.8630072    -481.9138022    -477.8122121
+        Pinus_pringlei    83    -546.038269    189    -447.4232156    -449.8347705    -445.0116607
+        Pinus_pungens    86    -309.6353455    196    -328.0282025    -330.1479294    -325.9084755
+        Pinus_rigida    91    -316.2140961    196    -328.0282025    -330.1479294    -325.9084755
+        Pinus_serotina    95    -332.515625    194    -415.1085698    -417.7092874    -412.5078522
+        Pinus_taeda    102    -343.8596344    195    -413.1968491    -415.8174105    -410.5762877
+        Pinus_virginiana    108    -323.1138611    198    -385.3970727    -390.1953468    -380.5987986

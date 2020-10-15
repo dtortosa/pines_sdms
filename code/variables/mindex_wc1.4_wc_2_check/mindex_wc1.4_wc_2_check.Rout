@@ -1,0 +1,524 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> ######## Code for checking that mindez of w2 is similar to mindex of wc1.4
+> #I have only one thing for which I'm little worried, and I would like to comment to you: For calculating current bioclimatic variables in the niche paper, I used temperature variables from wc 1.4 and a moisture index calculated with wc2. I calculated the moisture index for future CC scenarios, but for current climate I used the index you calculated, which I think was calculates with wc2. I did not realize that when I was doing the analyses. As I mention before, in all cases units seems to be ok (check done with chelsa), but I don't know if other issues could raise from calculating bioclimatic variables with data from different versions.
+> 
+> #The future bioclimatic variables are calculated with wc1.4, but the current variables were calculated with temperature from wc1.4 and m.index from wc2.0. The SDMs were fitted with this mixed data wc1.4/wc.2. Therefore, suitability projections would be affected by any potential problem. As I mentioned before, the units are ok, so any potential problem related to different units between WC versions is unlikely. In addition, I forget an important detail, in any case we will always have to use part of wc2.0 because solar radiation is not included in wc.1.4. Therefore, the moisture index under future conditions is not full wc1.4 neither, because solar radiation used for the moisture index came from wc2.0. I guess I did not move to wc2.0 because that version doesn't include future projections yet. 
+> 
+> 
+> ######################################################
+> #####Creating tavg for all climatics scenarios########
+> ######################################################
+> 
+> #library
+> require(raster)
+Loading required package: raster
+Loading required package: sp
+> 
+> #unzip the monthly tmax and tmin from wc.14 (5 min resolution)
+> system("unzip /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil.zip -d /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/")
+Archive:  /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil.zip
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax1.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax1.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax10.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax10.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax11.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax11.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax12.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax12.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax2.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax2.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax3.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax3.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax4.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax4.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax5.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax5.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax6.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax6.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax7.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax7.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax8.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax8.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax9.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax9.hdr  
+> system("unzip /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil.zip -d /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/")
+Archive:  /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil.zip
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin1.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin1.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin10.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin10.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin11.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin11.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin12.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin12.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin2.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin2.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin3.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin3.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin4.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin4.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin5.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin5.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin6.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin6.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin7.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin7.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin8.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin8.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin9.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin9.hdr  
+> 
+> #create a directory to save average temperature
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tavg_5m_bil; mkdir /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tavg_5m_bil")
+> 
+> #loop to calculate average temperature for each month 
+> for (i in 1:12){
++ 
++     #load tmax and tmin of the [i] month
++     tmax = raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil/tmax", i, ".bil", sep=""))
++     tmin = raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil/tmin", i, ".bil", sep=""))
++ 
++     #calculate average temperature of the [i] month
++     tavg = overlay(tmin, tmax, fun  = function(x) sum(x)/2)
++ 
++     #save it
++     writeRaster(tavg, paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tavg_5m_bil/tavg", i, ".tif", sep=""), overwrite=TRUE)
++ }
+> 
+> #remove folders with tmin and tmax. We only leave the zip files
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmax_5m_bil")
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tmin_5m_bil")
+> 
+> ######################################################
+> #####Crop solar radiation to tavg ####################
+> ######################################################
+> #Data of solar radiation have antarctica, but we are not interested in this area, so we are going to drop it. 
+> 
+> #unzip solar radiation data from wc2 (5 min resolution)
+> system("unzip /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad.zip -d /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/")
+Archive:  /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad.zip
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_01.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_02.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_03.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_04.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_05.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_06.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_07.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_08.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_09.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_10.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_11.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/wc2.0_5m_srad_12.tif  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad/readme.txt  
+> 
+> #list all raster of solar radiation from wc2
+> list_solar = list.files("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad", pattern=".tif", full.name=TRUE)
+> length(list_solar) == 12
+[1] TRUE
+> 
+> #stack all of them
+> solar_radiation = stack(list_solar)
+> nlayers(solar_radiation) == 12
+[1] TRUE
+> names(solar_radiation)
+ [1] "wc2.0_5m_srad_01" "wc2.0_5m_srad_02" "wc2.0_5m_srad_03" "wc2.0_5m_srad_04"
+ [5] "wc2.0_5m_srad_05" "wc2.0_5m_srad_06" "wc2.0_5m_srad_07" "wc2.0_5m_srad_08"
+ [9] "wc2.0_5m_srad_09" "wc2.0_5m_srad_10" "wc2.0_5m_srad_11" "wc2.0_5m_srad_12"
+> 
+> #load one raster ot tavg (randomly selected)
+> one_raster_temperature = raster("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tavg_5m_bil/tavg1.tif")
+> 
+> #crop all solar radiation raster with tavg
+> solar_radiation_crop = crop(solar_radiation, one_raster_temperature)
+> 
+> #create a new directory
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad_cropped/; mkdir /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad_cropped")
+> 
+> #write the stack
+> writeRaster(solar_radiation_crop, filename="/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad_cropped/wc2.0_5m_srad_cropped", overwrite=TRUE, bylayer=TRUE, suffix='numbers', format="GTiff")
+> 
+> #remove the first directory of solar radiation
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad")
+> 
+> ###########################################################
+> #####Create etpt and mind  in ONE step ####################
+> ###########################################################
+> 
+> #library
+> require(foreach) #for repeat a process several times 
+Loading required package: foreach
+> require(doParallel) #for parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+> 
+> #unzip pp data from wc1.4 (5 min res)
+> system("unzip /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil.zip -d /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/")
+Archive:  /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil.zip
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec1.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec1.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec10.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec10.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec11.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec11.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec12.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec12.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec2.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec2.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec3.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec3.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec4.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec4.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec5.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec5.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec6.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec6.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec7.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec7.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec8.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec8.hdr  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec9.bil  
+  inflating: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec9.hdr  
+> 
+> #create a directory for saving etpt and mindex data
+> system("mkdir /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/mindex_5m_bil")
+mkdir: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/mindex_5m_bil: File exists
+> system("mkdir /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/etpt_5m_bil")
+mkdir: /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/etpt_5m_bil: File exists
+> 
+> #create variables of months and scenarios
+> month <- formatC(1:12) #12 months
+> 
+> #load the function to calculate evapotranspiration vectorized 
+> overfun <- Vectorize(function(x, y, z) {
++     ifelse(z < 0, 0, (x / (x + 15)) * ((0.0239001 * y) + 50.0) * (4.0 / 30.0))
++ }) #selected from Rafi (see "/Users/diegosalazar/Google Drive/academico/tesis/nicho_pinus/datos/climate/moisture/wc2.1_5m_etpt/etpt.r") 
+> 
+> #load a function to calculate the number of days of a month (variable according to leap years or not). Number of days will be used in the calculation of moisture index
+> days.in.month <- function(month, year = NULL){
++     month = as.integer(month)
++     if (is.null(year))
++         year = as.numeric(format(Sys.Date(), '%Y'))
++         dt = as.Date(paste(year, month, '01', sep = '-'))
++         dates = seq(dt, by = 'month', length = 2)
++         as.numeric(difftime(dates[2], dates[1], units = 'days'))
++ } # from: http://stackoverflow.com/questions/6243088/find-out-the-number-of-days-of-a-month-in-r
+> 
+> #load the function to create all: evapotranspiration and moisture index. 
+> fefun <- function(month){
++ 
++     #load tavg for the corresponding scenario and month
++     ta <- raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/tavg_5m_bil/tavg", month, ".tif", sep="")) #it has been calculated previously as the mean of tmin and tmax
++     
++     #load solar radiation for the correspoinding month
++     sr <- raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.0_5m_srad_cropped/wc2.0_5m_srad_cropped_", month, ".tif", sep="")) #we assume that the radiation will be the same in 2070
++     
++     #calculate etpt with overfun function
++     etpt <- overlay(ta, sr, ta, fun = overfun)
++ 
++     #load precipitation 
++     prec <- raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil/prec", month, ".bil", sep=""))
++     
++     #calculate the number of the days of the corresponding month
++     days <- days.in.month(month, year = 1990)
++     
++     #calculate moisture index
++     mind <- prec - etpt / 10 * days
++ 
++     ##export
++     writeRaster(mind, filename = paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/mindex_5m_bil/mindex_5m_bil", month, ".tif", sep=""), overwrite=TRUE)
++     writeRaster(etpt, filename = paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/etpt_5m_bil/etpt_5m_bil", month, ".tif", sep=""), overwrite=TRUE)
++ 
++     #delete all data for saving memory
++     rm(ta, sr, etpt, prec, mind)
++     gc()    
++ }
+> 
+> # set up cluster
+> clust <- makeCluster(2)
+> registerDoParallel(clust)
+> 
+> # run
+> foreach(i = month, .packages = c("raster")) %dopar% { 
++     fefun(month = i)
++ } #the "stringr" package is used for "str_split_fixed" function
+[[1]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1126728 60.2    3205452 171.2  3205452 171.2
+Vcells 1446782 11.1   58675320 447.7 88669719 676.5
+
+[[2]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1126793 60.2    3205452 171.2  3205452 171.2
+Vcells 1446831 11.1   58675320 447.7 88820411 677.7
+
+[[3]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127038 60.2    3886542 207.6  3886542 207.6
+Vcells 1447897 11.1   62159265 474.3 96737786 738.1
+
+[[4]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127010 60.2    3886542 207.6  3886542 207.6
+Vcells 1447873 11.1   62159267 474.3 97078907 740.7
+
+[[5]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127039 60.2    3763080 201.0  4703850 251.3
+Vcells 1447898 11.1   62159267 474.3 96737786 738.1
+
+[[6]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127039 60.2    3763080 201.0  4703850 251.3
+Vcells 1447898 11.1   62159267 474.3 97078907 740.7
+
+[[7]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127010 60.2    3644556 194.7  4703850 251.3
+Vcells 1447873 11.1   62159267 474.3 96998054 740.1
+
+[[8]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127010 60.2    3644556 194.7  4703850 251.3
+Vcells 1447873 11.1   62159267 474.3 97078907 740.7
+
+[[9]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127010 60.2    3530773 188.6  4703850 251.3
+Vcells 1447873 11.1   62159267 474.3 96998054 740.1
+
+[[10]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127039 60.2    3530773 188.6  4703850 251.3
+Vcells 1447898 11.1   62159267 474.3 97078907 740.7
+
+[[11]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127009 60.2    3530773 188.6  4703850 251.3
+Vcells 1447872 11.1   62159265 474.3 97078907 740.7
+
+[[12]]
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1127039 60.2    3530773 188.6  4703850 251.3
+Vcells 1447898 11.1   62159267 474.3 96998054 740.1
+
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> #remove directory of precipitation, we only leave the zip file
+> system("rm -rf /Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/prec_5m_bil")
+> 
+> 
+> ####comparison mindex wc1.4 and wc2
+> 
+> ###load mindex calculated by Rafi (wc2). Extracted from "/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/climate.zip" with "extract_rafi_etpt_script_from_climate_zip.sh"
+> mindex_wc2 = stack("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/wc2.1_5m_mind/mind.grd")
+> nlayers(mindex_wc2) == 12
+[1] TRUE
+> names(mindex_wc2)
+ [1] "month_1"  "month_2"  "month_3"  "month_4"  "month_5"  "month_6" 
+ [7] "month_7"  "month_8"  "month_9"  "month_10" "month_11" "month_12"
+> 
+> ###load mindex wc1.4
+> list_rasters_mindex_wc14 = list.files("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/mindex_5m_bil", full.names = TRUE)
+> mindex_wc14 = stack(list_rasters_mindex_wc14)
+> nlayers(mindex_wc14) == 12
+[1] TRUE
+> names(mindex_wc14) #month names are not in order
+ [1] "mindex_5m_bil1"  "mindex_5m_bil10" "mindex_5m_bil11" "mindex_5m_bil12"
+ [5] "mindex_5m_bil2"  "mindex_5m_bil3"  "mindex_5m_bil4"  "mindex_5m_bil5" 
+ [9] "mindex_5m_bil6"  "mindex_5m_bil7"  "mindex_5m_bil8"  "mindex_5m_bil9" 
+> 
+> #remove antarctica from wc2
+> mindex_wc2_crop = crop(mindex_wc2, mindex_wc14)
+> 
+> ###for each month plot the moisture index from different sources
+> pdf("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/variables/mindex_wc1.4_wc_2_check/comparsion_wc1.4_wc2_chelsa.pdf")
+> for(i in 1:12){
++ 
++     #select the month [i]
++     selected_month = month.name[i]
++ 
++     #print the selected month
++     print(selected_month)
++ 
++     #select the raster of mindex of wc 1.4
++     selected_mindex_wc1.4 = raster(paste("/Volumes/Maxtor/diego/science_big_documents/pines_niche/climate/mindex_wc1.4_wc_2_check/mindex_5m_bil/mindex_5m_bil", i, ".tif", sep=""))
++ 
++     #select the raster of mindex of wc 2
++     selected_mindex_wc2 = mindex_wc2_crop[[i]]
++ 
++     #select the raster of mindex of chelsa
++     if(i %in% 1:9){
++         selected_mindex_chelsa = raster(paste("/Volumes/Maxtor/diego/science_big_documents/seed_mass_aridity/really_final_variables/mind_chelsa/unzipped_10x10km/10x10km_CHELSA_mind_0", i, "_V1.2_land.tif", sep=""))
++     }else{
++         selected_mindex_chelsa = raster(paste("/Volumes/Maxtor/diego/science_big_documents/seed_mass_aridity/really_final_variables/mind_chelsa/unzipped_10x10km/10x10km_CHELSA_mind_", i, "_V1.2_land.tif", sep=""))      
++     }
++ 
++     #Get values of cells without NAs for WC versions
++     values_mindex_wc1.4 = getValues(selected_mindex_wc1.4)
++     values_mindex_wc2 = getValues(selected_mindex_wc2)
++ 
++     #extract min and max values of cells in moisture index of wc1.4 and wc2
++     max_values_mindex_wc1.4 = max(na.omit(values_mindex_wc1.4))
++     max_values_mindex_wc2 = max(na.omit(values_mindex_wc2))
++     min_values_mindex_wc1.4 = min(na.omit(values_mindex_wc1.4))
++     min_values_mindex_wc2 = min(na.omit(values_mindex_wc2))
++ 
++     #print the differences in min and max values between wc versions
++     max_vals_differs = abs(max_values_mindex_wc1.4 - max_values_mindex_wc2)
++     min_vals_differs = abs(min_values_mindex_wc1.4 - min_values_mindex_wc2)
++     print(paste("Difference in max values ", round(max_vals_differs, 2), sep=""))
++     print(paste("Difference in min values ", round(min_vals_differs, 2), sep=""))
++ 
++     #indicate if we need to change any of the version for the min and max values
++     max_min_index = NULL
++     version_index = NULL
++     if(max_vals_differs > 400){#if the differences between max values are higher than 400
++ 
++         #the maximum value is the target
++         max_min_index = "max"
++ 
++         #if the maximum value of wc1.4 is higher
++         if(max_values_mindex_wc1.4 > max_values_mindex_wc2){
++ 
++             #wc 1.4 is the target
++             version_index = "mindex_wc1.4"
++         } else {
++ 
++             #if not, then the target is wc 2
++             version_index = "mindex_wc2"
++         }
++     } else{
++ 
++         #if not, and the min values differ in 400 units
++         if(min_vals_differs > 400){
++ 
++             #the target is the minimum value 
++             max_min_index = "min"
++ 
++             #if the minimun value of wc1.4 is higher
++             if(min_values_mindex_wc1.4 > min_values_mindex_wc2){
++ 
++                 #wc 1.4 is the target
++                 version_index = "mindex_wc1.4"
++             } else {
++                 
++                 #if not, then the target is wc 2                
++                 version_index = "mindex_wc2"
++             }
++         } else {
++ 
++             #if min nor max values showed differences
++             version_index = "none"
++         }          
++     }
++ 
++     #version_index is not none, hence min or max values differ
++     if(version_index != "none"){
++ 
++         #copy the target raster (the version that we have to change)
++         raster_to_rerange = eval(parse(text=paste("selected_", version_index, sep="")))
++ 
++         #get the values of the target raster
++         values_raster_to_rerange = getValues(raster_to_rerange)
++ 
++         #if the max value is only included in ONE cell
++         if(length(which(values_raster_to_rerange == max(na.omit(values_raster_to_rerange)))) == 1){
++ 
++             #remove the value of that cell
++             raster_to_rerange[which(values_raster_to_rerange == max(na.omit(values_raster_to_rerange)))] <- NA
++         }
++     }
++ 
++     #plot the maps
++     #if we changed mindex_wc1.4
++     if(version_index == "mindex_wc1.4"){
++ 
++         #plot mindex_wc1.4 as the reranged map and mindex_wc2 normal 
++         par(mfcol=c(3,1), mar=c(1, 4, 4, 2) + 0.1)
++         plot(raster_to_rerange, main=paste("WorldClim 1.4 ", selected_month, sep=""))   
++         plot(selected_mindex_wc2, main=paste("WorldClim 2 ", selected_month, sep=""))
++     } else {
++ 
++         #if not and we changed selected_mindex_wc2
++         if(version_index == "mindex_wc2"){
++ 
++             #plot mindex_wc2 as the reranged map and mindex_wc1.4 normal 
++             par(mfcol=c(3,1), mar=c(1, 4, 4, 2) + 0.1)
++             plot(selected_mindex_wc1.4, main=paste("WorldClim 1.4 ", selected_month, sep=""))   
++             plot(raster_to_rerange, main=paste("WorldClim 2 ", selected_month, sep=""))
++         } else {
++ 
++             #if no version was reranged, plot them without changes
++             par(mfcol=c(3,1), mar=c(1, 4, 4, 2) + 0.1)            
++             plot(selected_mindex_wc1.4, main=paste("WorldClim 1.4 ", selected_month, sep=""))              
++             plot(selected_mindex_wc2, main=paste("WorldClim 2 ", selected_month, sep=""))            
++         }   
++     }
++ 
++     #plot the chelsa version
++     plot(selected_mindex_chelsa, main=paste("Chelsa ", selected_month, sep=""))
++ }
+[1] "January"
+[1] "Difference in max values 76.64"
+[1] "Difference in min values 89.01"
+[1] "February"
+[1] "Difference in max values 251.37"
+[1] "Difference in min values 87.2"
+[1] "March"
+[1] "Difference in max values 74.93"
+[1] "Difference in min values 74.37"
+[1] "April"
+[1] "Difference in max values 203.5"
+[1] "Difference in min values 75.08"
+[1] "May"
+[1] "Difference in max values 1130.37"
+[1] "Difference in min values 78.56"
+[1] "June"
+[1] "Difference in max values 174.19"
+[1] "Difference in min values 80.48"
+[1] "July"
+[1] "Difference in max values 443.6"
+[1] "Difference in min values 79.94"
+[1] "August"
+[1] "Difference in max values 432.17"
+[1] "Difference in min values 74.74"
+[1] "September"
+[1] "Difference in max values 961.65"
+[1] "Difference in min values 67.52"
+[1] "October"
+[1] "Difference in max values 1310.57"
+[1] "Difference in min values 83.61"
+[1] "November"
+[1] "Difference in max values 135.6"
+[1] "Difference in min values 84.21"
+[1] "December"
+[1] "Difference in max values 25.05"
+[1] "Difference in min values 95.72"
+> dev.off()
+null device 
+          1 
+> 
+> proc.time()
+    user   system  elapsed 
+ 748.354   68.419 1359.572 

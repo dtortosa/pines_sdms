@@ -1,0 +1,6183 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> ####code for changinf pumila buffer
+> #P. pumila is the only species that has its buffer cutted at the end the map, specific, the mapper for calculating ranges (plotting) and the PA buffer
+> 
+> #required packages
+> require(raster) #for work with rasters
+Loading required package: raster
+Loading required package: sp
+> require(rgeos) #for creating the buffer and the centroids of the cells without gbif points
+Loading required package: rgeos
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.2-CAPI-1.10.2 4d2925d6 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #load distribution map of pumila
+> distribution_pumila = raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_pumila_01.img")
+> 
+> #create a polygon from distribution raster
+> polygon_distribution_pumila = rasterToPolygons(distribution_pumila, fun=function(x){x==1}, dissolve=TRUE)
+> 
+> #Create distribution buffer around
+> polygon_distribution_buffer_pumila = gBuffer(polygon_distribution_pumila, byid=FALSE, id=NULL, width=1, quadsegs=5, capStyle="ROUND", joinStyle="ROUND", mitreLimit=1.0)
+Warning message:
+In gBuffer(polygon_distribution_pumila, byid = FALSE, id = NULL,  :
+  Spatial object is not projected; GEOS expects planar coordinates
+> 
+> ##Remove see areas of the buffer
+> #We want that the polygon that serves as model for the buffers will be exact the extended distribution of pine species, i.e. the extended distribution with the 1 width buffer but removing see areas. In that way when we apply a buffer of 20 width, is exactly around the extended distribution of the species (not counting see areas).
+> #first rasterize the buffer
+> ###create a raster from buffer+bianca area converting the buffer+bianca polygon in a raster (rasterize) 
+> raster_buffer_distribution = raster() #create a empty raster
+> extent(raster_buffer_distribution) = extent(distribution_pumila) #give it a extention similar to distribution area of pinus halepensis polygon
+> res(raster_buffer_distribution) = res(distribution_pumila) #give it a resolution similar to he biancas maps because the polygon tha we will rasterize was obtained from this maps (I can`t extract resolution from polygon_buffer). In this way, we maintenain the same resolution. 
+> raster_buffer_distribution  = rasterize(polygon_distribution_buffer_pumila,raster_buffer_distribution) #convert the polygon of the halepensis buffer in a raster
+> distribution_pumila #take a raster of pumila distribution (without buffer) for obtaining coast limits
+class       : RasterLayer 
+dimensions  : 300, 720, 216000  (nrow, ncol, ncell)
+resolution  : 0.5, 0.5  (x, y)
+extent      : -180, 180, -60, 90.00001  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 
+data source : /Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_pumila_01.img 
+names       : p_pumila_01 
+values      : 0, 1  (min, max)
+
+> raster_buffer_distribution = distribution_pumila*raster_buffer_distribution #multiply both raster for creating a raster with NAs as much as these rasters, it is to say, we want a raster with NA in pixel where some of these raster have a NA. The zones without cells in distribution are places of sea only, if we would have used a environmental variable, terrestrial cells without data of the variable also would be computed as sea cells. 
+> raster_buffer_distribution[!is.na(raster_buffer_distribution)] <- 1 #give value of 1 to all cells without NA, in this way include cell of distribution raster with 1 and cell outside the distribution raster but inside the raster buffer (with 0).  
+> 
+> #create the new polygon halepensis distribution without sea areas
+> polygon_distribution_buffer_pumila = rasterToPolygons(raster_buffer_distribution, fun=function(x){x==1}, dissolve=TRUE)
+> 
+> #plot
+> plot(crop(raster_buffer_distribution, polygon_distribution_buffer_pumila))
+> plot(polygon_distribution_buffer_pumila, add=T)#as you can see, the raster and the polygon are almost the same, except in the joints (small difference) and of course the sea areas. The buffers for variables selection are also calculated with rasters of the PA buffers.
+> 
+> #compare with the initial distribution
+> plot(crop(distribution_pumila, polygon_distribution_buffer_pumila))
+> plot(polygon_distribution_buffer_pumila, add=T)
+> 
+> #save raster of distribution buffer
+> writeRaster(raster_buffer_distribution, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/ocurrences/pumila_distribution_buffer.asc", format="ascii", overwrite=TRUE)
+> 
+> #save kml file to see in google earth
+> plotKML::kml(polygon_distribution_pumila, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_distribution.kml", sep=""))
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_distribution.kml
+> plotKML::kml(polygon_distribution_buffer_pumila, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_distribution_buffer.kml", sep=""))
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_distribution_buffer.kml
+> 
+> 
+> 
+> ##########################
+> ####### PA buffer ########
+> ##########################
+> 
+> #Create PA buffer around extended distribution
+> polygon_PA_buffer_pumila = gBuffer(polygon_distribution_buffer_pumila, byid=FALSE, id=NULL, width=22.5, quadsegs=5, capStyle="ROUND", joinStyle="ROUND", mitreLimit=1.0)
+Warning message:
+In gBuffer(polygon_distribution_buffer_pumila, byid = FALSE, id = NULL,  :
+  Spatial object is not projected; GEOS expects planar coordinates
+> 
+> #plot the distribution and the buffer
+> plot(distribution_pumila)
+> plot(polygon_PA_buffer_pumila, add=T)
+> 
+> #crop the PA_buffer using the distribution map, in that way we remove the areas outside the map
+> polygon_PA_buffer_pumila_cropped = crop(polygon_PA_buffer_pumila, distribution_pumila)
+> plot(polygon_PA_buffer_pumila, lty=1)
+> plot(polygon_PA_buffer_pumila_cropped, add=T, lty=2)
+> legend("bottomright", legend=c("complete PA buffer", "reduced PA buffer"), lty=c(1,2))
+> 
+> #calculate the difference between both buffers
+> extreme_PA_buffer = gDifference(polygon_PA_buffer_pumila, polygon_PA_buffer_pumila_cropped)
+> 
+> #plot polyogns
+> plot(polygon_PA_buffer_pumila)
+> plot(extreme_PA_buffer, add=T, col="red")
+> legend("bottomright", legend=c("complete PA buffer", "extreme PA buffer"), fill=c("white", "red"))
+> 
+> #plot the both polygons on the distribution map
+> plot(distribution_pumila)
+> plot(polygon_PA_buffer_pumila, add=T, lwd=4)
+> plot(extreme_PA_buffer, add=T, border="red")#the right extreme is not plotted, we have to changed the coordinates
+> legend("bottomright", legend=c("complete PA buffer", "extreme PA buffer"), fill=c("black", "red"))
+> 
+> #change the coordinates of the right extreme polygon, only the second polygon of that part, which should be in the left side of the map
+> extreme_PA_buffer@polygons[[1]]@Polygons[[2]]@coords[,1]#these are the long (x) coordinates of the second polygon
+ [1] 179.9747 181.4529 182.4258 182.4529 183.4258 183.4529 184.4258 184.4529
+ [9] 190.7252 191.2252 191.7252 195.7029 196.2029 196.7029 199.8988 200.0180
+[17] 200.3988 201.5000 201.5000 200.3988 197.2029 192.2252 185.9529 180.8200
+[25] 180.4529 180.4258 180.0000 180.0000 179.9747
+> #we substract from each coordinate 180, the result will be substracted from 180 and the changed the sign
+> extreme_PA_buffer@polygons[[1]]@Polygons[[2]]@coords[,1] <- -(180 - (extreme_PA_buffer@polygons[[1]]@Polygons[[2]]@coords[,1] - 180))#Example to understand: The maximum x coordinate is 180, so all the points in the second polygon from 180 to 199 should be in the other extreme of the map. Imagine a point at 183 longitude degrees. The difference from 180, that it is 3 (183-180), should be on the other side, i.e. should be rested to 180 -> 177. Therefore: - (180 - (183-180)) -> -177. With 180 would be: - (180 - (180-180)) = -180, which is ok because we are exactly in the end of one size of the map (180) and beginning of the other side (-180).
+> 
+> #plot
+> plot(distribution_pumila)
+> plot(polygon_PA_buffer_pumila, add=T, lwd=4)
+> plot(extreme_PA_buffer, add=T, border="red")
+> legend("bottomright", legend=c("PA buffer inside the map", "the rest of PA buffer"), fill=c("black", "red"))
+> 
+> #bind both polygons
+> final_PA_buffer = union(extreme_PA_buffer, polygon_PA_buffer_pumila)
+> 
+> #remove the areas outside the map. Up for both polygons, left only for the polygon_PA_buffer_pumila. The left part of the  polygon_PA_buffer_pumila has been put in the other side, whilst the up part is not interesting because there is no earth in that
+> final_PA_buffer = crop(final_PA_buffer, distribution_pumila) #NO pongo la perte del buffer que sale por arriba porque: 1) No HAY tierra en esa zona, por tanto no se van a poner PAs; 2) Ese área sobre el globo (google earth) es super pequeña, un círculo sobre el polo.
+>     #Si quiseras añadir esa parte del polígono:
+>     #extreme_PA_buffer@polygons[[1]]@Polygons[[1]]@coords[,1:2]
+>     #extreme_PA_buffer@polygons[[1]]@Polygons[[1]]@coords[,2] <- (90 - (abs(extreme_PA_buffer@polygons[[1]]@Polygons[[1]]@coords[,2] - 90)))
+>     #extreme_PA_buffer@polygons[[1]]@Polygons[[1]]@coords[,1] <- -(extreme_PA_buffer@polygons[[1]]@Polygons[[1]]@coords[,1])
+> 
+> #plot
+> plot(distribution_pumila)
+> plot(polygon_PA_buffer_pumila, add=T, lwd=4)
+> plot(final_PA_buffer, add=T, border="red")
+> legend("bottomright", legend=c("initial PA buffer", "final_PA_buffer"), fill=c("black", "red"))
+> 
+> #save the buffers into kml files for opening in goole earth
+> plotKML::kml(polygon_PA_buffer_pumila, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_PA_buffer.kml", sep=""))
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_PA_buffer.kml
+> plotKML::kml(final_PA_buffer, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_PA_buffer.kml", sep=""))#The cutted parts match!
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_PA_buffer.kml
+> 
+> 
+> ##Remove see areas of the buffer and save as a raster
+> #We want that the polygon that serves as model for the buffers will be exact the extended distribution of pine species, i.e. the extended distribution with the 1 width buffer but removing see areas. In that way when we apply a buffer of 20 width, is exactly around the extended distribution of the species (not counting see areas).
+> #first rasterize the buffer
+> ###create a raster from buffer+bianca area converting the buffer+bianca polygon in a raster (rasterize) 
+> raster_buffer_PA = raster() #create a empty raster
+> extent(raster_buffer_PA) = extent(final_PA_buffer) #give it a extention similar to distribution area of pinus halepensis polygon
+> res(raster_buffer_PA) = res(distribution_pumila) #give it a resolution similar to he biancas maps because the polygon tha we will rasterize was obtained from this maps (I can`t extract resolution from polygon_buffer). In this way, we maintenain the same resolution. 
+> raster_buffer_PA  = rasterize(final_PA_buffer,raster_buffer_PA) #convert the polygon of the halepensis buffer in a raster
+> distribution_pumila #take a raster of pumila distribution (without buffer) for obtaining coast limits
+class       : RasterLayer 
+dimensions  : 300, 720, 216000  (nrow, ncol, ncell)
+resolution  : 0.5, 0.5  (x, y)
+extent      : -180, 180, -60, 90.00001  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 
+data source : /Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_pumila_01.img 
+names       : p_pumila_01 
+values      : 0, 1  (min, max)
+
+> raster_buffer_PA = distribution_pumila*raster_buffer_PA #multiply both raster for creating a raster with NAs as much as these rasters, it is to say, we want a raster with NA in pixel where some of these raster have a NA. The zones without cells in distribution are places of sea only, if we would have used a environmental variable, terrestrial cells without data of the variable also would be computed as sea cells. 
+Warning message:
+In distribution_pumila * raster_buffer_PA :
+  Raster objects have different extents. Result for their intersection is returned
+> raster_buffer_PA[!is.na(raster_buffer_PA)] <- 1 #give value of 1 to all cells without NA, in this way include cell of distribution raster with 1 and cell outside the distribution raster but inside the raster buffer (with 0).  
+> 
+> #create the new polygon halepensis distribution without sea areas
+> final_PA_buffer = rasterToPolygons(raster_buffer_PA, fun=function(x){x==1}, dissolve=TRUE)
+> 
+> #plot
+> plot(crop(raster_buffer_PA, final_PA_buffer))
+> plot(final_PA_buffer, add=T)#as you can see, the raster and the polygon are almost the same, except in the joints (small difference) and of course the sea areas. The buffers for variables selection are also calculated with rasters of the PA buffers.
+> 
+> #compare with the initial distribution
+> plot(crop(distribution_pumila, final_PA_buffer))
+> plot(final_PA_buffer, add=T)
+> 
+> #save raster of distribution buffer
+> writeRaster(raster_buffer_PA, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/pseudo_absences/pumila_PA_buffer.asc", format="ascii", overwrite=TRUE)
+> 
+> ##save the final polygon as a shape file
+> #for that we need to covert the SpatialPolygons to a SpatialPolygonsDataFrame object. We have to create an empty data.frame with same number row than ID values we have in the polygon (1 in our case, we don't have IDs). See "https://stat.ethz.ch/pipermail/r-sig-geo/2006-August/001252.html"
+> IDs <- sapply(slot(final_PA_buffer, "polygons"), function(x) slot(x, "ID"))
+> df <- data.frame(rep(0, length(IDs)), row.names=IDs)
+> final_PA_buffer_poly_df <- SpatialPolygonsDataFrame(final_PA_buffer, df)#df: object of class ‘data.frame’; the number of rows in ‘data’ should equal the number of Polygons-class objects in ‘Sr’. We only have one polygon
+> final_PA_buffer@polygons[[1]]
+An object of class "Polygons"
+Slot "Polygons":
+[[1]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 117.72901  53.90884
+
+Slot "area":
+[1] 3296.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+                x        y
+   [1,] 129.50002 34.00001
+   [2,] 129.00002 34.00001
+   [3,] 129.00002 34.50001
+   [4,] 128.50002 34.50001
+   [5,] 128.00002 34.50001
+   [6,] 128.00002 34.00001
+   [7,] 127.50002 34.00001
+   [8,] 127.00002 34.00001
+   [9,] 127.00002 33.50001
+  [10,] 127.00002 33.00001
+  [11,] 126.50002 33.00001
+  [12,] 126.00002 33.00001
+  [13,] 126.00002 33.50001
+  [14,] 126.00002 34.00001
+  [15,] 125.50002 34.00001
+  [16,] 125.00002 34.00001
+  [17,] 125.00002 34.50001
+  [18,] 125.00002 35.00001
+  [19,] 125.50002 35.00001
+  [20,] 125.50002 35.50001
+  [21,] 126.00002 35.50001
+  [22,] 126.00002 36.00001
+  [23,] 125.50002 36.00001
+  [24,] 125.50002 36.50001
+  [25,] 126.00002 36.50001
+  [26,] 126.00002 37.00001
+  [27,] 125.50002 37.00001
+  [28,] 125.50002 37.50001
+  [29,] 125.00002 37.50001
+  [30,] 124.50002 37.50001
+  [31,] 124.50002 38.00001
+  [32,] 124.50002 38.50001
+  [33,] 124.50002 39.00001
+  [34,] 124.50002 39.50001
+  [35,] 124.00002 39.50001
+  [36,] 123.50002 39.50001
+  [37,] 123.50002 39.00001
+  [38,] 123.00002 39.00001
+  [39,] 122.50002 39.00001
+  [40,] 122.00002 39.00001
+  [41,] 122.00002 38.50001
+  [42,] 121.50002 38.50001
+  [43,] 121.00002 38.50001
+  [44,] 121.00002 38.00001
+  [45,] 121.50002 38.00001
+  [46,] 122.00002 38.00001
+  [47,] 122.50002 38.00001
+  [48,] 122.50002 37.50001
+  [49,] 123.00002 37.50001
+  [50,] 123.00002 37.00001
+  [51,] 123.00002 36.50001
+  [52,] 122.50002 36.50001
+  [53,] 122.00002 36.50001
+  [54,] 121.50002 36.50001
+  [55,] 121.00002 36.50001
+  [56,] 121.00002 36.00001
+  [57,] 121.00002 35.50001
+  [58,] 120.50002 35.50001
+  [59,] 120.00002 35.50001
+  [60,] 120.00002 35.00001
+  [61,] 120.00002 34.50001
+  [62,] 120.50002 34.50001
+  [63,] 120.50002 34.00001
+  [64,] 121.00002 34.00001
+  [65,] 121.00002 33.50001
+  [66,] 121.00002 33.00001
+  [67,] 121.50002 33.00001
+  [68,] 121.50002 32.50001
+  [69,] 122.00002 32.50001
+  [70,] 122.00002 32.00001
+  [71,] 122.00002 31.50001
+  [72,] 122.00002 31.00001
+  [73,] 122.50002 31.00001
+  [74,] 123.00002 31.00001
+  [75,] 123.00002 30.50001
+  [76,] 123.00002 30.00001
+  [77,] 122.50002 30.00001
+  [78,] 122.50002 29.50001
+  [79,] 122.50002 29.00000
+  [80,] 122.50002 28.50000
+  [81,] 122.00002 28.50000
+  [82,] 122.00002 28.00000
+  [83,] 121.50002 28.00000
+  [84,] 121.50002 27.50000
+  [85,] 121.50002 27.00000
+  [86,] 121.00002 27.00000
+  [87,] 121.00002 26.50000
+  [88,] 120.50002 26.50000
+  [89,] 120.50002 26.00000
+  [90,] 120.00002 26.00000
+  [91,] 120.00002 25.50000
+  [92,] 120.00002 25.00000
+  [93,] 119.50002 25.00000
+  [94,] 119.50002 24.50000
+  [95,] 119.00002 24.50000
+  [96,] 118.50002 24.50000
+  [97,] 118.50002 24.00000
+  [98,] 118.00002 24.00000
+  [99,] 118.00002 23.50000
+ [100,] 117.50002 23.50000
+ [101,] 117.50002 23.00000
+ [102,] 117.00002 23.00000
+ [103,] 117.00002 22.50000
+ [104,] 116.50002 22.50000
+ [105,] 116.00002 22.50000
+ [106,] 115.50002 22.50000
+ [107,] 115.00002 22.50000
+ [108,] 115.00002 22.00000
+ [109,] 114.50002 22.00000
+ [110,] 114.50002 21.50000
+ [111,] 114.00002 21.50000
+ [112,] 113.50002 21.50000
+ [113,] 113.00002 21.50000
+ [114,] 112.50002 21.50000
+ [115,] 112.00002 21.50000
+ [116,] 111.50002 21.50000
+ [117,] 111.50002 21.00000
+ [118,] 111.00002 21.00000
+ [119,] 110.50002 21.00000
+ [120,] 110.50002 21.50000
+ [121,] 110.00002 21.50000
+ [122,] 110.00002 22.00000
+ [123,] 109.50002 22.00000
+ [124,] 109.50002 22.50000
+ [125,] 109.00002 22.50000
+ [126,] 109.00002 23.00000
+ [127,] 108.50002 23.00000
+ [128,] 108.50002 23.50000
+ [129,] 108.00002 23.50000
+ [130,] 108.00002 24.00000
+ [131,] 107.50002 24.00000
+ [132,] 107.00002 24.00000
+ [133,] 106.50002 24.00000
+ [134,] 106.00002 24.00000
+ [135,] 105.50002 24.00000
+ [136,] 105.50002 24.50000
+ [137,] 105.00002 24.50000
+ [138,] 104.50002 24.50000
+ [139,] 104.00002 24.50000
+ [140,] 103.50002 24.50000
+ [141,] 103.00002 24.50000
+ [142,] 102.50002 24.50000
+ [143,] 102.50002 25.00000
+ [144,] 102.00002 25.00000
+ [145,] 101.50002 25.00000
+ [146,] 101.00002 25.00000
+ [147,] 100.50002 25.00000
+ [148,] 100.00002 25.00000
+ [149,] 100.00002 25.50000
+ [150,]  99.50002 25.50000
+ [151,]  99.00002 25.50000
+ [152,]  99.00002 26.00000
+ [153,]  98.50002 26.00000
+ [154,]  98.00002 26.00000
+ [155,]  98.00002 26.50000
+ [156,]  97.50002 26.50000
+ [157,]  97.00002 26.50000
+ [158,]  97.00002 27.00000
+ [159,]  96.50002 27.00000
+ [160,]  96.00002 27.00000
+ [161,]  96.00002 27.50000
+ [162,]  95.50002 27.50000
+ [163,]  95.00002 27.50000
+ [164,]  95.00002 28.00000
+ [165,]  94.50002 28.00000
+ [166,]  94.00002 28.00000
+ [167,]  94.00002 28.50000
+ [168,]  93.50002 28.50000
+ [169,]  93.50002 29.00000
+ [170,]  93.00002 29.00000
+ [171,]  93.00002 29.50001
+ [172,]  92.50002 29.50001
+ [173,]  92.00002 29.50001
+ [174,]  92.00002 30.00001
+ [175,]  91.50002 30.00001
+ [176,]  91.00002 30.00001
+ [177,]  91.00002 30.50001
+ [178,]  90.50002 30.50001
+ [179,]  90.00002 30.50001
+ [180,]  90.00002 31.00001
+ [181,]  89.50002 31.00001
+ [182,]  89.00002 31.00001
+ [183,]  89.00002 31.50001
+ [184,]  88.50002 31.50001
+ [185,]  88.50002 32.00001
+ [186,]  88.00002 32.00001
+ [187,]  88.00002 32.50001
+ [188,]  87.50001 32.50001
+ [189,]  87.50001 33.00001
+ [190,]  87.00001 33.00001
+ [191,]  87.00001 33.50001
+ [192,]  86.50001 33.50001
+ [193,]  86.50001 34.00001
+ [194,]  86.00001 34.00001
+ [195,]  86.00001 34.50001
+ [196,]  85.50001 34.50001
+ [197,]  85.50001 35.00001
+ [198,]  85.00001 35.00001
+ [199,]  85.00001 35.50001
+ [200,]  84.50001 35.50001
+ [201,]  84.50001 36.00001
+ [202,]  84.00001 36.00001
+ [203,]  84.00001 36.50001
+ [204,]  83.50001 36.50001
+ [205,]  83.50001 37.00001
+ [206,]  83.00001 37.00001
+ [207,]  83.00001 37.50001
+ [208,]  83.00001 38.00001
+ [209,]  82.50001 38.00001
+ [210,]  82.50001 38.50001
+ [211,]  82.50001 39.00001
+ [212,]  82.00001 39.00001
+ [213,]  82.00001 39.50001
+ [214,]  82.00001 40.00001
+ [215,]  81.50001 40.00001
+ [216,]  81.50001 40.50001
+ [217,]  81.50001 41.00001
+ [218,]  81.00001 41.00001
+ [219,]  81.00001 41.50001
+ [220,]  81.00001 42.00001
+ [221,]  80.50001 42.00001
+ [222,]  80.50001 42.50001
+ [223,]  80.50001 43.00001
+ [224,]  80.00001 43.00001
+ [225,]  80.00001 43.50001
+ [226,]  80.00001 44.00001
+ [227,]  80.00001 44.50001
+ [228,]  80.00001 45.00001
+ [229,]  80.00001 45.50001
+ [230,]  79.50001 45.50001
+ [231,]  79.50001 46.00001
+ [232,]  79.50001 46.50001
+ [233,]  79.50001 47.00001
+ [234,]  79.50001 47.50001
+ [235,]  79.50001 48.00001
+ [236,]  79.50001 48.50001
+ [237,]  79.00001 48.50001
+ [238,]  79.00001 49.00001
+ [239,]  79.00001 49.50001
+ [240,]  79.00001 50.00001
+ [241,]  79.00001 50.50001
+ [242,]  79.00001 51.00001
+ [243,]  79.00001 51.50001
+ [244,]  79.00001 52.00001
+ [245,]  79.00001 52.50001
+ [246,]  79.00001 53.00001
+ [247,]  79.00001 53.50001
+ [248,]  79.00001 54.00001
+ [249,]  79.50001 54.00001
+ [250,]  79.50001 54.50001
+ [251,]  79.50001 55.00001
+ [252,]  79.50001 55.50001
+ [253,]  79.50001 56.00001
+ [254,]  79.50001 56.50001
+ [255,]  79.50001 57.00001
+ [256,]  80.00001 57.00001
+ [257,]  80.00001 57.50001
+ [258,]  80.00001 58.00001
+ [259,]  80.00001 58.50001
+ [260,]  80.00001 59.00001
+ [261,]  80.00001 59.50001
+ [262,]  80.50001 59.50001
+ [263,]  80.50001 60.00001
+ [264,]  80.50001 60.50001
+ [265,]  81.00001 60.50001
+ [266,]  81.00001 61.00001
+ [267,]  81.00001 61.50001
+ [268,]  81.50001 61.50001
+ [269,]  81.50001 62.00001
+ [270,]  81.50001 62.50001
+ [271,]  82.00001 62.50001
+ [272,]  82.00001 63.00001
+ [273,]  82.00001 63.50001
+ [274,]  82.50001 63.50001
+ [275,]  82.50001 64.00001
+ [276,]  82.50001 64.50001
+ [277,]  83.00001 64.50001
+ [278,]  83.00001 65.00001
+ [279,]  83.00001 65.50001
+ [280,]  83.50001 65.50001
+ [281,]  83.50001 66.00001
+ [282,]  83.50001 66.50001
+ [283,]  83.50001 67.00001
+ [284,]  83.50001 67.50001
+ [285,]  83.50001 68.00001
+ [286,]  83.50001 68.50001
+ [287,]  83.50001 69.00001
+ [288,]  83.50001 69.50001
+ [289,]  84.00001 69.50001
+ [290,]  84.00001 70.00001
+ [291,]  84.00001 70.50001
+ [292,]  84.00001 71.00001
+ [293,]  84.00001 71.50001
+ [294,]  84.00001 72.00001
+ [295,]  84.00001 72.50001
+ [296,]  84.50001 72.50001
+ [297,]  84.50001 73.00001
+ [298,]  84.50001 73.50001
+ [299,]  84.50001 74.00001
+ [300,]  84.50001 74.50001
+ [301,]  84.50001 75.00001
+ [302,]  85.00001 75.00001
+ [303,]  85.50001 75.00001
+ [304,]  86.00001 75.00001
+ [305,]  86.00001 75.50001
+ [306,]  86.50001 75.50001
+ [307,]  87.00001 75.50001
+ [308,]  87.50001 75.50001
+ [309,]  87.50001 76.00001
+ [310,]  88.00002 76.00001
+ [311,]  88.50002 76.00001
+ [312,]  89.00002 76.00001
+ [313,]  89.50002 76.00001
+ [314,]  90.00002 76.00001
+ [315,]  90.50002 76.00001
+ [316,]  91.00002 76.00001
+ [317,]  91.50002 76.00001
+ [318,]  91.50002 76.50001
+ [319,]  92.00002 76.50001
+ [320,]  92.50002 76.50001
+ [321,]  93.00002 76.50001
+ [322,]  93.50002 76.50001
+ [323,]  93.50002 77.00001
+ [324,]  94.00002 77.00001
+ [325,]  94.50002 77.00001
+ [326,]  95.00002 77.00001
+ [327,]  95.00002 77.50001
+ [328,]  95.50002 77.50001
+ [329,]  96.00002 77.50001
+ [330,]  96.50002 77.50001
+ [331,]  97.00002 77.50001
+ [332,]  97.00002 77.00001
+ [333,]  97.50002 77.00001
+ [334,]  98.00002 77.00001
+ [335,]  98.50002 77.00001
+ [336,]  98.50002 76.50001
+ [337,]  99.00002 76.50001
+ [338,]  99.50002 76.50001
+ [339,] 100.00002 76.50001
+ [340,] 100.00002 77.00001
+ [341,] 100.00002 77.50001
+ [342,]  99.50002 77.50001
+ [343,]  99.50002 78.00001
+ [344,]  99.00002 78.00001
+ [345,]  98.50002 78.00001
+ [346,]  98.50002 78.50001
+ [347,]  98.00002 78.50001
+ [348,]  97.50002 78.50001
+ [349,]  97.00002 78.50001
+ [350,]  96.50002 78.50001
+ [351,]  96.00002 78.50001
+ [352,]  95.50002 78.50001
+ [353,]  95.50002 79.00001
+ [354,]  95.00002 79.00001
+ [355,]  94.50002 79.00001
+ [356,]  94.00002 79.00001
+ [357,]  93.50002 79.00001
+ [358,]  93.00002 79.00001
+ [359,]  92.50002 79.00001
+ [360,]  92.00002 79.00001
+ [361,]  91.50002 79.00001
+ [362,]  91.00002 79.00001
+ [363,]  91.00002 79.50001
+ [364,]  90.50002 79.50001
+ [365,]  90.50002 80.00001
+ [366,]  91.00002 80.00001
+ [367,]  91.00002 80.50001
+ [368,]  91.50002 80.50001
+ [369,]  92.00002 80.50001
+ [370,]  92.00002 81.00001
+ [371,]  92.50002 81.00001
+ [372,]  93.00002 81.00001
+ [373,]  93.00002 81.50001
+ [374,]  93.50002 81.50001
+ [375,]  94.00002 81.50001
+ [376,]  94.50002 81.50001
+ [377,]  95.00002 81.50001
+ [378,]  95.50002 81.50001
+ [379,]  96.00002 81.50001
+ [380,]  96.50002 81.50001
+ [381,]  97.00002 81.50001
+ [382,]  97.00002 81.00001
+ [383,]  97.50002 81.00001
+ [384,]  98.00002 81.00001
+ [385,]  98.50002 81.00001
+ [386,]  98.50002 80.50001
+ [387,]  99.00002 80.50001
+ [388,]  99.50002 80.50001
+ [389,]  99.50002 80.00001
+ [390,] 100.00002 80.00001
+ [391,] 100.50002 80.00001
+ [392,] 100.50002 79.50001
+ [393,] 100.50002 79.00001
+ [394,] 101.00002 79.00001
+ [395,] 101.00002 79.50001
+ [396,] 101.50002 79.50001
+ [397,] 102.00002 79.50001
+ [398,] 102.50002 79.50001
+ [399,] 103.00002 79.50001
+ [400,] 103.50002 79.50001
+ [401,] 104.00002 79.50001
+ [402,] 104.50002 79.50001
+ [403,] 104.50002 79.00001
+ [404,] 105.00002 79.00001
+ [405,] 105.50002 79.00001
+ [406,] 105.50002 78.50001
+ [407,] 105.50002 78.00001
+ [408,] 106.00002 78.00001
+ [409,] 106.00002 78.50001
+ [410,] 106.50002 78.50001
+ [411,] 107.00002 78.50001
+ [412,] 107.50002 78.50001
+ [413,] 108.00002 78.50001
+ [414,] 108.00002 78.00001
+ [415,] 107.50002 78.00001
+ [416,] 107.00002 78.00001
+ [417,] 106.50002 78.00001
+ [418,] 106.50002 77.50001
+ [419,] 107.00002 77.50001
+ [420,] 107.50002 77.50001
+ [421,] 108.00002 77.50001
+ [422,] 108.50002 77.50001
+ [423,] 108.50002 77.00001
+ [424,] 109.00002 77.00001
+ [425,] 109.50002 77.00001
+ [426,] 110.00002 77.00001
+ [427,] 110.50002 77.00001
+ [428,] 111.00002 77.00001
+ [429,] 111.50002 77.00001
+ [430,] 112.00002 77.00001
+ [431,] 112.50002 77.00001
+ [432,] 113.00002 77.00001
+ [433,] 113.00002 76.50001
+ [434,] 113.50002 76.50001
+ [435,] 114.00002 76.50001
+ [436,] 114.00002 76.00001
+ [437,] 114.00002 75.50001
+ [438,] 114.00002 75.00001
+ [439,] 113.50002 75.00001
+ [440,] 113.50002 74.50001
+ [441,] 113.50002 74.00001
+ [442,] 114.00002 74.00001
+ [443,] 114.50002 74.00001
+ [444,] 115.00002 74.00001
+ [445,] 115.50002 74.00001
+ [446,] 116.00002 74.00001
+ [447,] 116.50002 74.00001
+ [448,] 117.00002 74.00001
+ [449,] 117.50002 74.00001
+ [450,] 118.00002 74.00001
+ [451,] 118.50002 74.00001
+ [452,] 119.00002 74.00001
+ [453,] 119.00002 73.50001
+ [454,] 119.50002 73.50001
+ [455,] 120.00002 73.50001
+ [456,] 120.50002 73.50001
+ [457,] 120.50002 73.00001
+ [458,] 121.00002 73.00001
+ [459,] 121.50002 73.00001
+ [460,] 122.00002 73.00001
+ [461,] 122.00002 73.50001
+ [462,] 122.50002 73.50001
+ [463,] 123.00002 73.50001
+ [464,] 123.00002 74.00001
+ [465,] 123.50002 74.00001
+ [466,] 124.00002 74.00001
+ [467,] 124.50002 74.00001
+ [468,] 125.00002 74.00001
+ [469,] 125.50002 74.00001
+ [470,] 126.00002 74.00001
+ [471,] 126.50002 74.00001
+ [472,] 126.50002 73.50001
+ [473,] 127.00002 73.50001
+ [474,] 127.00002 74.00001
+ [475,] 127.50002 74.00001
+ [476,] 128.00002 74.00001
+ [477,] 128.00002 73.50001
+ [478,] 128.50002 73.50001
+ [479,] 129.00002 73.50001
+ [480,] 129.50002 73.50001
+ [481,] 130.00002 73.50001
+ [482,] 130.00002 73.00001
+ [483,] 130.00002 72.50001
+ [484,] 130.00002 72.00001
+ [485,] 130.50002 72.00001
+ [486,] 130.50002 71.50001
+ [487,] 130.50002 71.00001
+ [488,] 131.00002 71.00001
+ [489,] 131.50002 71.00001
+ [490,] 131.50002 71.50001
+ [491,] 132.00002 71.50001
+ [492,] 132.00002 72.00001
+ [493,] 132.50002 72.00001
+ [494,] 133.00002 72.00001
+ [495,] 133.50002 72.00001
+ [496,] 133.50002 71.50001
+ [497,] 134.00002 71.50001
+ [498,] 134.50002 71.50001
+ [499,] 134.50002 72.00001
+ [500,] 135.00002 72.00001
+ [501,] 135.50002 72.00001
+ [502,] 136.00002 72.00001
+ [503,] 136.50002 72.00001
+ [504,] 137.00002 72.00001
+ [505,] 137.50002 72.00001
+ [506,] 138.00002 72.00001
+ [507,] 138.50002 72.00001
+ [508,] 139.00002 72.00001
+ [509,] 139.00002 72.50001
+ [510,] 139.50002 72.50001
+ [511,] 140.00002 72.50001
+ [512,] 140.50002 72.50001
+ [513,] 140.50002 73.00001
+ [514,] 140.00002 73.00001
+ [515,] 139.50002 73.00001
+ [516,] 139.50002 73.50001
+ [517,] 140.00002 73.50001
+ [518,] 140.00002 74.00001
+ [519,] 140.00002 74.50001
+ [520,] 139.50002 74.50001
+ [521,] 139.00002 74.50001
+ [522,] 138.50002 74.50001
+ [523,] 138.00002 74.50001
+ [524,] 137.50002 74.50001
+ [525,] 137.50002 75.00001
+ [526,] 137.00002 75.00001
+ [527,] 136.50002 75.00001
+ [528,] 136.00002 75.00001
+ [529,] 135.50002 75.00001
+ [530,] 135.50002 75.50001
+ [531,] 135.50002 76.00001
+ [532,] 136.00002 76.00001
+ [533,] 136.50002 76.00001
+ [534,] 136.50002 75.50001
+ [535,] 137.00002 75.50001
+ [536,] 137.00002 76.00001
+ [537,] 137.50002 76.00001
+ [538,] 138.00002 76.00001
+ [539,] 138.00002 76.50001
+ [540,] 138.50002 76.50001
+ [541,] 139.00002 76.50001
+ [542,] 139.50002 76.50001
+ [543,] 140.00002 76.50001
+ [544,] 140.00002 76.00001
+ [545,] 140.50002 76.00001
+ [546,] 140.50002 76.50001
+ [547,] 141.00002 76.50001
+ [548,] 141.50002 76.50001
+ [549,] 142.00002 76.50001
+ [550,] 142.50002 76.50001
+ [551,] 142.50002 76.00001
+ [552,] 143.00002 76.00001
+ [553,] 143.50002 76.00001
+ [554,] 144.00002 76.00001
+ [555,] 144.50002 76.00001
+ [556,] 145.00002 76.00001
+ [557,] 145.50002 76.00001
+ [558,] 145.50002 75.50001
+ [559,] 145.50002 75.00001
+ [560,] 145.00002 75.00001
+ [561,] 144.50002 75.00001
+ [562,] 144.00002 75.00001
+ [563,] 144.00002 74.50001
+ [564,] 143.50002 74.50001
+ [565,] 143.00002 74.50001
+ [566,] 142.50002 74.50001
+ [567,] 142.00002 74.50001
+ [568,] 141.50002 74.50001
+ [569,] 141.50002 74.00001
+ [570,] 142.00002 74.00001
+ [571,] 142.50002 74.00001
+ [572,] 143.00002 74.00001
+ [573,] 143.50002 74.00001
+ [574,] 144.00002 74.00001
+ [575,] 144.00002 73.50001
+ [576,] 144.00002 73.00001
+ [577,] 144.50002 73.00001
+ [578,] 145.00002 73.00001
+ [579,] 145.50002 73.00001
+ [580,] 146.00002 73.00001
+ [581,] 146.00002 72.50001
+ [582,] 146.50002 72.50001
+ [583,] 147.00002 72.50001
+ [584,] 147.50002 72.50001
+ [585,] 148.00002 72.50001
+ [586,] 148.50002 72.50001
+ [587,] 149.00002 72.50001
+ [588,] 149.50002 72.50001
+ [589,] 150.00002 72.50001
+ [590,] 150.00002 72.00001
+ [591,] 150.50002 72.00001
+ [592,] 151.00002 72.00001
+ [593,] 151.50002 72.00001
+ [594,] 151.50002 71.50001
+ [595,] 152.00002 71.50001
+ [596,] 152.50002 71.50001
+ [597,] 152.50002 71.00001
+ [598,] 153.00002 71.00001
+ [599,] 153.50002 71.00001
+ [600,] 154.00002 71.00001
+ [601,] 154.50002 71.00001
+ [602,] 154.50002 71.50001
+ [603,] 155.00002 71.50001
+ [604,] 155.50002 71.50001
+ [605,] 156.00002 71.50001
+ [606,] 156.50002 71.50001
+ [607,] 157.00002 71.50001
+ [608,] 157.50002 71.50001
+ [609,] 158.00002 71.50001
+ [610,] 158.50002 71.50001
+ [611,] 158.50002 71.00001
+ [612,] 159.00002 71.00001
+ [613,] 159.50002 71.00001
+ [614,] 160.00002 71.00001
+ [615,] 160.50002 71.00001
+ [616,] 161.00002 71.00001
+ [617,] 161.50002 71.00001
+ [618,] 162.00002 71.00001
+ [619,] 162.50002 71.00001
+ [620,] 163.00002 71.00001
+ [621,] 163.00002 70.50001
+ [622,] 162.50002 70.50001
+ [623,] 162.00002 70.50001
+ [624,] 161.50002 70.50001
+ [625,] 161.00002 70.50001
+ [626,] 160.50002 70.50001
+ [627,] 160.50002 70.00001
+ [628,] 161.00002 70.00001
+ [629,] 161.50002 70.00001
+ [630,] 162.00002 70.00001
+ [631,] 162.50002 70.00001
+ [632,] 163.00002 70.00001
+ [633,] 163.50002 70.00001
+ [634,] 164.00002 70.00001
+ [635,] 164.50002 70.00001
+ [636,] 165.00002 70.00001
+ [637,] 165.50002 70.00001
+ [638,] 166.00002 70.00001
+ [639,] 166.50002 70.00001
+ [640,] 167.00002 70.00001
+ [641,] 167.50002 70.00001
+ [642,] 168.00002 70.00001
+ [643,] 168.00002 70.50001
+ [644,] 168.50002 70.50001
+ [645,] 169.00002 70.50001
+ [646,] 169.00002 70.00001
+ [647,] 169.50002 70.00001
+ [648,] 169.50002 69.50001
+ [649,] 169.50002 69.00001
+ [650,] 170.00002 69.00001
+ [651,] 170.50002 69.00001
+ [652,] 170.50002 69.50001
+ [653,] 170.00002 69.50001
+ [654,] 170.00002 70.00001
+ [655,] 170.00002 70.50001
+ [656,] 170.50002 70.50001
+ [657,] 171.00002 70.50001
+ [658,] 171.50002 70.50001
+ [659,] 172.00002 70.50001
+ [660,] 172.00002 70.00001
+ [661,] 172.50002 70.00001
+ [662,] 173.00002 70.00001
+ [663,] 173.50002 70.00001
+ [664,] 174.00002 70.00001
+ [665,] 174.50002 70.00001
+ [666,] 175.00002 70.00001
+ [667,] 175.50002 70.00001
+ [668,] 176.00002 70.00001
+ [669,] 176.50002 70.00001
+ [670,] 177.00002 70.00001
+ [671,] 177.50002 70.00001
+ [672,] 178.00002 70.00001
+ [673,] 178.00002 69.50001
+ [674,] 178.50002 69.50001
+ [675,] 179.00002 69.50001
+ [676,] 179.50002 69.50001
+ [677,] 180.00002 69.50001
+ [678,] 180.00002 69.00001
+ [679,] 180.00002 68.50001
+ [680,] 180.00002 68.00001
+ [681,] 180.00002 67.50001
+ [682,] 180.00002 67.00001
+ [683,] 180.00002 66.50001
+ [684,] 180.00002 66.00001
+ [685,] 180.00002 65.50001
+ [686,] 180.00002 65.00001
+ [687,] 180.00002 64.50001
+ [688,] 179.50002 64.50001
+ [689,] 179.00002 64.50001
+ [690,] 179.00002 64.00001
+ [691,] 179.00002 63.50001
+ [692,] 179.50002 63.50001
+ [693,] 179.50002 63.00001
+ [694,] 180.00002 63.00001
+ [695,] 180.00002 62.50001
+ [696,] 179.50002 62.50001
+ [697,] 179.50002 62.00001
+ [698,] 179.00002 62.00001
+ [699,] 178.50002 62.00001
+ [700,] 178.00002 62.00001
+ [701,] 178.00002 62.50001
+ [702,] 177.50002 62.50001
+ [703,] 177.00002 62.50001
+ [704,] 177.00002 62.00001
+ [705,] 176.50002 62.00001
+ [706,] 176.00002 62.00001
+ [707,] 175.50002 62.00001
+ [708,] 175.50002 61.50001
+ [709,] 175.00002 61.50001
+ [710,] 174.50002 61.50001
+ [711,] 174.00002 61.50001
+ [712,] 173.50002 61.50001
+ [713,] 173.50002 61.00001
+ [714,] 173.00002 61.00001
+ [715,] 172.50002 61.00001
+ [716,] 172.50002 60.50001
+ [717,] 172.00002 60.50001
+ [718,] 171.50002 60.50001
+ [719,] 171.00002 60.50001
+ [720,] 171.00002 60.00001
+ [721,] 170.50002 60.00001
+ [722,] 170.50002 59.50001
+ [723,] 170.00002 59.50001
+ [724,] 170.00002 60.00001
+ [725,] 169.50002 60.00001
+ [726,] 169.00002 60.00001
+ [727,] 169.00002 60.50001
+ [728,] 168.50002 60.50001
+ [729,] 168.00002 60.50001
+ [730,] 168.00002 60.00001
+ [731,] 167.50002 60.00001
+ [732,] 167.00002 60.00001
+ [733,] 167.00002 59.50001
+ [734,] 166.50002 59.50001
+ [735,] 166.00002 59.50001
+ [736,] 166.00002 60.00001
+ [737,] 165.50002 60.00001
+ [738,] 165.50002 59.50001
+ [739,] 165.00002 59.50001
+ [740,] 165.00002 59.00001
+ [741,] 165.00002 58.50001
+ [742,] 164.50002 58.50001
+ [743,] 164.00002 58.50001
+ [744,] 164.00002 58.00001
+ [745,] 163.50002 58.00001
+ [746,] 163.50002 57.50001
+ [747,] 163.50002 57.00001
+ [748,] 163.50002 56.50001
+ [749,] 163.50002 56.00001
+ [750,] 163.00002 56.00001
+ [751,] 162.50002 56.00001
+ [752,] 162.50002 55.50001
+ [753,] 162.00002 55.50001
+ [754,] 162.00002 55.00001
+ [755,] 162.50002 55.00001
+ [756,] 162.50002 54.50001
+ [757,] 162.00002 54.50001
+ [758,] 161.50002 54.50001
+ [759,] 161.50002 54.00001
+ [760,] 161.00002 54.00001
+ [761,] 160.50002 54.00001
+ [762,] 160.00002 54.00001
+ [763,] 160.00002 53.50001
+ [764,] 160.50002 53.50001
+ [765,] 160.50002 53.00001
+ [766,] 160.00002 53.00001
+ [767,] 159.50002 53.00001
+ [768,] 159.00002 53.00001
+ [769,] 159.00002 52.50001
+ [770,] 159.00002 52.00001
+ [771,] 158.50002 52.00001
+ [772,] 158.50002 51.50001
+ [773,] 158.00002 51.50001
+ [774,] 158.00002 51.00001
+ [775,] 157.50002 51.00001
+ [776,] 157.00002 51.00001
+ [777,] 157.00002 50.50001
+ [778,] 156.50002 50.50001
+ [779,] 156.50002 50.00001
+ [780,] 156.00002 50.00001
+ [781,] 155.50002 50.00001
+ [782,] 155.00002 50.00001
+ [783,] 155.00002 49.50001
+ [784,] 155.00002 49.00001
+ [785,] 154.50002 49.00001
+ [786,] 154.50002 48.50001
+ [787,] 154.00002 48.50001
+ [788,] 153.50002 48.50001
+ [789,] 153.50002 48.00001
+ [790,] 153.00002 48.00001
+ [791,] 153.00002 48.50001
+ [792,] 153.00002 49.00001
+ [793,] 153.50002 49.00001
+ [794,] 154.00002 49.00001
+ [795,] 154.00002 49.50001
+ [796,] 154.00002 50.00001
+ [797,] 154.50002 50.00001
+ [798,] 154.50002 50.50001
+ [799,] 155.00002 50.50001
+ [800,] 155.00002 51.00001
+ [801,] 155.50002 51.00001
+ [802,] 156.00002 51.00001
+ [803,] 156.00002 51.50001
+ [804,] 156.00002 52.00001
+ [805,] 156.00002 52.50001
+ [806,] 156.00002 53.00001
+ [807,] 156.00002 53.50001
+ [808,] 155.50002 53.50001
+ [809,] 155.50002 54.00001
+ [810,] 155.50002 54.50001
+ [811,] 155.50002 55.00001
+ [812,] 155.50002 55.50001
+ [813,] 155.50002 56.00001
+ [814,] 155.50002 56.50001
+ [815,] 155.50002 57.00001
+ [816,] 156.00002 57.00001
+ [817,] 156.50002 57.00001
+ [818,] 156.50002 57.50001
+ [819,] 156.50002 58.00001
+ [820,] 157.00002 58.00001
+ [821,] 157.50002 58.00001
+ [822,] 157.50002 58.50001
+ [823,] 158.00002 58.50001
+ [824,] 158.50002 58.50001
+ [825,] 159.00002 58.50001
+ [826,] 159.00002 59.00001
+ [827,] 159.50002 59.00001
+ [828,] 159.50002 59.50001
+ [829,] 160.00002 59.50001
+ [830,] 160.00002 60.00001
+ [831,] 160.50002 60.00001
+ [832,] 161.00002 60.00001
+ [833,] 161.00002 60.50001
+ [834,] 160.50002 60.50001
+ [835,] 160.00002 60.50001
+ [836,] 159.50002 60.50001
+ [837,] 159.50002 61.00001
+ [838,] 159.50002 61.50001
+ [839,] 159.00002 61.50001
+ [840,] 158.50002 61.50001
+ [841,] 158.00002 61.50001
+ [842,] 157.50002 61.50001
+ [843,] 157.00002 61.50001
+ [844,] 157.00002 61.00001
+ [845,] 156.50002 61.00001
+ [846,] 156.50002 60.50001
+ [847,] 156.00002 60.50001
+ [848,] 155.50002 60.50001
+ [849,] 155.50002 60.00001
+ [850,] 155.00002 60.00001
+ [851,] 155.00002 59.50001
+ [852,] 155.50002 59.50001
+ [853,] 156.00002 59.50001
+ [854,] 156.00002 59.00001
+ [855,] 155.50002 59.00001
+ [856,] 155.00002 59.00001
+ [857,] 154.50002 59.00001
+ [858,] 154.00002 59.00001
+ [859,] 153.50002 59.00001
+ [860,] 153.00002 59.00001
+ [861,] 153.00002 58.50001
+ [862,] 152.50002 58.50001
+ [863,] 152.00002 58.50001
+ [864,] 151.50002 58.50001
+ [865,] 151.00002 58.50001
+ [866,] 151.00002 59.00001
+ [867,] 150.50002 59.00001
+ [868,] 150.00002 59.00001
+ [869,] 150.00002 59.50001
+ [870,] 149.50002 59.50001
+ [871,] 149.50002 59.00001
+ [872,] 149.00002 59.00001
+ [873,] 148.50002 59.00001
+ [874,] 148.00002 59.00001
+ [875,] 147.50002 59.00001
+ [876,] 147.00002 59.00001
+ [877,] 146.50002 59.00001
+ [878,] 146.00002 59.00001
+ [879,] 145.50002 59.00001
+ [880,] 145.00002 59.00001
+ [881,] 144.50002 59.00001
+ [882,] 144.00002 59.00001
+ [883,] 143.50002 59.00001
+ [884,] 143.00002 59.00001
+ [885,] 142.50002 59.00001
+ [886,] 142.50002 58.50001
+ [887,] 142.00002 58.50001
+ [888,] 141.50002 58.50001
+ [889,] 141.50002 58.00001
+ [890,] 141.00002 58.00001
+ [891,] 141.00002 57.50001
+ [892,] 140.50002 57.50001
+ [893,] 140.00002 57.50001
+ [894,] 140.00002 57.00001
+ [895,] 139.50002 57.00001
+ [896,] 139.00002 57.00001
+ [897,] 139.00002 56.50001
+ [898,] 138.50002 56.50001
+ [899,] 138.50002 56.00001
+ [900,] 138.00002 56.00001
+ [901,] 137.50002 56.00001
+ [902,] 137.50002 55.50001
+ [903,] 138.00002 55.50001
+ [904,] 138.50002 55.50001
+ [905,] 138.50002 55.00001
+ [906,] 138.50002 54.50001
+ [907,] 139.00002 54.50001
+ [908,] 139.00002 55.00001
+ [909,] 139.50002 55.00001
+ [910,] 139.50002 54.50001
+ [911,] 140.00002 54.50001
+ [912,] 140.50002 54.50001
+ [913,] 140.50002 54.00001
+ [914,] 141.00002 54.00001
+ [915,] 141.00002 53.50001
+ [916,] 141.50002 53.50001
+ [917,] 142.00002 53.50001
+ [918,] 142.00002 54.00001
+ [919,] 142.00002 54.50001
+ [920,] 142.50002 54.50001
+ [921,] 143.00002 54.50001
+ [922,] 143.00002 54.00001
+ [923,] 143.50002 54.00001
+ [924,] 143.50002 53.50001
+ [925,] 143.50002 53.00001
+ [926,] 143.50002 52.50001
+ [927,] 143.50002 52.00001
+ [928,] 143.50002 51.50001
+ [929,] 144.00002 51.50001
+ [930,] 144.00002 51.00001
+ [931,] 144.00002 50.50001
+ [932,] 144.00002 50.00001
+ [933,] 144.50002 50.00001
+ [934,] 144.50002 49.50001
+ [935,] 144.50002 49.00001
+ [936,] 145.00002 49.00001
+ [937,] 145.00002 48.50001
+ [938,] 144.50002 48.50001
+ [939,] 144.00002 48.50001
+ [940,] 144.00002 49.00001
+ [941,] 143.50002 49.00001
+ [942,] 143.00002 49.00001
+ [943,] 143.00002 48.50001
+ [944,] 143.00002 48.00001
+ [945,] 143.00002 47.50001
+ [946,] 143.50002 47.50001
+ [947,] 143.50002 47.00001
+ [948,] 144.00002 47.00001
+ [949,] 144.00002 46.50001
+ [950,] 144.00002 46.00001
+ [951,] 143.50002 46.00001
+ [952,] 143.00002 46.00001
+ [953,] 143.00002 46.50001
+ [954,] 142.50002 46.50001
+ [955,] 142.50002 46.00001
+ [956,] 142.50002 45.50001
+ [957,] 143.00002 45.50001
+ [958,] 143.00002 45.00001
+ [959,] 143.50002 45.00001
+ [960,] 143.50002 44.50001
+ [961,] 144.00002 44.50001
+ [962,] 144.50002 44.50001
+ [963,] 145.00002 44.50001
+ [964,] 145.50002 44.50001
+ [965,] 146.00002 44.50001
+ [966,] 146.00002 45.00001
+ [967,] 146.50002 45.00001
+ [968,] 147.00002 45.00001
+ [969,] 147.50002 45.00001
+ [970,] 147.50002 45.50001
+ [971,] 148.00002 45.50001
+ [972,] 148.50002 45.50001
+ [973,] 148.50002 46.00001
+ [974,] 149.00002 46.00001
+ [975,] 149.50002 46.00001
+ [976,] 149.50002 46.50001
+ [977,] 150.00002 46.50001
+ [978,] 150.50002 46.50001
+ [979,] 150.50002 47.00001
+ [980,] 151.00002 47.00001
+ [981,] 151.00002 46.50001
+ [982,] 151.00002 46.00001
+ [983,] 150.50002 46.00001
+ [984,] 150.50002 45.50001
+ [985,] 150.00002 45.50001
+ [986,] 149.50002 45.50001
+ [987,] 149.00002 45.50001
+ [988,] 149.00002 45.00001
+ [989,] 148.50002 45.00001
+ [990,] 148.00002 45.00001
+ [991,] 148.00002 44.50001
+ [992,] 147.50002 44.50001
+ [993,] 147.50002 44.00001
+ [994,] 147.00002 44.00001
+ [995,] 147.00002 43.50001
+ [996,] 146.50002 43.50001
+ [997,] 146.50002 43.00001
+ [998,] 146.00002 43.00001
+ [999,] 145.50002 43.00001
+[1000,] 145.50002 42.50001
+[1001,] 145.00002 42.50001
+[1002,] 144.50002 42.50001
+[1003,] 144.00002 42.50001
+[1004,] 143.50002 42.50001
+[1005,] 143.50002 42.00001
+[1006,] 143.50002 41.50001
+[1007,] 143.00002 41.50001
+[1008,] 143.00002 42.00001
+[1009,] 142.50002 42.00001
+[1010,] 142.00002 42.00001
+[1011,] 142.00002 42.50001
+[1012,] 141.50002 42.50001
+[1013,] 141.50002 42.00001
+[1014,] 141.50002 41.50001
+[1015,] 141.50002 41.00001
+[1016,] 142.00002 41.00001
+[1017,] 142.00002 40.50001
+[1018,] 142.00002 40.00001
+[1019,] 142.50002 40.00001
+[1020,] 142.50002 39.50001
+[1021,] 142.50002 39.00001
+[1022,] 142.00002 39.00001
+[1023,] 142.00002 38.50001
+[1024,] 142.00002 38.00001
+[1025,] 141.50002 38.00001
+[1026,] 141.50002 37.50001
+[1027,] 141.50002 37.00001
+[1028,] 141.00002 37.00001
+[1029,] 141.00002 36.50001
+[1030,] 141.00002 36.00001
+[1031,] 141.00002 35.50001
+[1032,] 140.50002 35.50001
+[1033,] 140.50002 35.00001
+[1034,] 140.00002 35.00001
+[1035,] 140.00002 34.50001
+[1036,] 140.00002 34.00001
+[1037,] 140.00002 33.50001
+[1038,] 140.00002 33.00001
+[1039,] 139.50002 33.00001
+[1040,] 139.50002 33.50001
+[1041,] 139.50002 34.00001
+[1042,] 139.00002 34.00001
+[1043,] 139.00002 34.50001
+[1044,] 138.50002 34.50001
+[1045,] 138.00002 34.50001
+[1046,] 137.50002 34.50001
+[1047,] 137.00002 34.50001
+[1048,] 137.00002 34.00001
+[1049,] 136.50002 34.00001
+[1050,] 136.50002 33.50001
+[1051,] 136.00002 33.50001
+[1052,] 136.00002 33.00001
+[1053,] 135.50002 33.00001
+[1054,] 135.50002 33.50001
+[1055,] 135.00002 33.50001
+[1056,] 134.50002 33.50001
+[1057,] 134.50002 33.00001
+[1058,] 134.00002 33.00001
+[1059,] 133.50002 33.00001
+[1060,] 133.50002 32.50001
+[1061,] 133.00002 32.50001
+[1062,] 132.50002 32.50001
+[1063,] 132.00002 32.50001
+[1064,] 132.00002 32.00001
+[1065,] 131.50002 32.00001
+[1066,] 131.50002 31.50001
+[1067,] 131.50002 31.00001
+[1068,] 131.50002 30.50001
+[1069,] 131.00002 30.50001
+[1070,] 131.00002 30.00001
+[1071,] 130.50002 30.00001
+[1072,] 130.00002 30.00001
+[1073,] 130.00002 30.50001
+[1074,] 129.50002 30.50001
+[1075,] 129.50002 31.00001
+[1076,] 130.00002 31.00001
+[1077,] 130.00002 31.50001
+[1078,] 129.50002 31.50001
+[1079,] 129.50002 32.00001
+[1080,] 129.50002 32.50001
+[1081,] 129.00002 32.50001
+[1082,] 128.50002 32.50001
+[1083,] 128.50002 33.00001
+[1084,] 129.00002 33.00001
+[1085,] 129.00002 33.50001
+[1086,] 129.50002 33.50001
+[1087,] 129.50002 34.00001
+
+
+[[2]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 120.05771  38.82693
+
+Slot "area":
+[1] 3.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+          x        y
+ [1,] 121.0 38.50001
+ [2,] 121.0 39.00001
+ [3,] 121.0 39.50001
+ [4,] 121.0 40.00001
+ [5,] 120.5 40.00001
+ [6,] 120.0 40.00001
+ [7,] 120.0 39.50001
+ [8,] 119.5 39.50001
+ [9,] 119.5 39.00001
+[10,] 119.0 39.00001
+[11,] 119.0 38.50001
+[12,] 119.0 38.00001
+[13,] 119.5 38.00001
+[14,] 119.5 37.50001
+[15,] 120.0 37.50001
+[16,] 120.0 38.00001
+[17,] 120.5 38.00001
+[18,] 120.5 38.50001
+[19,] 121.0 38.50001
+
+
+[[3]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 121.25002  40.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 121.0 40.00001
+[2,] 121.5 40.00001
+[3,] 121.5 40.50001
+[4,] 121.0 40.50001
+[5,] 121.0 40.00001
+
+
+[[4]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 138.25002  54.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 138.5 54.50001
+[2,] 138.0 54.50001
+[3,] 138.0 54.00001
+[4,] 138.5 54.00001
+[5,] 138.5 54.50001
+
+
+[[5]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 135.31589  40.93713
+
+Slot "area":
+[1] 83.50001
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+           x        y
+  [1,] 129.5 34.00001
+  [2,] 130.0 34.00001
+  [3,] 130.0 34.50001
+  [4,] 130.5 34.50001
+  [5,] 131.0 34.50001
+  [6,] 131.0 35.00001
+  [7,] 131.5 35.00001
+  [8,] 132.0 35.00001
+  [9,] 132.0 35.50001
+ [10,] 132.5 35.50001
+ [11,] 132.5 36.00001
+ [12,] 132.5 36.50001
+ [13,] 133.0 36.50001
+ [14,] 133.5 36.50001
+ [15,] 133.5 36.00001
+ [16,] 134.0 36.00001
+ [17,] 134.5 36.00001
+ [18,] 135.0 36.00001
+ [19,] 135.5 36.00001
+ [20,] 136.0 36.00001
+ [21,] 136.0 36.50001
+ [22,] 136.5 36.50001
+ [23,] 136.5 37.00001
+ [24,] 136.5 37.50001
+ [25,] 136.5 38.00001
+ [26,] 137.0 38.00001
+ [27,] 137.5 38.00001
+ [28,] 137.5 37.50001
+ [29,] 138.0 37.50001
+ [30,] 138.0 38.00001
+ [31,] 138.0 38.50001
+ [32,] 138.5 38.50001
+ [33,] 139.0 38.50001
+ [34,] 139.5 38.50001
+ [35,] 139.5 39.00001
+ [36,] 139.5 39.50001
+ [37,] 139.5 40.00001
+ [38,] 139.5 40.50001
+ [39,] 139.5 41.00001
+ [40,] 139.0 41.00001
+ [41,] 139.0 41.50001
+ [42,] 139.0 42.00001
+ [43,] 139.0 42.50001
+ [44,] 139.5 42.50001
+ [45,] 139.5 43.00001
+ [46,] 140.0 43.00001
+ [47,] 140.0 43.50001
+ [48,] 140.5 43.50001
+ [49,] 141.0 43.50001
+ [50,] 141.0 44.00001
+ [51,] 141.0 44.50001
+ [52,] 141.5 44.50001
+ [53,] 141.5 45.00001
+ [54,] 141.0 45.00001
+ [55,] 140.5 45.00001
+ [56,] 140.5 45.50001
+ [57,] 141.0 45.50001
+ [58,] 141.5 45.50001
+ [59,] 141.5 46.00001
+ [60,] 141.0 46.00001
+ [61,] 141.0 46.50001
+ [62,] 141.5 46.50001
+ [63,] 141.5 47.00001
+ [64,] 141.5 47.50001
+ [65,] 141.5 48.00001
+ [66,] 142.0 48.00001
+ [67,] 142.0 48.50001
+ [68,] 141.5 48.50001
+ [69,] 141.5 49.00001
+ [70,] 142.0 49.00001
+ [71,] 142.0 49.50001
+ [72,] 142.0 50.00001
+ [73,] 142.0 50.50001
+ [74,] 142.0 51.00001
+ [75,] 142.0 51.50001
+ [76,] 141.5 51.50001
+ [77,] 141.0 51.50001
+ [78,] 141.0 51.00001
+ [79,] 141.0 50.50001
+ [80,] 141.0 50.00001
+ [81,] 141.0 49.50001
+ [82,] 141.0 49.00001
+ [83,] 140.5 49.00001
+ [84,] 140.5 48.50001
+ [85,] 140.5 48.00001
+ [86,] 140.0 48.00001
+ [87,] 140.0 47.50001
+ [88,] 139.5 47.50001
+ [89,] 139.5 47.00001
+ [90,] 139.0 47.00001
+ [91,] 139.0 46.50001
+ [92,] 138.5 46.50001
+ [93,] 138.5 46.00001
+ [94,] 138.0 46.00001
+ [95,] 138.0 45.50001
+ [96,] 137.5 45.50001
+ [97,] 137.5 45.00001
+ [98,] 137.0 45.00001
+ [99,] 137.0 44.50001
+[100,] 136.5 44.50001
+[101,] 136.5 44.00001
+[102,] 136.0 44.00001
+[103,] 136.0 43.50001
+[104,] 135.5 43.50001
+[105,] 135.5 43.00001
+[106,] 135.0 43.00001
+[107,] 134.5 43.00001
+[108,] 134.5 42.50001
+[109,] 134.0 42.50001
+[110,] 133.5 42.50001
+[111,] 133.0 42.50001
+[112,] 132.5 42.50001
+[113,] 132.0 42.50001
+[114,] 131.5 42.50001
+[115,] 131.0 42.50001
+[116,] 131.0 42.00001
+[117,] 130.5 42.00001
+[118,] 130.5 41.50001
+[119,] 130.0 41.50001
+[120,] 130.0 41.00001
+[121,] 130.0 40.50001
+[122,] 129.5 40.50001
+[123,] 129.5 40.00001
+[124,] 129.0 40.00001
+[125,] 128.5 40.00001
+[126,] 128.5 39.50001
+[127,] 128.0 39.50001
+[128,] 128.0 39.00001
+[129,] 128.5 39.00001
+[130,] 128.5 38.50001
+[131,] 129.0 38.50001
+[132,] 129.0 38.00001
+[133,] 129.5 38.00001
+[134,] 129.5 37.50001
+[135,] 129.5 37.00001
+[136,] 129.5 36.50001
+[137,] 130.0 36.50001
+[138,] 130.0 36.00001
+[139,] 130.0 35.50001
+[140,] 129.5 35.50001
+[141,] 129.5 35.00001
+[142,] 129.5 34.50001
+[143,] 129.5 34.00001
+
+
+[[6]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 118.25002  38.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 118.0 38.50001
+[2,] 118.5 38.50001
+[3,] 118.5 39.00001
+[4,] 118.0 39.00001
+[5,] 118.0 38.50001
+
+
+[[7]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 161.75002  60.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 161.5 60.50001
+[2,] 162.0 60.50001
+[3,] 162.0 61.00001
+[4,] 161.5 61.00001
+[5,] 161.5 60.50001
+
+
+[[8]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 162.75002  58.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 162.5 58.00001
+[2,] 163.0 58.00001
+[3,] 163.0 58.50001
+[4,] 162.5 58.50001
+[5,] 162.5 58.00001
+
+
+[[9]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 162.75002  61.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 162.5 61.50001
+[2,] 162.5 61.00001
+[3,] 163.0 61.00001
+[4,] 163.0 61.50001
+[5,] 162.5 61.50001
+
+
+[[10]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 100.75002  77.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 100.5 77.50001
+[2,] 101.0 77.50001
+[3,] 101.0 78.00001
+[4,] 100.5 78.00001
+[5,] 100.5 77.50001
+
+
+[[11]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 102.25002  77.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 102.0 77.50001
+[2,] 102.5 77.50001
+[3,] 102.5 78.00001
+[4,] 102.0 78.00001
+[5,] 102.0 77.50001
+
+
+[[12]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 144.75  13.50
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 145.0 13.5
+[2,] 145.0 13.0
+[3,] 144.5 13.0
+[4,] 144.5 13.5
+[5,] 144.5 14.0
+[6,] 145.0 14.0
+[7,] 145.0 13.5
+
+
+[[13]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 123.75  14.25
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 124.0 14.5
+ [2,] 124.5 14.5
+ [3,] 124.5 14.0
+ [4,] 124.0 14.0
+ [5,] 123.5 14.0
+ [6,] 123.0 14.0
+ [7,] 123.0 14.5
+ [8,] 123.5 14.5
+ [9,] 124.0 14.5
+
+
+[[14]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 145.25  14.25
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 145.0 14.5
+[2,] 145.5 14.5
+[3,] 145.5 14.0
+[4,] 145.0 14.0
+[5,] 145.0 14.5
+
+
+[[15]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 145.75  15.00
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 146.0 15.0
+[2,] 146.0 14.5
+[3,] 145.5 14.5
+[4,] 145.5 15.0
+[5,] 145.5 15.5
+[6,] 146.0 15.5
+[7,] 146.0 15.0
+
+
+[[16]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 145.82145  17.32143
+
+Slot "area":
+[1] 1.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 146.0 16.5
+ [2,] 146.5 16.5
+ [3,] 146.5 16.0
+ [4,] 146.0 16.0
+ [5,] 145.5 16.0
+ [6,] 145.5 16.5
+ [7,] 145.5 17.0
+ [8,] 145.5 17.5
+ [9,] 145.5 18.0
+[10,] 145.5 18.5
+[11,] 145.5 19.0
+[12,] 146.0 19.0
+[13,] 146.0 18.5
+[14,] 146.0 18.0
+[15,] 146.0 17.5
+[16,] 146.0 17.0
+[17,] 146.0 16.5
+
+
+[[17]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 144.75  20.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 144.5 21.0
+[2,] 145.0 21.0
+[3,] 145.0 20.5
+[4,] 144.5 20.5
+[5,] 144.5 21.0
+
+
+[[18]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 116.75  20.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 116.5 21.0
+[2,] 117.0 21.0
+[3,] 117.0 20.5
+[4,] 116.5 20.5
+[5,] 116.5 21.0
+
+
+[[19]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 145.25  20.00
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 145.5 20.0
+[2,] 145.5 19.5
+[3,] 145.0 19.5
+[4,] 145.0 20.0
+[5,] 145.0 20.5
+[6,] 145.5 20.5
+[7,] 145.5 20.0
+
+
+[[20]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 121.31252  17.38393
+
+Slot "area":
+[1] 14
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 122.5 15.0
+ [2,] 122.5 14.5
+ [3,] 122.0 14.5
+ [4,] 121.5 14.5
+ [5,] 121.0 14.5
+ [6,] 120.5 14.5
+ [7,] 120.5 15.0
+ [8,] 120.0 15.0
+ [9,] 119.5 15.0
+[10,] 119.5 15.5
+[11,] 119.5 16.0
+[12,] 119.5 16.5
+[13,] 120.0 16.5
+[14,] 120.0 17.0
+[15,] 120.0 17.5
+[16,] 120.0 18.0
+[17,] 120.0 18.5
+[18,] 120.5 18.5
+[19,] 120.5 19.0
+[20,] 121.0 19.0
+[21,] 121.0 19.5
+[22,] 121.5 19.5
+[23,] 121.5 20.0
+[24,] 121.5 20.5
+[25,] 121.5 21.0
+[26,] 121.5 21.5
+[27,] 121.5 22.0
+[28,] 121.5 22.5
+[29,] 122.0 22.5
+[30,] 122.0 22.0
+[31,] 122.0 21.5
+[32,] 122.0 21.0
+[33,] 122.0 20.5
+[34,] 122.5 20.5
+[35,] 122.5 20.0
+[36,] 122.5 19.5
+[37,] 122.0 19.5
+[38,] 122.0 19.0
+[39,] 122.5 19.0
+[40,] 122.5 18.5
+[41,] 122.5 18.0
+[42,] 122.5 17.5
+[43,] 123.0 17.5
+[44,] 123.0 17.0
+[45,] 122.5 17.0
+[46,] 122.5 16.5
+[47,] 122.5 16.0
+[48,] 122.0 16.0
+[49,] 122.0 15.5
+[50,] 122.5 15.5
+[51,] 122.5 15.0
+
+
+[[21]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 153.75  24.25
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 153.5 24.5
+[2,] 154.0 24.5
+[3,] 154.0 24.0
+[4,] 153.5 24.0
+[5,] 153.5 24.5
+
+
+[[22]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.25  24.25
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 131.0 24.5
+[2,] 131.5 24.5
+[3,] 131.5 24.0
+[4,] 131.0 24.0
+[5,] 131.0 24.5
+
+
+[[23]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 142.25  27.25
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 142.5 27.0
+ [2,] 142.5 26.5
+ [3,] 142.0 26.5
+ [4,] 142.0 27.0
+ [5,] 142.0 27.5
+ [6,] 142.0 28.0
+ [7,] 142.5 28.0
+ [8,] 142.5 27.5
+ [9,] 142.5 27.0
+
+
+[[24]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 141.25  24.75
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 141.5 24.5
+ [2,] 141.5 24.0
+ [3,] 141.0 24.0
+ [4,] 141.0 24.5
+ [5,] 141.0 25.0
+ [6,] 141.0 25.5
+ [7,] 141.5 25.5
+ [8,] 141.5 25.0
+ [9,] 141.5 24.5
+
+
+[[25]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 124.03573  24.46429
+
+Slot "area":
+[1] 1.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 124.5 24.5
+ [2,] 124.5 24.0
+ [3,] 124.0 24.0
+ [4,] 123.5 24.0
+ [5,] 123.0 24.0
+ [6,] 122.5 24.0
+ [7,] 122.5 24.5
+ [8,] 123.0 24.5
+ [9,] 123.5 24.5
+[10,] 124.0 24.5
+[11,] 124.0 25.0
+[12,] 124.5 25.0
+[13,] 125.0 25.0
+[14,] 125.5 25.0
+[15,] 125.5 24.5
+[16,] 125.0 24.5
+[17,] 124.5 24.5
+
+
+[[26]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 120.76854  23.63889
+
+Slot "area":
+[1] 6.750001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 121.0 22.0
+ [2,] 121.0 21.5
+ [3,] 120.5 21.5
+ [4,] 120.5 22.0
+ [5,] 120.0 22.0
+ [6,] 120.0 22.5
+ [7,] 120.0 23.0
+ [8,] 119.5 23.0
+ [9,] 119.0 23.0
+[10,] 119.0 23.5
+[11,] 119.0 24.0
+[12,] 119.5 24.0
+[13,] 120.0 24.0
+[14,] 120.0 24.5
+[15,] 120.5 24.5
+[16,] 120.5 25.0
+[17,] 121.0 25.0
+[18,] 121.0 25.5
+[19,] 121.5 25.5
+[20,] 122.0 25.5
+[21,] 122.0 25.0
+[22,] 122.0 24.5
+[23,] 122.0 24.0
+[24,] 122.0 23.5
+[25,] 122.0 23.0
+[26,] 121.5 23.0
+[27,] 121.5 22.5
+[28,] 121.0 22.5
+[29,] 121.0 22.0
+
+
+[[27]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.25  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 131.0 26.0
+[2,] 131.5 26.0
+[3,] 131.5 25.5
+[4,] 131.0 25.5
+[5,] 131.0 26.0
+
+
+[[28]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 124.75  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 124.5 26.0
+[2,] 125.0 26.0
+[3,] 125.0 25.5
+[4,] 124.5 25.5
+[5,] 124.5 26.0
+
+
+[[29]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 123.75  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 123.5 26.0
+[2,] 124.0 26.0
+[3,] 124.0 25.5
+[4,] 123.5 25.5
+[5,] 123.5 26.0
+
+
+[[30]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 140.25002  30.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 140.0 30.50001
+[2,] 140.5 30.50001
+[3,] 140.5 30.00001
+[4,] 140.0 30.00001
+[5,] 140.0 30.50001
+
+
+[[31]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 128.65478  27.77381
+
+Slot "area":
+[1] 5.250001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 128.0 26.50000
+ [2,] 128.0 26.00000
+ [3,] 127.5 26.00000
+ [4,] 127.0 26.00000
+ [5,] 126.5 26.00000
+ [6,] 126.5 26.50000
+ [7,] 127.0 26.50000
+ [8,] 127.0 27.00000
+ [9,] 127.5 27.00000
+[10,] 127.5 27.50000
+[11,] 128.0 27.50000
+[12,] 128.0 28.00000
+[13,] 128.5 28.00000
+[14,] 129.0 28.00000
+[15,] 129.0 28.50000
+[16,] 128.5 28.50000
+[17,] 128.5 29.00000
+[18,] 129.0 29.00000
+[19,] 129.0 29.50001
+[20,] 129.5 29.50001
+[21,] 129.5 30.00001
+[22,] 130.0 30.00001
+[23,] 130.0 29.50001
+[24,] 130.0 29.00000
+[25,] 130.0 28.50000
+[26,] 130.5 28.50000
+[27,] 130.5 28.00000
+[28,] 130.0 28.00000
+[29,] 129.5 28.00000
+[30,] 129.5 27.50000
+[31,] 129.0 27.50000
+[32,] 129.0 27.00000
+[33,] 128.5 27.00000
+[34,] 128.5 26.50000
+[35,] 128.0 26.50000
+
+
+[[32]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 139.75002  32.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 139.5 32.50001
+[2,] 140.0 32.50001
+[3,] 140.0 32.00001
+[4,] 139.5 32.00001
+[5,] 139.5 32.50001
+
+
+[[33]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 128.25002  32.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 128.0 32.50001
+[2,] 128.5 32.50001
+[3,] 128.5 32.00001
+[4,] 128.0 32.00001
+[5,] 128.0 32.50001
+
+
+[[34]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 129.25002  31.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 129.0 31.50001
+[2,] 129.5 31.50001
+[3,] 129.5 31.00001
+[4,] 129.0 31.00001
+[5,] 129.0 31.50001
+
+
+[[35]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.75002  37.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 131.5 37.50001
+[2,] 132.0 37.50001
+[3,] 132.0 37.00001
+[4,] 131.5 37.00001
+[5,] 131.5 37.50001
+
+
+[[36]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 130.75002  37.50001
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 131.0 37.50001
+[2,] 131.0 37.00001
+[3,] 130.5 37.00001
+[4,] 130.5 37.50001
+[5,] 130.5 38.00001
+[6,] 131.0 38.00001
+[7,] 131.0 37.50001
+
+
+[[37]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 152.35002  47.15001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 152.5 47.00001
+ [2,] 152.5 46.50001
+ [3,] 152.0 46.50001
+ [4,] 151.5 46.50001
+ [5,] 151.5 47.00001
+ [6,] 152.0 47.00001
+ [7,] 152.0 47.50001
+ [8,] 152.5 47.50001
+ [9,] 152.5 48.00001
+[10,] 153.0 48.00001
+[11,] 153.0 47.50001
+[12,] 153.0 47.00001
+[13,] 152.5 47.00001
+
+
+[[38]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 167.06252  54.81251
+
+Slot "area":
+[1] 2
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 168.5 54.50001
+ [2,] 168.5 54.00001
+ [3,] 168.0 54.00001
+ [4,] 168.0 54.50001
+ [5,] 167.5 54.50001
+ [6,] 167.0 54.50001
+ [7,] 166.5 54.50001
+ [8,] 166.0 54.50001
+ [9,] 166.0 55.00001
+[10,] 165.5 55.00001
+[11,] 165.5 55.50001
+[12,] 166.0 55.50001
+[13,] 166.5 55.50001
+[14,] 166.5 55.00001
+[15,] 167.0 55.00001
+[16,] 167.5 55.00001
+[17,] 168.0 55.00001
+[18,] 168.5 55.00001
+[19,] 168.5 54.50001
+
+
+[[39]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -176.2045   51.9091
+
+Slot "area":
+[1] 5.500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -178.0 51.50001
+ [2,] -178.0 51.00001
+ [3,] -178.5 51.00001
+ [4,] -179.0 51.00001
+ [5,] -179.5 51.00001
+ [6,] -179.5 51.50001
+ [7,] -179.5 52.00001
+ [8,] -179.0 52.00001
+ [9,] -178.5 52.00001
+[10,] -178.0 52.00001
+[11,] -177.5 52.00001
+[12,] -177.0 52.00001
+[13,] -177.0 52.50001
+[14,] -176.5 52.50001
+[15,] -176.0 52.50001
+[16,] -175.5 52.50001
+[17,] -175.0 52.50001
+[18,] -174.5 52.50001
+[19,] -174.0 52.50001
+[20,] -173.5 52.50001
+[21,] -173.0 52.50001
+[22,] -172.5 52.50001
+[23,] -172.0 52.50001
+[24,] -172.0 52.00001
+[25,] -172.5 52.00001
+[26,] -173.0 52.00001
+[27,] -173.5 52.00001
+[28,] -174.0 52.00001
+[29,] -174.5 52.00001
+[30,] -175.0 52.00001
+[31,] -175.0 51.50001
+[32,] -175.5 51.50001
+[33,] -176.0 51.50001
+[34,] -176.5 51.50001
+[35,] -177.0 51.50001
+[36,] -177.5 51.50001
+[37,] -178.0 51.50001
+
+
+[[40]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 178.47729  51.88637
+
+Slot "area":
+[1] 2.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 179.5 51.50001
+ [2,] 179.5 51.00001
+ [3,] 179.0 51.00001
+ [4,] 179.0 51.50001
+ [5,] 178.5 51.50001
+ [6,] 178.0 51.50001
+ [7,] 177.5 51.50001
+ [8,] 177.0 51.50001
+ [9,] 177.0 52.00001
+[10,] 177.0 52.50001
+[11,] 177.5 52.50001
+[12,] 178.0 52.50001
+[13,] 178.5 52.50001
+[14,] 178.5 52.00001
+[15,] 179.0 52.00001
+[16,] 179.5 52.00001
+[17,] 179.5 52.50001
+[18,] 180.0 52.50001
+[19,] 180.0 52.00001
+[20,] 180.0 51.50001
+[21,] 179.5 51.50001
+
+
+[[41]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 175.75002  52.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 175.5 52.50001
+[2,] 176.0 52.50001
+[3,] 176.0 52.00001
+[4,] 175.5 52.00001
+[5,] 175.5 52.50001
+
+
+[[42]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 173.25002  52.68751
+
+Slot "area":
+[1] 2
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 174.0 52.50001
+ [2,] 174.0 52.00001
+ [3,] 173.5 52.00001
+ [4,] 173.0 52.00001
+ [5,] 173.0 52.50001
+ [6,] 172.5 52.50001
+ [7,] 172.0 52.50001
+ [8,] 172.0 53.00001
+ [9,] 172.5 53.00001
+[10,] 172.5 53.50001
+[11,] 173.0 53.50001
+[12,] 173.0 53.00001
+[13,] 173.5 53.00001
+[14,] 174.0 53.00001
+[15,] 174.5 53.00001
+[16,] 174.5 52.50001
+[17,] 174.0 52.50001
+
+
+[[43]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -172.85000   60.45001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -172.5 60.50001
+ [2,] -172.0 60.50001
+ [3,] -172.0 60.00001
+ [4,] -172.5 60.00001
+ [5,] -173.0 60.00001
+ [6,] -173.5 60.00001
+ [7,] -173.5 60.50001
+ [8,] -173.5 61.00001
+ [9,] -173.0 61.00001
+[10,] -172.5 61.00001
+[11,] -172.5 60.50001
+
+
+[[44]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -168.25000   64.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -168.5 65.00001
+[2,] -168.0 65.00001
+[3,] -168.0 64.50001
+[4,] -168.5 64.50001
+[5,] -168.5 65.00001
+
+
+[[45]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -170.45833   63.37501
+
+Slot "area":
+[1] 3
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -169.5 63.00001
+ [2,] -169.5 62.50001
+ [3,] -170.0 62.50001
+ [4,] -170.0 63.00001
+ [5,] -170.5 63.00001
+ [6,] -171.0 63.00001
+ [7,] -171.5 63.00001
+ [8,] -172.0 63.00001
+ [9,] -172.0 63.50001
+[10,] -172.0 64.00001
+[11,] -171.5 64.00001
+[12,] -171.0 64.00001
+[13,] -170.5 64.00001
+[14,] -170.0 64.00001
+[15,] -170.0 63.50001
+[16,] -169.5 63.50001
+[17,] -169.0 63.50001
+[18,] -168.5 63.50001
+[19,] -168.5 63.00001
+[20,] -169.0 63.00001
+[21,] -169.5 63.00001
+
+
+[[46]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 135.85002  74.05001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 136.5 74.00001
+ [2,] 136.5 73.50001
+ [3,] 136.0 73.50001
+ [4,] 135.5 73.50001
+ [5,] 135.5 74.00001
+ [6,] 135.0 74.00001
+ [7,] 135.0 74.50001
+ [8,] 135.5 74.50001
+ [9,] 136.0 74.50001
+[10,] 136.5 74.50001
+[11,] 136.5 74.00001
+
+
+[[47]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 148.75002  76.75001
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 149.0 77.00001
+ [2,] 149.5 77.00001
+ [3,] 149.5 76.50001
+ [4,] 149.0 76.50001
+ [5,] 148.5 76.50001
+ [6,] 148.0 76.50001
+ [7,] 148.0 77.00001
+ [8,] 148.5 77.00001
+ [9,] 149.0 77.00001
+
+
+[[48]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 92.00002 77.75001
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+            x        y
+[1,] 92.00002 78.00001
+[2,] 92.50002 78.00001
+[3,] 92.50002 77.50001
+[4,] 92.00002 77.50001
+[5,] 91.50002 77.50001
+[6,] 91.50002 78.00001
+[7,] 92.00002 78.00001
+
+
+[[49]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 91.00002 81.25001
+
+Slot "area":
+[1] 1
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+             x        y
+ [1,] 91.50002 81.50001
+ [2,] 92.00002 81.50001
+ [3,] 92.00002 81.00001
+ [4,] 91.50002 81.00001
+ [5,] 91.00002 81.00001
+ [6,] 90.50002 81.00001
+ [7,] 90.00002 81.00001
+ [8,] 90.00002 81.50001
+ [9,] 90.50002 81.50001
+[10,] 91.00002 81.50001
+[11,] 91.50002 81.50001
+
+
+[[50]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 93.75002 78.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+            x        y
+[1,] 93.50002 78.50001
+[2,] 94.00002 78.50001
+[3,] 94.00002 78.00001
+[4,] 93.50002 78.00001
+[5,] 93.50002 78.50001
+
+
+[[51]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 89.56252 77.06251
+
+Slot "area":
+[1] 2
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+             x        y
+ [1,] 90.00002 77.00001
+ [2,] 90.00002 76.50001
+ [3,] 89.50002 76.50001
+ [4,] 89.00002 76.50001
+ [5,] 88.50002 76.50001
+ [6,] 88.50002 77.00001
+ [7,] 88.50002 77.50001
+ [8,] 89.00002 77.50001
+ [9,] 89.50002 77.50001
+[10,] 90.00002 77.50001
+[11,] 90.50002 77.50001
+[12,] 91.00002 77.50001
+[13,] 91.00002 77.00001
+[14,] 90.50002 77.00001
+[15,] 90.00002 77.00001
+
+
+[[52]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 148.50002  75.10001
+
+Slot "area":
+[1] 5.000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 151.0 75.00001
+ [2,] 151.0 74.50001
+ [3,] 150.5 74.50001
+ [4,] 150.0 74.50001
+ [5,] 149.5 74.50001
+ [6,] 149.0 74.50001
+ [7,] 148.5 74.50001
+ [8,] 148.0 74.50001
+ [9,] 147.5 74.50001
+[10,] 147.0 74.50001
+[11,] 147.0 75.00001
+[12,] 146.5 75.00001
+[13,] 146.0 75.00001
+[14,] 146.0 75.50001
+[15,] 146.0 76.00001
+[16,] 146.5 76.00001
+[17,] 147.0 76.00001
+[18,] 147.0 75.50001
+[19,] 147.5 75.50001
+[20,] 148.0 75.50001
+[21,] 148.5 75.50001
+[22,] 149.0 75.50001
+[23,] 149.5 75.50001
+[24,] 150.0 75.50001
+[25,] 150.5 75.50001
+[26,] 151.0 75.50001
+[27,] 151.0 75.00001
+
+
+[[53]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 152.58335  75.91667
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 153.0 76.00001
+ [2,] 153.0 75.50001
+ [3,] 152.5 75.50001
+ [4,] 152.0 75.50001
+ [5,] 152.0 76.00001
+ [6,] 152.5 76.00001
+ [7,] 152.5 76.50001
+ [8,] 153.0 76.50001
+ [9,] 153.0 76.00001
+
+
+[[54]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 179.32145  71.10715
+
+Slot "area":
+[1] 1.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 180.0 71.00001
+ [2,] 180.0 70.50001
+ [3,] 179.5 70.50001
+ [4,] 179.0 70.50001
+ [5,] 178.5 70.50001
+ [6,] 178.5 71.00001
+ [7,] 178.5 71.50001
+ [8,] 179.0 71.50001
+ [9,] 179.5 71.50001
+[10,] 179.5 72.00001
+[11,] 180.0 72.00001
+[12,] 180.0 71.50001
+[13,] 180.0 71.00001
+
+
+[[55]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -178.78571   71.25001
+
+Slot "area":
+[1] 3.5
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -178.0 71.00001
+ [2,] -178.0 70.50001
+ [3,] -178.5 70.50001
+ [4,] -179.0 70.50001
+ [5,] -179.5 70.50001
+ [6,] -180.0 70.50001
+ [7,] -180.0 71.00001
+ [8,] -180.0 71.50001
+ [9,] -180.0 72.00001
+[10,] -179.5 72.00001
+[11,] -179.0 72.00001
+[12,] -178.5 72.00001
+[13,] -178.0 72.00001
+[14,] -178.0 71.50001
+[15,] -177.5 71.50001
+[16,] -177.0 71.50001
+[17,] -177.0 71.00001
+[18,] -177.5 71.00001
+[19,] -178.0 71.00001
+
+
+[[56]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -175.75000   71.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -176.0 71.50001
+[2,] -175.5 71.50001
+[3,] -175.5 71.00001
+[4,] -176.0 71.00001
+[5,] -176.0 71.50001
+
+
+[[57]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -175.53740   66.35631
+
+Slot "area":
+[1] 31.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -177.0 65.50001
+ [2,] -177.0 65.00001
+ [3,] -177.5 65.00001
+ [4,] -178.0 65.00001
+ [5,] -178.5 65.00001
+ [6,] -179.0 65.00001
+ [7,] -179.5 65.00001
+ [8,] -180.0 65.00001
+ [9,] -180.0 65.50001
+[10,] -180.0 66.00001
+[11,] -180.0 66.50001
+[12,] -180.0 67.00001
+[13,] -180.0 67.50001
+[14,] -180.0 68.00001
+[15,] -180.0 68.50001
+[16,] -180.0 69.00001
+[17,] -179.5 69.00001
+[18,] -179.0 69.00001
+[19,] -178.5 69.00001
+[20,] -178.0 69.00001
+[21,] -178.0 68.50001
+[22,] -177.5 68.50001
+[23,] -177.0 68.50001
+[24,] -176.5 68.50001
+[25,] -176.5 68.00001
+[26,] -176.0 68.00001
+[27,] -175.5 68.00001
+[28,] -175.0 68.00001
+[29,] -175.0 67.50001
+[30,] -174.5 67.50001
+[31,] -174.0 67.50001
+[32,] -173.5 67.50001
+[33,] -173.0 67.50001
+[34,] -172.5 67.50001
+[35,] -172.5 67.00001
+[36,] -172.0 67.00001
+[37,] -171.5 67.00001
+[38,] -171.0 67.00001
+[39,] -170.5 67.00001
+[40,] -170.5 66.50001
+[41,] -170.0 66.50001
+[42,] -169.5 66.50001
+[43,] -169.5 66.00001
+[44,] -170.0 66.00001
+[45,] -170.0 65.50001
+[46,] -170.5 65.50001
+[47,] -170.5 65.00001
+[48,] -171.0 65.00001
+[49,] -171.5 65.00001
+[50,] -172.0 65.00001
+[51,] -172.0 64.50001
+[52,] -172.0 64.00001
+[53,] -172.5 64.00001
+[54,] -173.0 64.00001
+[55,] -173.5 64.00001
+[56,] -174.0 64.00001
+[57,] -174.5 64.00001
+[58,] -174.5 64.50001
+[59,] -175.0 64.50001
+[60,] -175.5 64.50001
+[61,] -176.0 64.50001
+[62,] -176.0 65.00001
+[63,] -176.5 65.00001
+[64,] -176.5 65.50001
+[65,] -177.0 65.50001
+
+
+[[58]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -162.46003   64.35502
+
+Slot "area":
+[1] 79.75001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+            x        y
+  [1,] -165.5 60.00001
+  [2,] -165.5 59.50001
+  [3,] -166.0 59.50001
+  [4,] -166.5 59.50001
+  [5,] -167.0 59.50001
+  [6,] -167.5 59.50001
+  [7,] -167.5 60.00001
+  [8,] -167.5 60.50001
+  [9,] -167.0 60.50001
+ [10,] -166.5 60.50001
+ [11,] -166.0 60.50001
+ [12,] -165.5 60.50001
+ [13,] -165.5 61.00001
+ [14,] -166.0 61.00001
+ [15,] -166.5 61.00001
+ [16,] -166.5 61.50001
+ [17,] -166.5 62.00001
+ [18,] -166.5 62.50001
+ [19,] -166.0 62.50001
+ [20,] -165.5 62.50001
+ [21,] -165.5 63.00001
+ [22,] -165.0 63.00001
+ [23,] -165.0 63.50001
+ [24,] -164.5 63.50001
+ [25,] -164.0 63.50001
+ [26,] -163.5 63.50001
+ [27,] -163.0 63.50001
+ [28,] -163.0 64.00001
+ [29,] -163.5 64.00001
+ [30,] -163.5 64.50001
+ [31,] -164.0 64.50001
+ [32,] -164.5 64.50001
+ [33,] -164.5 64.00001
+ [34,] -165.0 64.00001
+ [35,] -165.5 64.00001
+ [36,] -165.5 64.50001
+ [37,] -166.0 64.50001
+ [38,] -166.0 64.00001
+ [39,] -166.5 64.00001
+ [40,] -166.5 64.50001
+ [41,] -167.0 64.50001
+ [42,] -167.0 65.00001
+ [43,] -167.5 65.00001
+ [44,] -168.0 65.00001
+ [45,] -168.0 65.50001
+ [46,] -168.5 65.50001
+ [47,] -169.0 65.50001
+ [48,] -169.5 65.50001
+ [49,] -169.5 66.00001
+ [50,] -169.0 66.00001
+ [51,] -168.5 66.00001
+ [52,] -168.0 66.00001
+ [53,] -167.5 66.00001
+ [54,] -167.0 66.00001
+ [55,] -167.0 66.50001
+ [56,] -166.5 66.50001
+ [57,] -166.0 66.50001
+ [58,] -165.5 66.50001
+ [59,] -165.0 66.50001
+ [60,] -165.0 67.00001
+ [61,] -164.5 67.00001
+ [62,] -164.0 67.00001
+ [63,] -164.0 67.50001
+ [64,] -164.5 67.50001
+ [65,] -165.0 67.50001
+ [66,] -165.5 67.50001
+ [67,] -165.5 68.00001
+ [68,] -166.0 68.00001
+ [69,] -166.5 68.00001
+ [70,] -167.0 68.00001
+ [71,] -167.0 68.50001
+ [72,] -166.5 68.50001
+ [73,] -166.5 69.00001
+ [74,] -166.0 69.00001
+ [75,] -165.5 69.00001
+ [76,] -165.0 69.00001
+ [77,] -164.5 69.00001
+ [78,] -164.0 69.00001
+ [79,] -164.0 69.50001
+ [80,] -163.5 69.50001
+ [81,] -163.5 70.00001
+ [82,] -163.0 70.00001
+ [83,] -163.0 70.50001
+ [84,] -162.5 70.50001
+ [85,] -162.0 70.50001
+ [86,] -161.5 70.50001
+ [87,] -161.0 70.50001
+ [88,] -160.5 70.50001
+ [89,] -160.5 71.00001
+ [90,] -160.0 71.00001
+ [91,] -160.0 70.50001
+ [92,] -159.5 70.50001
+ [93,] -159.5 70.00001
+ [94,] -159.5 69.50001
+ [95,] -159.5 69.00001
+ [96,] -159.5 68.50001
+ [97,] -159.5 68.00001
+ [98,] -159.0 68.00001
+ [99,] -159.0 67.50001
+[100,] -159.0 67.00001
+[101,] -159.0 66.50001
+[102,] -159.0 66.00001
+[103,] -159.0 65.50001
+[104,] -159.0 65.00001
+[105,] -158.5 65.00001
+[106,] -158.5 64.50001
+[107,] -158.5 64.00001
+[108,] -158.5 63.50001
+[109,] -158.5 63.00001
+[110,] -158.5 62.50001
+[111,] -158.5 62.00001
+[112,] -158.5 61.50001
+[113,] -158.5 61.00001
+[114,] -158.5 60.50001
+[115,] -159.0 60.50001
+[116,] -159.0 60.00001
+[117,] -159.0 59.50001
+[118,] -159.0 59.00001
+[119,] -159.0 58.50001
+[120,] -159.0 58.00001
+[121,] -159.5 58.00001
+[122,] -159.5 58.50001
+[123,] -160.0 58.50001
+[124,] -160.5 58.50001
+[125,] -161.0 58.50001
+[126,] -161.5 58.50001
+[127,] -162.0 58.50001
+[128,] -162.5 58.50001
+[129,] -162.5 59.00001
+[130,] -162.5 59.50001
+[131,] -163.0 59.50001
+[132,] -163.5 59.50001
+[133,] -164.0 59.50001
+[134,] -164.5 59.50001
+[135,] -164.5 60.00001
+[136,] -165.0 60.00001
+[137,] -165.5 60.00001
+
+
+[[59]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -162.25000   64.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+          x        y
+[1,] -162.5 64.50001
+[2,] -162.5 64.00001
+[3,] -162.0 64.00001
+[4,] -162.0 64.50001
+[5,] -162.5 64.50001
+
+
+[[60]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -163.25000   66.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+          x        y
+[1,] -163.5 67.00001
+[2,] -163.5 66.50001
+[3,] -163.0 66.50001
+[4,] -163.0 67.00001
+[5,] -163.5 67.00001
+
+
+[[61]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 143.25002  56.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 143.0 56.50001
+[2,] 143.5 56.50001
+[3,] 143.5 56.00001
+[4,] 143.0 56.00001
+[5,] 143.0 56.50001
+
+
+[[62]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -164.49107   54.48215
+
+Slot "area":
+[1] 14
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -160.0 55.00001
+ [2,] -160.0 54.50001
+ [3,] -160.5 54.50001
+ [4,] -160.5 55.00001
+ [5,] -161.0 55.00001
+ [6,] -161.5 55.00001
+ [7,] -161.5 54.50001
+ [8,] -162.0 54.50001
+ [9,] -162.0 54.00001
+[10,] -162.5 54.00001
+[11,] -163.0 54.00001
+[12,] -163.0 54.50001
+[13,] -163.5 54.50001
+[14,] -164.0 54.50001
+[15,] -164.0 54.00001
+[16,] -164.5 54.00001
+[17,] -165.0 54.00001
+[18,] -165.5 54.00001
+[19,] -166.0 54.00001
+[20,] -166.0 53.50001
+[21,] -166.5 53.50001
+[22,] -166.5 53.00001
+[23,] -167.0 53.00001
+[24,] -167.5 53.00001
+[25,] -168.0 53.00001
+[26,] -168.0 52.50001
+[27,] -168.5 52.50001
+[28,] -169.0 52.50001
+[29,] -169.5 52.50001
+[30,] -170.0 52.50001
+[31,] -170.5 52.50001
+[32,] -171.0 52.50001
+[33,] -171.0 52.00001
+[34,] -171.5 52.00001
+[35,] -171.5 52.50001
+[36,] -171.5 53.00001
+[37,] -171.0 53.00001
+[38,] -170.5 53.00001
+[39,] -170.0 53.00001
+[40,] -170.0 53.50001
+[41,] -169.5 53.50001
+[42,] -169.5 53.00001
+[43,] -169.0 53.00001
+[44,] -169.0 53.50001
+[45,] -168.5 53.50001
+[46,] -168.5 54.00001
+[47,] -168.0 54.00001
+[48,] -167.5 54.00001
+[49,] -167.0 54.00001
+[50,] -167.0 54.50001
+[51,] -166.5 54.50001
+[52,] -166.0 54.50001
+[53,] -165.5 54.50001
+[54,] -165.0 54.50001
+[55,] -165.0 55.00001
+[56,] -164.5 55.00001
+[57,] -164.0 55.00001
+[58,] -164.0 55.50001
+[59,] -163.5 55.50001
+[60,] -163.0 55.50001
+[61,] -163.0 56.00001
+[62,] -162.5 56.00001
+[63,] -162.0 56.00001
+[64,] -161.5 56.00001
+[65,] -161.5 56.50001
+[66,] -161.0 56.50001
+[67,] -160.5 56.50001
+[68,] -160.0 56.50001
+[69,] -160.0 57.00001
+[70,] -159.5 57.00001
+[71,] -159.5 56.50001
+[72,] -159.5 56.00001
+[73,] -159.5 55.50001
+[74,] -159.5 55.00001
+[75,] -160.0 55.00001
+
+
+[[63]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -169.50000   56.75001
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -169.5 57.00001
+[2,] -169.0 57.00001
+[3,] -169.0 56.50001
+[4,] -169.5 56.50001
+[5,] -170.0 56.50001
+[6,] -170.0 57.00001
+[7,] -169.5 57.00001
+
+
+[[64]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -170.25000   57.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -170.5 57.50001
+[2,] -170.0 57.50001
+[3,] -170.0 57.00001
+[4,] -170.5 57.00001
+[5,] -170.5 57.50001
+
+
+
+Slot "plotOrder":
+ [1]  1  5 58 57 62 20 26 39 31 52 55  2 45 40 38 42 51 25 16 54 37 43 46 49 23
+[26] 53 13 47 24 63 19 15 36 48 12  7 28 18 41  8 33 32 14 17 30 60 59 44 11 10
+[51] 35 64  4 50 29  6 61 56  3  9 34 27 22 21
+
+Slot "labpt":
+[1] 117.72901  53.90884
+
+Slot "ID":
+[1] "1"
+
+Slot "area":
+[1] 3495.5
+
+> class(final_PA_buffer_poly_df)
+[1] "SpatialPolygonsDataFrame"
+attr(,"package")
+[1] "sp"
+> summary(final_PA_buffer_poly_df)
+Object of class SpatialPolygonsDataFrame
+Coordinates:
+   min       max
+x -180 180.00002
+y   13  81.50001
+Is projected: FALSE 
+proj4string :
+[+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0]
+Data attributes:
+ rep.0..length.IDs..
+ Min.   :0          
+ 1st Qu.:0          
+ Median :0          
+ Mean   :0          
+ 3rd Qu.:0          
+ Max.   :0          
+> #write it
+> require(rgdal)
+Loading required package: rgdal
+rgdal: version: 1.2-16, (SVN revision 701)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 1.11.5, released 2016/07/01
+ Path to GDAL shared files: /usr/local/Cellar/gdal/1.11.5_3/share/gdal
+ GDAL binary built with GEOS: TRUE 
+ Loaded PROJ.4 runtime: Rel. 4.9.3, 15 August 2016, [PJ_VERSION: 493]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.2-5 
+> writeOGR(final_PA_buffer_poly_df, layer = 'PA_buffer_pumila', '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/', driver="ESRI Shapefile", overwrite_layer=TRUE)
+Warning message:
+In writeOGR(final_PA_buffer_poly_df, layer = "PA_buffer_pumila",  :
+  Field names abbreviated for ESRI Shapefile driver
+> #check
+> final_PA_buffer_poly_df_check = readOGR("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/PA_buffer_pumila.shp")
+OGR data source with driver: ESRI Shapefile 
+Source: "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/PA_buffer_pumila.shp", layer: "PA_buffer_pumila"
+with 1 features
+It has 1 fields
+> plot(distribution_pumila)
+> plot(polygon_PA_buffer_pumila, add=T, lwd=4)
+> plot(final_PA_buffer_poly_df_check, add=T, border="red")
+> plotKML::kml(final_PA_buffer_poly_df_check, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_PA_buffer_poly_df_check.kml", sep=""))#perfect
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_PA_buffer_poly_df_check.kml
+> 
+> 
+> 
+> ##################################
+> ####### Range calc buffer ########
+> ##################################
+> 
+> #Create PA buffer around extended distribution
+> polygon_range_calc_pumila = gBuffer(polygon_distribution_buffer_pumila, byid=FALSE, id=NULL, width=12.5, quadsegs=5, capStyle="ROUND", joinStyle="ROUND", mitreLimit=1.0)
+Warning message:
+In gBuffer(polygon_distribution_buffer_pumila, byid = FALSE, id = NULL,  :
+  Spatial object is not projected; GEOS expects planar coordinates
+> 
+> #plot the distribution and the buffer
+> plot(distribution_pumila)
+> plot(polygon_range_calc_pumila, add=T)
+> 
+> #crop the range_calc using the distribution map, in that way we remove the areas outside the map
+> polygon_range_calc_pumila_cropped = crop(polygon_range_calc_pumila, distribution_pumila)
+> plot(polygon_range_calc_pumila, lty=1)
+> plot(polygon_range_calc_pumila_cropped, add=T, lty=2)
+> legend("bottomright", legend=c("complete calc buffer", "reduced calc buffer"), lty=c(1,2))
+> 
+> #calculate the difference between both buffers
+> extreme_range_calc = gDifference(polygon_range_calc_pumila, polygon_range_calc_pumila_cropped)
+> 
+> #plot polyogns
+> plot(polygon_range_calc_pumila)
+> plot(extreme_range_calc, add=T, col="red")
+> legend("bottomright", legend=c("complete calc buffer", "extreme calc buffer"), fill=c("white", "red"))
+> 
+> #plot the both polygons on the distribution map
+> plot(distribution_pumila)
+> plot(polygon_range_calc_pumila, add=T, lwd=4)
+> plot(extreme_range_calc, add=T, border="red")#the right extreme is not plotted, we have to changed the coordinates
+> legend("bottomright", legend=c("complete calc buffer", "extreme calc buffer"), fill=c("black", "red"))
+> 
+> #change the coordinates of the right extreme polygon. In this case we only have one polgyon (the buffer is not big enough to get to the up end of the map).
+> extreme_range_calc@polygons[[1]]@Polygons[[1]]@coords[,1]#these are the long (x) coordinates of the second polygon
+ [1] 180.0000 180.3356 180.3627 181.3356 181.3627 184.8473 185.3473 185.8473
+ [9] 187.6127 188.1127 188.6127 190.3882 190.5074 190.8882 191.5000 191.5000
+[17] 190.8882 189.1127 186.3473 182.8627 179.0000 180.0000 180.0000
+> #we substract from each coordinate 180, the result will be substracted from 180 and the changed the sign
+> extreme_range_calc@polygons[[1]]@Polygons[[1]]@coords[,1] <- -(180 - (extreme_range_calc@polygons[[1]]@Polygons[[1]]@coords[,1] - 180))#Example to understand: The maximum x coordinate is 180, so all the points in the second polygon from 180 to 199 should be in the other extreme of the map. Imagine a point at 183 longitude degrees. The difference from 180, that it is 3 (183-180), should be on the other side, i.e. should be rested to 180 -> 177. Therefore: - (180 - (183-180)) -> -177. With 180 would be: - (180 - (180-180)) = -180, which is ok because we are exactly in the end of one size of the map (180) and beginning of the other side (-180).
+> 
+> #plot
+> plot(distribution_pumila)
+> plot(extreme_range_calc, add=T, border="red")
+> plot(polygon_range_calc_pumila, add=T, lwd=4)
+> legend("bottomright", legend=c("calc buffer inside the map", "the rest of calc buffer"), fill=c("black", "red"))
+> 
+> #bind both polygons
+> final_polygon_range_calc = union(extreme_range_calc, polygon_range_calc_pumila)
+> 
+> #remove the areas outside the map. Up for both polygons, left only for the polygon_range_calc_pumila The left part of the  polygon_range_calc_pumila has been put in the other side, whilst the up part is not interesting because there is no earth in that
+> final_polygon_range_calc = crop(final_polygon_range_calc, distribution_pumila)
+> 
+> #plot
+> plot(distribution_pumila)
+> plot(polygon_range_calc_pumila, add=T, lwd=4)
+> plot(final_polygon_range_calc, add=T, border="red")
+> legend("bottomright", legend=c("initial PA buffer", "final_PA_buffer"), fill=c("black", "red"))
+> 
+> #save the buffers into kml files for opening in goole earth
+> plotKML::kml(polygon_range_calc_pumila, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_range_calc.kml", sep=""))
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_polygon_range_calc.kml
+> plotKML::kml(final_polygon_range_calc, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_polygon_range_calc.kml", sep="")) #The cutted parts match!
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_polygon_range_calc.kml
+> 
+> ##Remove see areas of the buffer and save as a raster
+> #We want that the polygon that serves as model for the buffers will be exact the extended distribution of pine species, i.e. the extended distribution with the 1 width buffer but removing see areas. In that way when we apply a buffer of 20 width, is exactly around the extended distribution of the species (not counting see areas).
+> #first rasterize the buffer
+> ###create a raster from buffer+bianca area converting the buffer+bianca polygon in a raster (rasterize) 
+> raster_buffer_range_calc = raster() #create a empty raster
+> extent(raster_buffer_range_calc) = extent(final_polygon_range_calc) #give it a extention similar to distribution area of pinus halepensis polygon
+> res(raster_buffer_range_calc) = res(distribution_pumila) #give it a resolution similar to he biancas maps because the polygon tha we will rasterize was obtained from this maps (I can`t extract resolution from polygon_buffer). In this way, we maintenain the same resolution. 
+> raster_buffer_range_calc  = rasterize(final_polygon_range_calc,raster_buffer_range_calc) #convert the polygon of the halepensis buffer in a raster
+> distribution_pumila #take a raster of pumila distribution (without buffer) for obtaining coast limits
+class       : RasterLayer 
+dimensions  : 300, 720, 216000  (nrow, ncol, ncell)
+resolution  : 0.5, 0.5  (x, y)
+extent      : -180, 180, -60, 90.00001  (xmin, xmax, ymin, ymax)
+coord. ref. : +proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0 
+data source : /Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_pumila_01.img 
+names       : p_pumila_01 
+values      : 0, 1  (min, max)
+
+> raster_buffer_range_calc = distribution_pumila*raster_buffer_range_calc #multiply both raster for creating a raster with NAs as much as these rasters, it is to say, we want a raster with NA in pixel where some of these raster have a NA. The zones without cells in distribution are places of sea only, if we would have used a environmental variable, terrestrial cells without data of the variable also would be computed as sea cells. 
+Warning message:
+In distribution_pumila * raster_buffer_range_calc :
+  Raster objects have different extents. Result for their intersection is returned
+> raster_buffer_range_calc[!is.na(raster_buffer_range_calc)] <- 1 #give value of 1 to all cells without NA, in this way include cell of distribution raster with 1 and cell outside the distribution raster but inside the raster buffer (with 0).  
+> 
+> #create the new polygon halepensis distribution without sea areas
+> final_polygon_range_calc = rasterToPolygons(raster_buffer_range_calc, fun=function(x){x==1}, dissolve=TRUE)
+> 
+> #plot
+> plot(crop(raster_buffer_range_calc, final_polygon_range_calc))
+> plot(final_polygon_range_calc, add=T)#as you can see, the raster and the polygon are almost the same, except in the joints (small difference) and of course the sea areas. The buffers for variables selection are also calculated with rasters of the PA buffers.
+> 
+> #compare with the initial distribution
+> plot(crop(distribution_pumila, final_polygon_range_calc))
+> plot(final_polygon_range_calc, add=T)
+> 
+> #save raster of distribution buffer
+> writeRaster(raster_buffer_range_calc, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/buffers_calc_ranges/pumila_buffer_range_calc.asc", format="ascii", overwrite=TRUE)
+> 
+> #save the final polygon as a shape file
+> #for that we need to covert the SpatialPolygons to a SpatialPolygonsDataFrame object. We have to create an empty data.frame with same number row than ID values we have in the polygon (1 in our case, we don't have IDs). See "https://stat.ethz.ch/pipermail/r-sig-geo/2006-August/001252.html"
+> IDs <- sapply(slot(final_polygon_range_calc, "polygons"), function(x) slot(x, "ID"))
+> df <- data.frame(rep(0, length(IDs)), row.names=IDs)
+> final_range_calc_poly_df <- SpatialPolygonsDataFrame(final_polygon_range_calc, df)#df: object of class ‘data.frame’; the number of rows in ‘data’ should equal the number of Polygons-class objects in ‘Sr’. We only have one polygon
+> final_polygon_range_calc@polygons[[1]]
+An object of class "Polygons"
+Slot "Polygons":
+[[1]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 124.77604  56.14061
+
+Slot "area":
+[1] 2545.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+               x        y
+  [1,] 122.00002 39.00001
+  [2,] 122.00002 38.50001
+  [3,] 121.50002 38.50001
+  [4,] 121.00002 38.50001
+  [5,] 121.00002 38.00001
+  [6,] 121.50002 38.00001
+  [7,] 122.00002 38.00001
+  [8,] 122.50002 38.00001
+  [9,] 122.50002 37.50001
+ [10,] 123.00002 37.50001
+ [11,] 123.00002 37.00001
+ [12,] 123.00002 36.50001
+ [13,] 122.50002 36.50001
+ [14,] 122.00002 36.50001
+ [15,] 121.50002 36.50001
+ [16,] 121.00002 36.50001
+ [17,] 121.00002 36.00001
+ [18,] 121.00002 35.50001
+ [19,] 120.50002 35.50001
+ [20,] 120.00002 35.50001
+ [21,] 120.00002 35.00001
+ [22,] 120.00002 34.50001
+ [23,] 120.50002 34.50001
+ [24,] 120.50002 34.00001
+ [25,] 121.00002 34.00001
+ [26,] 121.00002 33.50001
+ [27,] 121.00002 33.00001
+ [28,] 121.50002 33.00001
+ [29,] 121.50002 32.50001
+ [30,] 122.00002 32.50001
+ [31,] 122.00002 32.00001
+ [32,] 122.00002 31.50001
+ [33,] 122.00002 31.00001
+ [34,] 122.50002 31.00001
+ [35,] 123.00002 31.00001
+ [36,] 123.00002 30.50001
+ [37,] 123.00002 30.00001
+ [38,] 122.50002 30.00001
+ [39,] 122.50002 29.50001
+ [40,] 122.50002 29.00000
+ [41,] 122.50002 28.50000
+ [42,] 122.00002 28.50000
+ [43,] 122.00002 28.00000
+ [44,] 121.50002 28.00000
+ [45,] 121.50002 27.50000
+ [46,] 121.50002 27.00000
+ [47,] 121.00002 27.00000
+ [48,] 121.00002 26.50000
+ [49,] 120.50002 26.50000
+ [50,] 120.50002 26.00000
+ [51,] 120.00002 26.00000
+ [52,] 120.00002 26.50000
+ [53,] 119.50002 26.50000
+ [54,] 119.50002 27.00000
+ [55,] 119.00002 27.00000
+ [56,] 118.50002 27.00000
+ [57,] 118.50002 27.50000
+ [58,] 118.00002 27.50000
+ [59,] 118.00002 28.00000
+ [60,] 117.50002 28.00000
+ [61,] 117.50002 28.50000
+ [62,] 117.00002 28.50000
+ [63,] 117.00002 29.00000
+ [64,] 116.50002 29.00000
+ [65,] 116.50002 29.50001
+ [66,] 116.00002 29.50001
+ [67,] 116.00002 30.00001
+ [68,] 115.50002 30.00001
+ [69,] 115.50002 30.50001
+ [70,] 115.00002 30.50001
+ [71,] 115.00002 31.00001
+ [72,] 114.50002 31.00001
+ [73,] 114.50002 31.50001
+ [74,] 114.00002 31.50001
+ [75,] 114.00002 32.00001
+ [76,] 114.00002 32.50001
+ [77,] 113.50002 32.50001
+ [78,] 113.50002 33.00001
+ [79,] 113.50002 33.50001
+ [80,] 113.00002 33.50001
+ [81,] 113.00002 34.00001
+ [82,] 113.00002 34.50001
+ [83,] 112.50002 34.50001
+ [84,] 112.00002 34.50001
+ [85,] 111.50002 34.50001
+ [86,] 111.00002 34.50001
+ [87,] 110.50002 34.50001
+ [88,] 110.50002 34.00001
+ [89,] 110.00002 34.00001
+ [90,] 109.50002 34.00001
+ [91,] 109.00002 34.00001
+ [92,] 108.50002 34.00001
+ [93,] 108.00002 34.00001
+ [94,] 107.50002 34.00001
+ [95,] 107.00002 34.00001
+ [96,] 106.50002 34.00001
+ [97,] 106.00002 34.00001
+ [98,] 105.50002 34.00001
+ [99,] 105.50002 34.50001
+[100,] 105.00002 34.50001
+[101,] 104.50002 34.50001
+[102,] 104.00002 34.50001
+[103,] 103.50002 34.50001
+[104,] 103.00002 34.50001
+[105,] 103.00002 35.00001
+[106,] 102.50002 35.00001
+[107,] 102.00002 35.00001
+[108,] 102.00002 35.50001
+[109,] 101.50002 35.50001
+[110,] 101.00002 35.50001
+[111,] 101.00002 36.00001
+[112,] 100.50002 36.00001
+[113,] 100.00002 36.00001
+[114,] 100.00002 36.50001
+[115,]  99.50002 36.50001
+[116,]  99.50002 37.00001
+[117,]  99.00002 37.00001
+[118,]  99.00002 37.50001
+[119,]  98.50002 37.50001
+[120,]  98.00002 37.50001
+[121,]  98.00002 38.00001
+[122,]  97.50002 38.00001
+[123,]  97.00002 38.00001
+[124,]  97.00002 38.50001
+[125,]  96.50002 38.50001
+[126,]  96.00002 38.50001
+[127,]  96.00002 39.00001
+[128,]  95.50002 39.00001
+[129,]  95.00002 39.00001
+[130,]  95.00002 39.50001
+[131,]  94.50002 39.50001
+[132,]  94.50002 40.00001
+[133,]  94.00002 40.00001
+[134,]  94.00002 40.50001
+[135,]  93.50002 40.50001
+[136,]  93.50002 41.00001
+[137,]  93.00002 41.00001
+[138,]  93.00002 41.50001
+[139,]  92.50002 41.50001
+[140,]  92.50002 42.00001
+[141,]  92.00002 42.00001
+[142,]  92.00002 42.50001
+[143,]  91.50002 42.50001
+[144,]  91.50002 43.00001
+[145,]  91.00002 43.00001
+[146,]  91.00002 43.50001
+[147,]  91.00002 44.00001
+[148,]  90.50002 44.00001
+[149,]  90.50002 44.50001
+[150,]  90.50002 45.00001
+[151,]  90.00002 45.00001
+[152,]  90.00002 45.50001
+[153,]  90.00002 46.00001
+[154,]  89.50002 46.00001
+[155,]  89.50002 46.50001
+[156,]  89.50002 47.00001
+[157,]  89.50002 47.50001
+[158,]  89.50002 48.00001
+[159,]  89.50002 48.50001
+[160,]  89.00002 48.50001
+[161,]  89.00002 49.00001
+[162,]  89.00002 49.50001
+[163,]  89.00002 50.00001
+[164,]  89.00002 50.50001
+[165,]  89.00002 51.00001
+[166,]  89.00002 51.50001
+[167,]  89.00002 52.00001
+[168,]  89.00002 52.50001
+[169,]  89.00002 53.00001
+[170,]  89.00002 53.50001
+[171,]  89.00002 54.00001
+[172,]  89.50002 54.00001
+[173,]  89.50002 54.50001
+[174,]  89.50002 55.00001
+[175,]  89.50002 55.50001
+[176,]  89.50002 56.00001
+[177,]  89.50002 56.50001
+[178,]  90.00002 56.50001
+[179,]  90.00002 57.00001
+[180,]  90.00002 57.50001
+[181,]  90.50002 57.50001
+[182,]  90.50002 58.00001
+[183,]  90.50002 58.50001
+[184,]  91.00002 58.50001
+[185,]  91.00002 59.00001
+[186,]  91.00002 59.50001
+[187,]  91.50002 59.50001
+[188,]  91.50002 60.00001
+[189,]  92.00002 60.00001
+[190,]  92.00002 60.50001
+[191,]  92.50002 60.50001
+[192,]  92.50002 61.00001
+[193,]  93.00002 61.00001
+[194,]  93.00002 61.50001
+[195,]  93.50002 61.50001
+[196,]  93.50002 62.00001
+[197,]  94.00002 62.00001
+[198,]  94.00002 62.50001
+[199,]  94.00002 63.00001
+[200,]  94.00002 63.50001
+[201,]  94.00002 64.00001
+[202,]  94.00002 64.50001
+[203,]  94.00002 65.00001
+[204,]  93.50002 65.00001
+[205,]  93.50002 65.50001
+[206,]  93.50002 66.00001
+[207,]  93.50002 66.50001
+[208,]  93.50002 67.00001
+[209,]  93.50002 67.50001
+[210,]  93.50002 68.00001
+[211,]  93.50002 68.50001
+[212,]  93.50002 69.00001
+[213,]  93.50002 69.50001
+[214,]  94.00002 69.50001
+[215,]  94.00002 70.00001
+[216,]  94.00002 70.50001
+[217,]  94.00002 71.00001
+[218,]  94.00002 71.50001
+[219,]  94.00002 72.00001
+[220,]  94.50002 72.00001
+[221,]  94.50002 72.50001
+[222,]  94.50002 73.00001
+[223,]  95.00002 73.00001
+[224,]  95.00002 73.50001
+[225,]  95.00002 74.00001
+[226,]  95.50002 74.00001
+[227,]  95.50002 74.50001
+[228,]  95.50002 75.00001
+[229,]  96.00002 75.00001
+[230,]  96.00002 75.50001
+[231,]  96.50002 75.50001
+[232,]  96.50002 76.00001
+[233,]  97.00002 76.00001
+[234,]  97.00002 76.50001
+[235,]  97.50002 76.50001
+[236,]  97.50002 77.00001
+[237,]  98.00002 77.00001
+[238,]  98.50002 77.00001
+[239,]  98.50002 76.50001
+[240,]  99.00002 76.50001
+[241,]  99.50002 76.50001
+[242,] 100.00002 76.50001
+[243,] 100.00002 77.00001
+[244,] 100.00002 77.50001
+[245,]  99.50002 77.50001
+[246,]  99.50002 78.00001
+[247,]  99.00002 78.00001
+[248,]  99.00002 78.50001
+[249,]  99.50002 78.50001
+[250,]  99.50002 79.00001
+[251,] 100.00002 79.00001
+[252,] 100.50002 79.00001
+[253,] 101.00002 79.00001
+[254,] 101.00002 79.50001
+[255,] 101.50002 79.50001
+[256,] 102.00002 79.50001
+[257,] 102.50002 79.50001
+[258,] 103.00002 79.50001
+[259,] 103.50002 79.50001
+[260,] 104.00002 79.50001
+[261,] 104.50002 79.50001
+[262,] 104.50002 79.00001
+[263,] 105.00002 79.00001
+[264,] 105.50002 79.00001
+[265,] 105.50002 78.50001
+[266,] 105.50002 78.00001
+[267,] 106.00002 78.00001
+[268,] 106.00002 78.50001
+[269,] 106.50002 78.50001
+[270,] 107.00002 78.50001
+[271,] 107.50002 78.50001
+[272,] 108.00002 78.50001
+[273,] 108.00002 78.00001
+[274,] 107.50002 78.00001
+[275,] 107.00002 78.00001
+[276,] 106.50002 78.00001
+[277,] 106.50002 77.50001
+[278,] 107.00002 77.50001
+[279,] 107.50002 77.50001
+[280,] 108.00002 77.50001
+[281,] 108.50002 77.50001
+[282,] 108.50002 77.00001
+[283,] 109.00002 77.00001
+[284,] 109.50002 77.00001
+[285,] 110.00002 77.00001
+[286,] 110.50002 77.00001
+[287,] 111.00002 77.00001
+[288,] 111.50002 77.00001
+[289,] 112.00002 77.00001
+[290,] 112.50002 77.00001
+[291,] 113.00002 77.00001
+[292,] 113.00002 76.50001
+[293,] 113.50002 76.50001
+[294,] 114.00002 76.50001
+[295,] 114.00002 76.00001
+[296,] 114.00002 75.50001
+[297,] 114.00002 75.00001
+[298,] 113.50002 75.00001
+[299,] 113.50002 74.50001
+[300,] 113.50002 74.00001
+[301,] 114.00002 74.00001
+[302,] 114.50002 74.00001
+[303,] 115.00002 74.00001
+[304,] 115.50002 74.00001
+[305,] 116.00002 74.00001
+[306,] 116.50002 74.00001
+[307,] 117.00002 74.00001
+[308,] 117.50002 74.00001
+[309,] 118.00002 74.00001
+[310,] 118.50002 74.00001
+[311,] 119.00002 74.00001
+[312,] 119.00002 73.50001
+[313,] 119.50002 73.50001
+[314,] 120.00002 73.50001
+[315,] 120.50002 73.50001
+[316,] 120.50002 73.00001
+[317,] 121.00002 73.00001
+[318,] 121.50002 73.00001
+[319,] 122.00002 73.00001
+[320,] 122.00002 73.50001
+[321,] 122.50002 73.50001
+[322,] 123.00002 73.50001
+[323,] 123.00002 74.00001
+[324,] 123.50002 74.00001
+[325,] 124.00002 74.00001
+[326,] 124.50002 74.00001
+[327,] 125.00002 74.00001
+[328,] 125.50002 74.00001
+[329,] 126.00002 74.00001
+[330,] 126.50002 74.00001
+[331,] 126.50002 73.50001
+[332,] 127.00002 73.50001
+[333,] 127.00002 74.00001
+[334,] 127.50002 74.00001
+[335,] 128.00002 74.00001
+[336,] 128.00002 73.50001
+[337,] 128.50002 73.50001
+[338,] 129.00002 73.50001
+[339,] 129.50002 73.50001
+[340,] 130.00002 73.50001
+[341,] 130.00002 73.00001
+[342,] 130.00002 72.50001
+[343,] 130.00002 72.00001
+[344,] 130.50002 72.00001
+[345,] 130.50002 71.50001
+[346,] 130.50002 71.00001
+[347,] 131.00002 71.00001
+[348,] 131.50002 71.00001
+[349,] 131.50002 71.50001
+[350,] 132.00002 71.50001
+[351,] 132.00002 72.00001
+[352,] 132.50002 72.00001
+[353,] 133.00002 72.00001
+[354,] 133.50002 72.00001
+[355,] 133.50002 71.50001
+[356,] 134.00002 71.50001
+[357,] 134.50002 71.50001
+[358,] 134.50002 72.00001
+[359,] 135.00002 72.00001
+[360,] 135.50002 72.00001
+[361,] 136.00002 72.00001
+[362,] 136.50002 72.00001
+[363,] 137.00002 72.00001
+[364,] 137.50002 72.00001
+[365,] 138.00002 72.00001
+[366,] 138.50002 72.00001
+[367,] 139.00002 72.00001
+[368,] 139.00002 72.50001
+[369,] 139.50002 72.50001
+[370,] 140.00002 72.50001
+[371,] 140.50002 72.50001
+[372,] 140.50002 73.00001
+[373,] 140.00002 73.00001
+[374,] 139.50002 73.00001
+[375,] 139.50002 73.50001
+[376,] 140.00002 73.50001
+[377,] 140.00002 74.00001
+[378,] 140.00002 74.50001
+[379,] 139.50002 74.50001
+[380,] 139.00002 74.50001
+[381,] 138.50002 74.50001
+[382,] 138.00002 74.50001
+[383,] 137.50002 74.50001
+[384,] 137.50002 75.00001
+[385,] 137.00002 75.00001
+[386,] 136.50002 75.00001
+[387,] 136.00002 75.00001
+[388,] 135.50002 75.00001
+[389,] 135.50002 75.50001
+[390,] 135.50002 76.00001
+[391,] 136.00002 76.00001
+[392,] 136.50002 76.00001
+[393,] 136.50002 75.50001
+[394,] 137.00002 75.50001
+[395,] 137.00002 76.00001
+[396,] 137.50002 76.00001
+[397,] 138.00002 76.00001
+[398,] 138.00002 76.50001
+[399,] 138.50002 76.50001
+[400,] 139.00002 76.50001
+[401,] 139.50002 76.50001
+[402,] 140.00002 76.50001
+[403,] 140.00002 76.00001
+[404,] 140.50002 76.00001
+[405,] 140.50002 76.50001
+[406,] 141.00002 76.50001
+[407,] 141.50002 76.50001
+[408,] 142.00002 76.50001
+[409,] 142.50002 76.50001
+[410,] 142.50002 76.00001
+[411,] 143.00002 76.00001
+[412,] 143.50002 76.00001
+[413,] 144.00002 76.00001
+[414,] 144.50002 76.00001
+[415,] 145.00002 76.00001
+[416,] 145.50002 76.00001
+[417,] 145.50002 75.50001
+[418,] 145.50002 75.00001
+[419,] 145.00002 75.00001
+[420,] 144.50002 75.00001
+[421,] 144.00002 75.00001
+[422,] 144.00002 74.50001
+[423,] 143.50002 74.50001
+[424,] 143.00002 74.50001
+[425,] 142.50002 74.50001
+[426,] 142.00002 74.50001
+[427,] 141.50002 74.50001
+[428,] 141.50002 74.00001
+[429,] 142.00002 74.00001
+[430,] 142.50002 74.00001
+[431,] 143.00002 74.00001
+[432,] 143.50002 74.00001
+[433,] 144.00002 74.00001
+[434,] 144.00002 73.50001
+[435,] 144.00002 73.00001
+[436,] 144.50002 73.00001
+[437,] 145.00002 73.00001
+[438,] 145.50002 73.00001
+[439,] 146.00002 73.00001
+[440,] 146.00002 72.50001
+[441,] 146.50002 72.50001
+[442,] 147.00002 72.50001
+[443,] 147.50002 72.50001
+[444,] 148.00002 72.50001
+[445,] 148.50002 72.50001
+[446,] 149.00002 72.50001
+[447,] 149.50002 72.50001
+[448,] 150.00002 72.50001
+[449,] 150.00002 72.00001
+[450,] 150.50002 72.00001
+[451,] 151.00002 72.00001
+[452,] 151.50002 72.00001
+[453,] 151.50002 71.50001
+[454,] 152.00002 71.50001
+[455,] 152.50002 71.50001
+[456,] 152.50002 71.00001
+[457,] 153.00002 71.00001
+[458,] 153.50002 71.00001
+[459,] 154.00002 71.00001
+[460,] 154.50002 71.00001
+[461,] 154.50002 71.50001
+[462,] 155.00002 71.50001
+[463,] 155.50002 71.50001
+[464,] 156.00002 71.50001
+[465,] 156.50002 71.50001
+[466,] 157.00002 71.50001
+[467,] 157.50002 71.50001
+[468,] 158.00002 71.50001
+[469,] 158.50002 71.50001
+[470,] 158.50002 71.00001
+[471,] 159.00002 71.00001
+[472,] 159.50002 71.00001
+[473,] 160.00002 71.00001
+[474,] 160.50002 71.00001
+[475,] 161.00002 71.00001
+[476,] 161.50002 71.00001
+[477,] 162.00002 71.00001
+[478,] 162.50002 71.00001
+[479,] 163.00002 71.00001
+[480,] 163.00002 70.50001
+[481,] 162.50002 70.50001
+[482,] 162.00002 70.50001
+[483,] 161.50002 70.50001
+[484,] 161.00002 70.50001
+[485,] 160.50002 70.50001
+[486,] 160.50002 70.00001
+[487,] 161.00002 70.00001
+[488,] 161.50002 70.00001
+[489,] 162.00002 70.00001
+[490,] 162.50002 70.00001
+[491,] 163.00002 70.00001
+[492,] 163.50002 70.00001
+[493,] 164.00002 70.00001
+[494,] 164.50002 70.00001
+[495,] 165.00002 70.00001
+[496,] 165.50002 70.00001
+[497,] 166.00002 70.00001
+[498,] 166.50002 70.00001
+[499,] 167.00002 70.00001
+[500,] 167.50002 70.00001
+[501,] 168.00002 70.00001
+[502,] 168.00002 70.50001
+[503,] 168.50002 70.50001
+[504,] 169.00002 70.50001
+[505,] 169.00002 70.00001
+[506,] 169.50002 70.00001
+[507,] 169.50002 69.50001
+[508,] 169.50002 69.00001
+[509,] 170.00002 69.00001
+[510,] 170.50002 69.00001
+[511,] 170.50002 69.50001
+[512,] 170.00002 69.50001
+[513,] 170.00002 70.00001
+[514,] 170.00002 70.50001
+[515,] 170.50002 70.50001
+[516,] 171.00002 70.50001
+[517,] 171.50002 70.50001
+[518,] 172.00002 70.50001
+[519,] 172.00002 70.00001
+[520,] 172.50002 70.00001
+[521,] 173.00002 70.00001
+[522,] 173.50002 70.00001
+[523,] 174.00002 70.00001
+[524,] 174.50002 70.00001
+[525,] 175.00002 70.00001
+[526,] 175.50002 70.00001
+[527,] 176.00002 70.00001
+[528,] 176.50002 70.00001
+[529,] 177.00002 70.00001
+[530,] 177.50002 70.00001
+[531,] 178.00002 70.00001
+[532,] 178.00002 69.50001
+[533,] 178.50002 69.50001
+[534,] 179.00002 69.50001
+[535,] 179.50002 69.50001
+[536,] 180.00002 69.50001
+[537,] 180.00002 69.00001
+[538,] 180.00002 68.50001
+[539,] 180.00002 68.00001
+[540,] 180.00002 67.50001
+[541,] 180.00002 67.00001
+[542,] 180.00002 66.50001
+[543,] 180.00002 66.00001
+[544,] 180.00002 65.50001
+[545,] 180.00002 65.00001
+[546,] 180.00002 64.50001
+[547,] 179.50002 64.50001
+[548,] 179.00002 64.50001
+[549,] 179.00002 64.00001
+[550,] 179.00002 63.50001
+[551,] 179.50002 63.50001
+[552,] 179.50002 63.00001
+[553,] 180.00002 63.00001
+[554,] 180.00002 62.50001
+[555,] 179.50002 62.50001
+[556,] 179.50002 62.00001
+[557,] 179.00002 62.00001
+[558,] 178.50002 62.00001
+[559,] 178.00002 62.00001
+[560,] 178.00002 62.50001
+[561,] 177.50002 62.50001
+[562,] 177.00002 62.50001
+[563,] 177.00002 62.00001
+[564,] 176.50002 62.00001
+[565,] 176.00002 62.00001
+[566,] 175.50002 62.00001
+[567,] 175.50002 61.50001
+[568,] 175.00002 61.50001
+[569,] 174.50002 61.50001
+[570,] 174.00002 61.50001
+[571,] 173.50002 61.50001
+[572,] 173.50002 61.00001
+[573,] 173.00002 61.00001
+[574,] 172.50002 61.00001
+[575,] 172.50002 60.50001
+[576,] 172.00002 60.50001
+[577,] 171.50002 60.50001
+[578,] 171.00002 60.50001
+[579,] 171.00002 60.00001
+[580,] 170.50002 60.00001
+[581,] 170.50002 59.50001
+[582,] 170.00002 59.50001
+[583,] 170.00002 60.00001
+[584,] 169.50002 60.00001
+[585,] 169.00002 60.00001
+[586,] 169.00002 60.50001
+[587,] 168.50002 60.50001
+[588,] 168.00002 60.50001
+[589,] 168.00002 60.00001
+[590,] 167.50002 60.00001
+[591,] 167.00002 60.00001
+[592,] 167.00002 59.50001
+[593,] 166.50002 59.50001
+[594,] 166.00002 59.50001
+[595,] 166.00002 60.00001
+[596,] 165.50002 60.00001
+[597,] 165.50002 59.50001
+[598,] 165.00002 59.50001
+[599,] 165.00002 59.00001
+[600,] 165.00002 58.50001
+[601,] 164.50002 58.50001
+[602,] 164.00002 58.50001
+[603,] 164.00002 58.00001
+[604,] 163.50002 58.00001
+[605,] 163.50002 57.50001
+[606,] 163.50002 57.00001
+[607,] 163.50002 56.50001
+[608,] 163.50002 56.00001
+[609,] 163.00002 56.00001
+[610,] 162.50002 56.00001
+[611,] 162.50002 55.50001
+[612,] 162.00002 55.50001
+[613,] 162.00002 55.00001
+[614,] 162.50002 55.00001
+[615,] 162.50002 54.50001
+[616,] 162.00002 54.50001
+[617,] 161.50002 54.50001
+[618,] 161.50002 54.00001
+[619,] 161.00002 54.00001
+[620,] 160.50002 54.00001
+[621,] 160.00002 54.00001
+[622,] 160.00002 53.50001
+[623,] 160.50002 53.50001
+[624,] 160.50002 53.00001
+[625,] 160.00002 53.00001
+[626,] 159.50002 53.00001
+[627,] 159.00002 53.00001
+[628,] 159.00002 52.50001
+[629,] 159.00002 52.00001
+[630,] 158.50002 52.00001
+[631,] 158.50002 51.50001
+[632,] 158.00002 51.50001
+[633,] 158.00002 51.00001
+[634,] 157.50002 51.00001
+[635,] 157.00002 51.00001
+[636,] 157.00002 50.50001
+[637,] 156.50002 50.50001
+[638,] 156.50002 50.00001
+[639,] 156.00002 50.00001
+[640,] 155.50002 50.00001
+[641,] 155.00002 50.00001
+[642,] 155.00002 49.50001
+[643,] 155.00002 49.00001
+[644,] 154.50002 49.00001
+[645,] 154.50002 48.50001
+[646,] 154.00002 48.50001
+[647,] 153.50002 48.50001
+[648,] 153.50002 48.00001
+[649,] 153.00002 48.00001
+[650,] 153.00002 48.50001
+[651,] 153.00002 49.00001
+[652,] 153.50002 49.00001
+[653,] 154.00002 49.00001
+[654,] 154.00002 49.50001
+[655,] 154.00002 50.00001
+[656,] 154.50002 50.00001
+[657,] 154.50002 50.50001
+[658,] 155.00002 50.50001
+[659,] 155.00002 51.00001
+[660,] 155.50002 51.00001
+[661,] 156.00002 51.00001
+[662,] 156.00002 51.50001
+[663,] 156.00002 52.00001
+[664,] 156.00002 52.50001
+[665,] 156.00002 53.00001
+[666,] 156.00002 53.50001
+[667,] 155.50002 53.50001
+[668,] 155.50002 54.00001
+[669,] 155.50002 54.50001
+[670,] 155.50002 55.00001
+[671,] 155.50002 55.50001
+[672,] 155.50002 56.00001
+[673,] 155.50002 56.50001
+[674,] 155.50002 57.00001
+[675,] 156.00002 57.00001
+[676,] 156.50002 57.00001
+[677,] 156.50002 57.50001
+[678,] 156.50002 58.00001
+[679,] 157.00002 58.00001
+[680,] 157.50002 58.00001
+[681,] 157.50002 58.50001
+[682,] 158.00002 58.50001
+[683,] 158.50002 58.50001
+[684,] 159.00002 58.50001
+[685,] 159.00002 59.00001
+[686,] 159.50002 59.00001
+[687,] 159.50002 59.50001
+[688,] 160.00002 59.50001
+[689,] 160.00002 60.00001
+[690,] 160.50002 60.00001
+[691,] 161.00002 60.00001
+[692,] 161.00002 60.50001
+[693,] 160.50002 60.50001
+[694,] 160.00002 60.50001
+[695,] 159.50002 60.50001
+[696,] 159.50002 61.00001
+[697,] 159.50002 61.50001
+[698,] 159.00002 61.50001
+[699,] 158.50002 61.50001
+[700,] 158.00002 61.50001
+[701,] 157.50002 61.50001
+[702,] 157.00002 61.50001
+[703,] 157.00002 61.00001
+[704,] 156.50002 61.00001
+[705,] 156.50002 60.50001
+[706,] 156.00002 60.50001
+[707,] 155.50002 60.50001
+[708,] 155.50002 60.00001
+[709,] 155.00002 60.00001
+[710,] 155.00002 59.50001
+[711,] 155.50002 59.50001
+[712,] 156.00002 59.50001
+[713,] 156.00002 59.00001
+[714,] 155.50002 59.00001
+[715,] 155.00002 59.00001
+[716,] 154.50002 59.00001
+[717,] 154.00002 59.00001
+[718,] 153.50002 59.00001
+[719,] 153.00002 59.00001
+[720,] 153.00002 58.50001
+[721,] 152.50002 58.50001
+[722,] 152.00002 58.50001
+[723,] 151.50002 58.50001
+[724,] 151.00002 58.50001
+[725,] 151.00002 59.00001
+[726,] 150.50002 59.00001
+[727,] 150.00002 59.00001
+[728,] 150.00002 59.50001
+[729,] 149.50002 59.50001
+[730,] 149.50002 59.00001
+[731,] 149.00002 59.00001
+[732,] 148.50002 59.00001
+[733,] 148.00002 59.00001
+[734,] 147.50002 59.00001
+[735,] 147.00002 59.00001
+[736,] 146.50002 59.00001
+[737,] 146.00002 59.00001
+[738,] 145.50002 59.00001
+[739,] 145.00002 59.00001
+[740,] 144.50002 59.00001
+[741,] 144.00002 59.00001
+[742,] 143.50002 59.00001
+[743,] 143.00002 59.00001
+[744,] 142.50002 59.00001
+[745,] 142.50002 58.50001
+[746,] 142.00002 58.50001
+[747,] 141.50002 58.50001
+[748,] 141.50002 58.00001
+[749,] 141.00002 58.00001
+[750,] 141.00002 57.50001
+[751,] 140.50002 57.50001
+[752,] 140.00002 57.50001
+[753,] 140.00002 57.00001
+[754,] 139.50002 57.00001
+[755,] 139.00002 57.00001
+[756,] 139.00002 56.50001
+[757,] 138.50002 56.50001
+[758,] 138.50002 56.00001
+[759,] 138.00002 56.00001
+[760,] 137.50002 56.00001
+[761,] 137.50002 55.50001
+[762,] 138.00002 55.50001
+[763,] 138.50002 55.50001
+[764,] 138.50002 55.00001
+[765,] 138.50002 54.50001
+[766,] 139.00002 54.50001
+[767,] 139.00002 55.00001
+[768,] 139.50002 55.00001
+[769,] 139.50002 54.50001
+[770,] 140.00002 54.50001
+[771,] 140.50002 54.50001
+[772,] 140.50002 54.00001
+[773,] 141.00002 54.00001
+[774,] 141.00002 53.50001
+[775,] 141.50002 53.50001
+[776,] 142.00002 53.50001
+[777,] 142.00002 54.00001
+[778,] 142.00002 54.50001
+[779,] 142.50002 54.50001
+[780,] 143.00002 54.50001
+[781,] 143.00002 54.00001
+[782,] 143.50002 54.00001
+[783,] 143.50002 53.50001
+[784,] 143.50002 53.00001
+[785,] 143.50002 52.50001
+[786,] 143.50002 52.00001
+[787,] 143.50002 51.50001
+[788,] 144.00002 51.50001
+[789,] 144.00002 51.00001
+[790,] 144.00002 50.50001
+[791,] 144.00002 50.00001
+[792,] 144.50002 50.00001
+[793,] 144.50002 49.50001
+[794,] 144.50002 49.00001
+[795,] 145.00002 49.00001
+[796,] 145.00002 48.50001
+[797,] 144.50002 48.50001
+[798,] 144.00002 48.50001
+[799,] 144.00002 49.00001
+[800,] 143.50002 49.00001
+[801,] 143.00002 49.00001
+[802,] 143.00002 48.50001
+[803,] 143.00002 48.00001
+[804,] 143.00002 47.50001
+[805,] 143.50002 47.50001
+[806,] 143.50002 47.00001
+[807,] 144.00002 47.00001
+[808,] 144.00002 46.50001
+[809,] 144.00002 46.00001
+[810,] 143.50002 46.00001
+[811,] 143.00002 46.00001
+[812,] 143.00002 46.50001
+[813,] 142.50002 46.50001
+[814,] 142.50002 46.00001
+[815,] 142.50002 45.50001
+[816,] 143.00002 45.50001
+[817,] 143.00002 45.00001
+[818,] 143.50002 45.00001
+[819,] 143.50002 44.50001
+[820,] 144.00002 44.50001
+[821,] 144.50002 44.50001
+[822,] 145.00002 44.50001
+[823,] 145.50002 44.50001
+[824,] 146.00002 44.50001
+[825,] 146.00002 45.00001
+[826,] 146.50002 45.00001
+[827,] 147.00002 45.00001
+[828,] 147.50002 45.00001
+[829,] 147.50002 45.50001
+[830,] 148.00002 45.50001
+[831,] 148.50002 45.50001
+[832,] 148.50002 46.00001
+[833,] 149.00002 46.00001
+[834,] 149.50002 46.00001
+[835,] 149.50002 46.50001
+[836,] 150.00002 46.50001
+[837,] 150.50002 46.50001
+[838,] 150.50002 47.00001
+[839,] 151.00002 47.00001
+[840,] 151.00002 46.50001
+[841,] 151.00002 46.00001
+[842,] 150.50002 46.00001
+[843,] 150.50002 45.50001
+[844,] 150.00002 45.50001
+[845,] 149.50002 45.50001
+[846,] 149.00002 45.50001
+[847,] 149.00002 45.00001
+[848,] 148.50002 45.00001
+[849,] 148.00002 45.00001
+[850,] 148.00002 44.50001
+[851,] 147.50002 44.50001
+[852,] 147.50002 44.00001
+[853,] 147.00002 44.00001
+[854,] 147.00002 43.50001
+[855,] 146.50002 43.50001
+[856,] 146.50002 43.00001
+[857,] 146.00002 43.00001
+[858,] 145.50002 43.00001
+[859,] 145.50002 42.50001
+[860,] 145.00002 42.50001
+[861,] 144.50002 42.50001
+[862,] 144.00002 42.50001
+[863,] 143.50002 42.50001
+[864,] 143.50002 42.00001
+[865,] 143.50002 41.50001
+[866,] 143.00002 41.50001
+[867,] 143.00002 42.00001
+[868,] 142.50002 42.00001
+[869,] 142.00002 42.00001
+[870,] 142.00002 42.50001
+[871,] 141.50002 42.50001
+[872,] 141.50002 42.00001
+[873,] 141.50002 41.50001
+[874,] 141.50002 41.00001
+[875,] 142.00002 41.00001
+[876,] 142.00002 40.50001
+[877,] 142.00002 40.00001
+[878,] 142.50002 40.00001
+[879,] 142.50002 39.50001
+[880,] 142.50002 39.00001
+[881,] 142.00002 39.00001
+[882,] 142.00002 38.50001
+[883,] 142.00002 38.00001
+[884,] 141.50002 38.00001
+[885,] 141.50002 37.50001
+[886,] 141.50002 37.00001
+[887,] 141.00002 37.00001
+[888,] 141.00002 36.50001
+[889,] 141.00002 36.00001
+[890,] 141.00002 35.50001
+[891,] 140.50002 35.50001
+[892,] 140.50002 35.00001
+[893,] 140.00002 35.00001
+[894,] 140.00002 34.50001
+[895,] 140.00002 34.00001
+[896,] 140.00002 33.50001
+[897,] 140.00002 33.00001
+[898,] 139.50002 33.00001
+[899,] 139.50002 33.50001
+[900,] 139.50002 34.00001
+[901,] 139.00002 34.00001
+[902,] 139.00002 34.50001
+[903,] 138.50002 34.50001
+[904,] 138.00002 34.50001
+[905,] 137.50002 34.50001
+[906,] 137.00002 34.50001
+[907,] 137.00002 34.00001
+[908,] 136.50002 34.00001
+[909,] 136.50002 33.50001
+[910,] 136.00002 33.50001
+[911,] 136.00002 33.00001
+[912,] 135.50002 33.00001
+[913,] 135.50002 33.50001
+[914,] 135.00002 33.50001
+[915,] 134.50002 33.50001
+[916,] 134.50002 33.00001
+[917,] 134.00002 33.00001
+[918,] 133.50002 33.00001
+[919,] 133.50002 32.50001
+[920,] 133.00002 32.50001
+[921,] 132.50002 32.50001
+[922,] 132.00002 32.50001
+[923,] 132.00002 32.00001
+[924,] 131.50002 32.00001
+[925,] 131.50002 31.50001
+[926,] 131.50002 31.00001
+[927,] 131.50002 30.50001
+[928,] 131.00002 30.50001
+[929,] 131.00002 30.00001
+[930,] 130.50002 30.00001
+[931,] 130.00002 30.00001
+[932,] 130.00002 30.50001
+[933,] 129.50002 30.50001
+[934,] 129.50002 31.00001
+[935,] 130.00002 31.00001
+[936,] 130.00002 31.50001
+[937,] 129.50002 31.50001
+[938,] 129.50002 32.00001
+[939,] 129.50002 32.50001
+[940,] 129.00002 32.50001
+[941,] 128.50002 32.50001
+[942,] 128.50002 33.00001
+[943,] 129.00002 33.00001
+[944,] 129.00002 33.50001
+[945,] 129.50002 33.50001
+[946,] 129.50002 34.00001
+[947,] 129.00002 34.00001
+[948,] 129.00002 34.50001
+[949,] 128.50002 34.50001
+[950,] 128.00002 34.50001
+[951,] 128.00002 34.00001
+[952,] 127.50002 34.00001
+[953,] 127.00002 34.00001
+[954,] 127.00002 33.50001
+[955,] 127.00002 33.00001
+[956,] 126.50002 33.00001
+[957,] 126.00002 33.00001
+[958,] 126.00002 33.50001
+[959,] 126.00002 34.00001
+[960,] 125.50002 34.00001
+[961,] 125.00002 34.00001
+[962,] 125.00002 34.50001
+[963,] 125.00002 35.00001
+[964,] 125.50002 35.00001
+[965,] 125.50002 35.50001
+[966,] 126.00002 35.50001
+[967,] 126.00002 36.00001
+[968,] 125.50002 36.00001
+[969,] 125.50002 36.50001
+[970,] 126.00002 36.50001
+[971,] 126.00002 37.00001
+[972,] 125.50002 37.00001
+[973,] 125.50002 37.50001
+[974,] 125.00002 37.50001
+[975,] 124.50002 37.50001
+[976,] 124.50002 38.00001
+[977,] 124.50002 38.50001
+[978,] 124.50002 39.00001
+[979,] 124.50002 39.50001
+[980,] 124.00002 39.50001
+[981,] 123.50002 39.50001
+[982,] 123.50002 39.00001
+[983,] 123.00002 39.00001
+[984,] 122.50002 39.00001
+[985,] 122.00002 39.00001
+
+
+[[2]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 120.05771  38.82693
+
+Slot "area":
+[1] 3.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+          x        y
+ [1,] 121.0 38.50001
+ [2,] 121.0 39.00001
+ [3,] 121.0 39.50001
+ [4,] 121.0 40.00001
+ [5,] 120.5 40.00001
+ [6,] 120.0 40.00001
+ [7,] 120.0 39.50001
+ [8,] 119.5 39.50001
+ [9,] 119.5 39.00001
+[10,] 119.0 39.00001
+[11,] 119.0 38.50001
+[12,] 119.0 38.00001
+[13,] 119.5 38.00001
+[14,] 119.5 37.50001
+[15,] 120.0 37.50001
+[16,] 120.0 38.00001
+[17,] 120.5 38.00001
+[18,] 120.5 38.50001
+[19,] 121.0 38.50001
+
+
+[[3]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 121.25002  40.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 121.0 40.00001
+[2,] 121.5 40.00001
+[3,] 121.5 40.50001
+[4,] 121.0 40.50001
+[5,] 121.0 40.00001
+
+
+[[4]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 138.25002  54.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 138.5 54.50001
+[2,] 138.0 54.50001
+[3,] 138.0 54.00001
+[4,] 138.5 54.00001
+[5,] 138.5 54.50001
+
+
+[[5]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 135.31589  40.93713
+
+Slot "area":
+[1] 83.50001
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+           x        y
+  [1,] 129.5 34.00001
+  [2,] 130.0 34.00001
+  [3,] 130.0 34.50001
+  [4,] 130.5 34.50001
+  [5,] 131.0 34.50001
+  [6,] 131.0 35.00001
+  [7,] 131.5 35.00001
+  [8,] 132.0 35.00001
+  [9,] 132.0 35.50001
+ [10,] 132.5 35.50001
+ [11,] 132.5 36.00001
+ [12,] 132.5 36.50001
+ [13,] 133.0 36.50001
+ [14,] 133.5 36.50001
+ [15,] 133.5 36.00001
+ [16,] 134.0 36.00001
+ [17,] 134.5 36.00001
+ [18,] 135.0 36.00001
+ [19,] 135.5 36.00001
+ [20,] 136.0 36.00001
+ [21,] 136.0 36.50001
+ [22,] 136.5 36.50001
+ [23,] 136.5 37.00001
+ [24,] 136.5 37.50001
+ [25,] 136.5 38.00001
+ [26,] 137.0 38.00001
+ [27,] 137.5 38.00001
+ [28,] 137.5 37.50001
+ [29,] 138.0 37.50001
+ [30,] 138.0 38.00001
+ [31,] 138.0 38.50001
+ [32,] 138.5 38.50001
+ [33,] 139.0 38.50001
+ [34,] 139.5 38.50001
+ [35,] 139.5 39.00001
+ [36,] 139.5 39.50001
+ [37,] 139.5 40.00001
+ [38,] 139.5 40.50001
+ [39,] 139.5 41.00001
+ [40,] 139.0 41.00001
+ [41,] 139.0 41.50001
+ [42,] 139.0 42.00001
+ [43,] 139.0 42.50001
+ [44,] 139.5 42.50001
+ [45,] 139.5 43.00001
+ [46,] 140.0 43.00001
+ [47,] 140.0 43.50001
+ [48,] 140.5 43.50001
+ [49,] 141.0 43.50001
+ [50,] 141.0 44.00001
+ [51,] 141.0 44.50001
+ [52,] 141.5 44.50001
+ [53,] 141.5 45.00001
+ [54,] 141.0 45.00001
+ [55,] 140.5 45.00001
+ [56,] 140.5 45.50001
+ [57,] 141.0 45.50001
+ [58,] 141.5 45.50001
+ [59,] 141.5 46.00001
+ [60,] 141.0 46.00001
+ [61,] 141.0 46.50001
+ [62,] 141.5 46.50001
+ [63,] 141.5 47.00001
+ [64,] 141.5 47.50001
+ [65,] 141.5 48.00001
+ [66,] 142.0 48.00001
+ [67,] 142.0 48.50001
+ [68,] 141.5 48.50001
+ [69,] 141.5 49.00001
+ [70,] 142.0 49.00001
+ [71,] 142.0 49.50001
+ [72,] 142.0 50.00001
+ [73,] 142.0 50.50001
+ [74,] 142.0 51.00001
+ [75,] 142.0 51.50001
+ [76,] 141.5 51.50001
+ [77,] 141.0 51.50001
+ [78,] 141.0 51.00001
+ [79,] 141.0 50.50001
+ [80,] 141.0 50.00001
+ [81,] 141.0 49.50001
+ [82,] 141.0 49.00001
+ [83,] 140.5 49.00001
+ [84,] 140.5 48.50001
+ [85,] 140.5 48.00001
+ [86,] 140.0 48.00001
+ [87,] 140.0 47.50001
+ [88,] 139.5 47.50001
+ [89,] 139.5 47.00001
+ [90,] 139.0 47.00001
+ [91,] 139.0 46.50001
+ [92,] 138.5 46.50001
+ [93,] 138.5 46.00001
+ [94,] 138.0 46.00001
+ [95,] 138.0 45.50001
+ [96,] 137.5 45.50001
+ [97,] 137.5 45.00001
+ [98,] 137.0 45.00001
+ [99,] 137.0 44.50001
+[100,] 136.5 44.50001
+[101,] 136.5 44.00001
+[102,] 136.0 44.00001
+[103,] 136.0 43.50001
+[104,] 135.5 43.50001
+[105,] 135.5 43.00001
+[106,] 135.0 43.00001
+[107,] 134.5 43.00001
+[108,] 134.5 42.50001
+[109,] 134.0 42.50001
+[110,] 133.5 42.50001
+[111,] 133.0 42.50001
+[112,] 132.5 42.50001
+[113,] 132.0 42.50001
+[114,] 131.5 42.50001
+[115,] 131.0 42.50001
+[116,] 131.0 42.00001
+[117,] 130.5 42.00001
+[118,] 130.5 41.50001
+[119,] 130.0 41.50001
+[120,] 130.0 41.00001
+[121,] 130.0 40.50001
+[122,] 129.5 40.50001
+[123,] 129.5 40.00001
+[124,] 129.0 40.00001
+[125,] 128.5 40.00001
+[126,] 128.5 39.50001
+[127,] 128.0 39.50001
+[128,] 128.0 39.00001
+[129,] 128.5 39.00001
+[130,] 128.5 38.50001
+[131,] 129.0 38.50001
+[132,] 129.0 38.00001
+[133,] 129.5 38.00001
+[134,] 129.5 37.50001
+[135,] 129.5 37.00001
+[136,] 129.5 36.50001
+[137,] 130.0 36.50001
+[138,] 130.0 36.00001
+[139,] 130.0 35.50001
+[140,] 129.5 35.50001
+[141,] 129.5 35.00001
+[142,] 129.5 34.50001
+[143,] 129.5 34.00001
+
+
+[[6]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 118.25002  38.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 118.0 38.50001
+[2,] 118.5 38.50001
+[3,] 118.5 39.00001
+[4,] 118.0 39.00001
+[5,] 118.0 38.50001
+
+
+[[7]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 162.75002  58.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 162.5 58.50001
+[2,] 162.5 58.00001
+[3,] 163.0 58.00001
+[4,] 163.0 58.50001
+[5,] 162.5 58.50001
+
+
+[[8]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 161.75002  60.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 161.5 61.00001
+[2,] 161.5 60.50001
+[3,] 162.0 60.50001
+[4,] 162.0 61.00001
+[5,] 161.5 61.00001
+
+
+[[9]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 162.75002  61.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 162.5 61.00001
+[2,] 163.0 61.00001
+[3,] 163.0 61.50001
+[4,] 162.5 61.50001
+[5,] 162.5 61.00001
+
+
+[[10]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 100.75002  77.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 100.5 77.50001
+[2,] 101.0 77.50001
+[3,] 101.0 78.00001
+[4,] 100.5 78.00001
+[5,] 100.5 77.50001
+
+
+[[11]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 102.25002  77.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] TRUE
+
+Slot "ringDir":
+[1] -1
+
+Slot "coords":
+         x        y
+[1,] 102.0 78.00001
+[2,] 102.0 77.50001
+[3,] 102.5 77.50001
+[4,] 102.5 78.00001
+[5,] 102.0 78.00001
+
+
+[[12]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.25  24.25
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 131.0 24.5
+[2,] 131.5 24.5
+[3,] 131.5 24.0
+[4,] 131.0 24.0
+[5,] 131.0 24.5
+
+
+[[13]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 121.75  25.25
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 121.5 25.5
+[2,] 122.0 25.5
+[3,] 122.0 25.0
+[4,] 121.5 25.0
+[5,] 121.5 25.5
+
+
+[[14]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 141.25  24.75
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 141.5 24.5
+ [2,] 141.5 24.0
+ [3,] 141.0 24.0
+ [4,] 141.0 24.5
+ [5,] 141.0 25.0
+ [6,] 141.0 25.5
+ [7,] 141.5 25.5
+ [8,] 141.5 25.0
+ [9,] 141.5 24.5
+
+
+[[15]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 124.45  24.55
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 124.5 24.5
+ [2,] 124.5 24.0
+ [3,] 124.0 24.0
+ [4,] 123.5 24.0
+ [5,] 123.5 24.5
+ [6,] 124.0 24.5
+ [7,] 124.0 25.0
+ [8,] 124.5 25.0
+ [9,] 125.0 25.0
+[10,] 125.5 25.0
+[11,] 125.5 24.5
+[12,] 125.0 24.5
+[13,] 124.5 24.5
+
+
+[[16]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.25  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 131.0 26.0
+[2,] 131.5 26.0
+[3,] 131.5 25.5
+[4,] 131.0 25.5
+[5,] 131.0 26.0
+
+
+[[17]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 124.75  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 124.5 26.0
+[2,] 125.0 26.0
+[3,] 125.0 25.5
+[4,] 124.5 25.5
+[5,] 124.5 26.0
+
+
+[[18]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 123.75  25.75
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x    y
+[1,] 123.5 26.0
+[2,] 124.0 26.0
+[3,] 124.0 25.5
+[4,] 123.5 25.5
+[5,] 123.5 26.0
+
+
+[[19]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 142.25  27.25
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x    y
+ [1,] 142.5 27.0
+ [2,] 142.5 26.5
+ [3,] 142.0 26.5
+ [4,] 142.0 27.0
+ [5,] 142.0 27.5
+ [6,] 142.0 28.0
+ [7,] 142.5 28.0
+ [8,] 142.5 27.5
+ [9,] 142.5 27.0
+
+
+[[20]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 128.65478  27.77381
+
+Slot "area":
+[1] 5.250001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 128.0 26.50000
+ [2,] 128.0 26.00000
+ [3,] 127.5 26.00000
+ [4,] 127.0 26.00000
+ [5,] 126.5 26.00000
+ [6,] 126.5 26.50000
+ [7,] 127.0 26.50000
+ [8,] 127.0 27.00000
+ [9,] 127.5 27.00000
+[10,] 127.5 27.50000
+[11,] 128.0 27.50000
+[12,] 128.0 28.00000
+[13,] 128.5 28.00000
+[14,] 129.0 28.00000
+[15,] 129.0 28.50000
+[16,] 128.5 28.50000
+[17,] 128.5 29.00000
+[18,] 129.0 29.00000
+[19,] 129.0 29.50001
+[20,] 129.5 29.50001
+[21,] 129.5 30.00001
+[22,] 130.0 30.00001
+[23,] 130.0 29.50001
+[24,] 130.0 29.00000
+[25,] 130.0 28.50000
+[26,] 130.5 28.50000
+[27,] 130.5 28.00000
+[28,] 130.0 28.00000
+[29,] 129.5 28.00000
+[30,] 129.5 27.50000
+[31,] 129.0 27.50000
+[32,] 129.0 27.00000
+[33,] 128.5 27.00000
+[34,] 128.5 26.50000
+[35,] 128.0 26.50000
+
+
+[[21]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 139.75002  32.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 139.5 32.50001
+[2,] 140.0 32.50001
+[3,] 140.0 32.00001
+[4,] 139.5 32.00001
+[5,] 139.5 32.50001
+
+
+[[22]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 128.25002  32.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 128.0 32.50001
+[2,] 128.5 32.50001
+[3,] 128.5 32.00001
+[4,] 128.0 32.00001
+[5,] 128.0 32.50001
+
+
+[[23]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 140.25002  30.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 140.0 30.50001
+[2,] 140.5 30.50001
+[3,] 140.5 30.00001
+[4,] 140.0 30.00001
+[5,] 140.0 30.50001
+
+
+[[24]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 129.25002  31.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 129.0 31.50001
+[2,] 129.5 31.50001
+[3,] 129.5 31.00001
+[4,] 129.0 31.00001
+[5,] 129.0 31.50001
+
+
+[[25]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 131.75002  37.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 131.5 37.50001
+[2,] 132.0 37.50001
+[3,] 132.0 37.00001
+[4,] 131.5 37.00001
+[5,] 131.5 37.50001
+
+
+[[26]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 130.75002  37.50001
+
+Slot "area":
+[1] 0.5000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 131.0 37.50001
+[2,] 131.0 37.00001
+[3,] 130.5 37.00001
+[4,] 130.5 37.50001
+[5,] 130.5 38.00001
+[6,] 131.0 38.00001
+[7,] 131.0 37.50001
+
+
+[[27]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 152.35002  47.15001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 152.5 47.00001
+ [2,] 152.5 46.50001
+ [3,] 152.0 46.50001
+ [4,] 151.5 46.50001
+ [5,] 151.5 47.00001
+ [6,] 152.0 47.00001
+ [7,] 152.0 47.50001
+ [8,] 152.5 47.50001
+ [9,] 152.5 48.00001
+[10,] 153.0 48.00001
+[11,] 153.0 47.50001
+[12,] 153.0 47.00001
+[13,] 152.5 47.00001
+
+
+[[28]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 175.75002  52.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 175.5 52.50001
+[2,] 176.0 52.50001
+[3,] 176.0 52.00001
+[4,] 175.5 52.00001
+[5,] 175.5 52.50001
+
+
+[[29]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 178.47729  51.88637
+
+Slot "area":
+[1] 2.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 179.5 51.50001
+ [2,] 179.5 51.00001
+ [3,] 179.0 51.00001
+ [4,] 179.0 51.50001
+ [5,] 178.5 51.50001
+ [6,] 178.0 51.50001
+ [7,] 177.5 51.50001
+ [8,] 177.0 51.50001
+ [9,] 177.0 52.00001
+[10,] 177.0 52.50001
+[11,] 177.5 52.50001
+[12,] 178.0 52.50001
+[13,] 178.5 52.50001
+[14,] 178.5 52.00001
+[15,] 179.0 52.00001
+[16,] 179.5 52.00001
+[17,] 179.5 52.50001
+[18,] 180.0 52.50001
+[19,] 180.0 52.00001
+[20,] 180.0 51.50001
+[21,] 179.5 51.50001
+
+
+[[30]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 167.06252  54.81251
+
+Slot "area":
+[1] 2
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 168.5 54.50001
+ [2,] 168.5 54.00001
+ [3,] 168.0 54.00001
+ [4,] 168.0 54.50001
+ [5,] 167.5 54.50001
+ [6,] 167.0 54.50001
+ [7,] 166.5 54.50001
+ [8,] 166.0 54.50001
+ [9,] 166.0 55.00001
+[10,] 165.5 55.00001
+[11,] 165.5 55.50001
+[12,] 166.0 55.50001
+[13,] 166.5 55.50001
+[14,] 166.5 55.00001
+[15,] 167.0 55.00001
+[16,] 167.5 55.00001
+[17,] 168.0 55.00001
+[18,] 168.5 55.00001
+[19,] 168.5 54.50001
+
+
+[[31]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -170.25000   57.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -170.5 57.50001
+[2,] -170.0 57.50001
+[3,] -170.0 57.00001
+[4,] -170.5 57.00001
+[5,] -170.5 57.50001
+
+
+[[32]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 143.25002  56.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+         x        y
+[1,] 143.0 56.50001
+[2,] 143.5 56.50001
+[3,] 143.5 56.00001
+[4,] 143.0 56.00001
+[5,] 143.0 56.50001
+
+
+[[33]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -176.75000   51.85527
+
+Slot "area":
+[1] 4.750001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -178.0 51.50001
+ [2,] -178.0 51.00001
+ [3,] -178.5 51.00001
+ [4,] -179.0 51.00001
+ [5,] -179.5 51.00001
+ [6,] -179.5 51.50001
+ [7,] -179.5 52.00001
+ [8,] -179.0 52.00001
+ [9,] -178.5 52.00001
+[10,] -178.0 52.00001
+[11,] -177.5 52.00001
+[12,] -177.0 52.00001
+[13,] -177.0 52.50001
+[14,] -176.5 52.50001
+[15,] -176.0 52.50001
+[16,] -175.5 52.50001
+[17,] -175.0 52.50001
+[18,] -174.5 52.50001
+[19,] -174.0 52.50001
+[20,] -173.5 52.50001
+[21,] -173.5 52.00001
+[22,] -174.0 52.00001
+[23,] -174.5 52.00001
+[24,] -175.0 52.00001
+[25,] -175.0 51.50001
+[26,] -175.5 51.50001
+[27,] -176.0 51.50001
+[28,] -176.5 51.50001
+[29,] -177.0 51.50001
+[30,] -177.5 51.50001
+[31,] -178.0 51.50001
+
+
+[[34]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 173.25002  52.68751
+
+Slot "area":
+[1] 2
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 174.0 52.50001
+ [2,] 174.0 52.00001
+ [3,] 173.5 52.00001
+ [4,] 173.0 52.00001
+ [5,] 173.0 52.50001
+ [6,] 172.5 52.50001
+ [7,] 172.0 52.50001
+ [8,] 172.0 53.00001
+ [9,] 172.5 53.00001
+[10,] 172.5 53.50001
+[11,] 173.0 53.50001
+[12,] 173.0 53.00001
+[13,] 173.5 53.00001
+[14,] 174.0 53.00001
+[15,] 174.5 53.00001
+[16,] 174.5 52.50001
+[17,] 174.0 52.50001
+
+
+[[35]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -172.85000   60.45001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -172.5 60.50001
+ [2,] -172.0 60.50001
+ [3,] -172.0 60.00001
+ [4,] -172.5 60.00001
+ [5,] -173.0 60.00001
+ [6,] -173.5 60.00001
+ [7,] -173.5 60.50001
+ [8,] -173.5 61.00001
+ [9,] -173.0 61.00001
+[10,] -172.5 61.00001
+[11,] -172.5 60.50001
+
+
+[[36]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -170.45833   63.37501
+
+Slot "area":
+[1] 3
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -169.5 63.00001
+ [2,] -169.5 62.50001
+ [3,] -170.0 62.50001
+ [4,] -170.0 63.00001
+ [5,] -170.5 63.00001
+ [6,] -171.0 63.00001
+ [7,] -171.5 63.00001
+ [8,] -172.0 63.00001
+ [9,] -172.0 63.50001
+[10,] -172.0 64.00001
+[11,] -171.5 64.00001
+[12,] -171.0 64.00001
+[13,] -170.5 64.00001
+[14,] -170.0 64.00001
+[15,] -170.0 63.50001
+[16,] -169.5 63.50001
+[17,] -169.0 63.50001
+[18,] -168.5 63.50001
+[19,] -168.5 63.00001
+[20,] -169.0 63.00001
+[21,] -169.5 63.00001
+
+
+[[37]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -169.25000   65.75001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -169.5 66.00001
+[2,] -169.0 66.00001
+[3,] -169.0 65.50001
+[4,] -169.5 65.50001
+[5,] -169.5 66.00001
+
+
+[[38]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -178.78571   71.25001
+
+Slot "area":
+[1] 3.5
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -178.0 71.00001
+ [2,] -178.0 70.50001
+ [3,] -178.5 70.50001
+ [4,] -179.0 70.50001
+ [5,] -179.5 70.50001
+ [6,] -180.0 70.50001
+ [7,] -180.0 71.00001
+ [8,] -180.0 71.50001
+ [9,] -180.0 72.00001
+[10,] -179.5 72.00001
+[11,] -179.0 72.00001
+[12,] -178.5 72.00001
+[13,] -178.0 72.00001
+[14,] -178.0 71.50001
+[15,] -177.5 71.50001
+[16,] -177.0 71.50001
+[17,] -177.0 71.00001
+[18,] -177.5 71.00001
+[19,] -178.0 71.00001
+
+
+[[39]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 179.32145  71.10715
+
+Slot "area":
+[1] 1.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 180.0 71.00001
+ [2,] 180.0 70.50001
+ [3,] 179.5 70.50001
+ [4,] 179.0 70.50001
+ [5,] 178.5 70.50001
+ [6,] 178.5 71.00001
+ [7,] 178.5 71.50001
+ [8,] 179.0 71.50001
+ [9,] 179.5 71.50001
+[10,] 179.5 72.00001
+[11,] 180.0 72.00001
+[12,] 180.0 71.50001
+[13,] 180.0 71.00001
+
+
+[[40]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -175.75000   71.25001
+
+Slot "area":
+[1] 0.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+[1,] -176.0 71.50001
+[2,] -175.5 71.50001
+[3,] -175.5 71.00001
+[4,] -176.0 71.00001
+[5,] -176.0 71.50001
+
+
+[[41]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 152.58335  75.91667
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 153.0 76.00001
+ [2,] 153.0 75.50001
+ [3,] 152.5 75.50001
+ [4,] 152.0 75.50001
+ [5,] 152.0 76.00001
+ [6,] 152.5 76.00001
+ [7,] 152.5 76.50001
+ [8,] 153.0 76.50001
+ [9,] 153.0 76.00001
+
+
+[[42]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 148.50002  75.10001
+
+Slot "area":
+[1] 5.000001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 151.0 75.00001
+ [2,] 151.0 74.50001
+ [3,] 150.5 74.50001
+ [4,] 150.0 74.50001
+ [5,] 149.5 74.50001
+ [6,] 149.0 74.50001
+ [7,] 148.5 74.50001
+ [8,] 148.0 74.50001
+ [9,] 147.5 74.50001
+[10,] 147.0 74.50001
+[11,] 147.0 75.00001
+[12,] 146.5 75.00001
+[13,] 146.0 75.00001
+[14,] 146.0 75.50001
+[15,] 146.0 76.00001
+[16,] 146.5 76.00001
+[17,] 147.0 76.00001
+[18,] 147.0 75.50001
+[19,] 147.5 75.50001
+[20,] 148.0 75.50001
+[21,] 148.5 75.50001
+[22,] 149.0 75.50001
+[23,] 149.5 75.50001
+[24,] 150.0 75.50001
+[25,] 150.5 75.50001
+[26,] 151.0 75.50001
+[27,] 151.0 75.00001
+
+
+[[43]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 148.75002  76.75001
+
+Slot "area":
+[1] 0.7500001
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 149.0 77.00001
+ [2,] 149.5 77.00001
+ [3,] 149.5 76.50001
+ [4,] 149.0 76.50001
+ [5,] 148.5 76.50001
+ [6,] 148.0 76.50001
+ [7,] 148.0 77.00001
+ [8,] 148.5 77.00001
+ [9,] 149.0 77.00001
+
+
+[[44]]
+An object of class "Polygon"
+Slot "labpt":
+[1] 135.85002  74.05001
+
+Slot "area":
+[1] 1.25
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+          x        y
+ [1,] 136.5 74.00001
+ [2,] 136.5 73.50001
+ [3,] 136.0 73.50001
+ [4,] 135.5 73.50001
+ [5,] 135.5 74.00001
+ [6,] 135.0 74.00001
+ [7,] 135.0 74.50001
+ [8,] 135.5 74.50001
+ [9,] 136.0 74.50001
+[10,] 136.5 74.50001
+[11,] 136.5 74.00001
+
+
+[[45]]
+An object of class "Polygon"
+Slot "labpt":
+[1] -175.53740   66.35631
+
+Slot "area":
+[1] 31.75
+
+Slot "hole":
+[1] FALSE
+
+Slot "ringDir":
+[1] 1
+
+Slot "coords":
+           x        y
+ [1,] -172.0 64.50001
+ [2,] -172.0 64.00001
+ [3,] -172.5 64.00001
+ [4,] -173.0 64.00001
+ [5,] -173.5 64.00001
+ [6,] -174.0 64.00001
+ [7,] -174.5 64.00001
+ [8,] -174.5 64.50001
+ [9,] -175.0 64.50001
+[10,] -175.5 64.50001
+[11,] -176.0 64.50001
+[12,] -176.0 65.00001
+[13,] -176.5 65.00001
+[14,] -176.5 65.50001
+[15,] -177.0 65.50001
+[16,] -177.0 65.00001
+[17,] -177.5 65.00001
+[18,] -178.0 65.00001
+[19,] -178.5 65.00001
+[20,] -179.0 65.00001
+[21,] -179.5 65.00001
+[22,] -180.0 65.00001
+[23,] -180.0 65.50001
+[24,] -180.0 66.00001
+[25,] -180.0 66.50001
+[26,] -180.0 67.00001
+[27,] -180.0 67.50001
+[28,] -180.0 68.00001
+[29,] -180.0 68.50001
+[30,] -180.0 69.00001
+[31,] -179.5 69.00001
+[32,] -179.0 69.00001
+[33,] -178.5 69.00001
+[34,] -178.0 69.00001
+[35,] -178.0 68.50001
+[36,] -177.5 68.50001
+[37,] -177.0 68.50001
+[38,] -176.5 68.50001
+[39,] -176.5 68.00001
+[40,] -176.0 68.00001
+[41,] -175.5 68.00001
+[42,] -175.0 68.00001
+[43,] -175.0 67.50001
+[44,] -174.5 67.50001
+[45,] -174.0 67.50001
+[46,] -173.5 67.50001
+[47,] -173.0 67.50001
+[48,] -172.5 67.50001
+[49,] -172.5 67.00001
+[50,] -172.0 67.00001
+[51,] -171.5 67.00001
+[52,] -171.0 67.00001
+[53,] -170.5 67.00001
+[54,] -170.5 66.50001
+[55,] -170.0 66.50001
+[56,] -169.5 66.50001
+[57,] -169.5 66.00001
+[58,] -170.0 66.00001
+[59,] -170.0 65.50001
+[60,] -170.5 65.50001
+[61,] -170.5 65.00001
+[62,] -171.0 65.00001
+[63,] -171.5 65.00001
+[64,] -172.0 65.00001
+[65,] -172.0 64.50001
+
+
+
+Slot "plotOrder":
+ [1]  1  5 45 20 42 33 38  2 36 29 30 34 39 27 35 15 44 19 41 43 14 26  8 17  7
+[26] 28 22 21 13 23 31 25 11 10 37  4  6 18 24  3 40  9 32 16 12
+
+Slot "labpt":
+[1] 124.77604  56.14061
+
+Slot "ID":
+[1] "1"
+
+Slot "area":
+[1] 2619.75
+
+> class(final_range_calc_poly_df)
+[1] "SpatialPolygonsDataFrame"
+attr(,"package")
+[1] "sp"
+> summary(final_range_calc_poly_df)
+Object of class SpatialPolygonsDataFrame
+Coordinates:
+   min       max
+x -180 180.00002
+y   24  79.50001
+Is projected: FALSE 
+proj4string :
+[+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0]
+Data attributes:
+ rep.0..length.IDs..
+ Min.   :0          
+ 1st Qu.:0          
+ Median :0          
+ Mean   :0          
+ 3rd Qu.:0          
+ Max.   :0          
+> #write it
+> require(rgdal)
+> writeOGR(final_range_calc_poly_df, layer = 'range_calc_pumila', '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/', driver="ESRI Shapefile", overwrite_layer=TRUE)
+Warning message:
+In writeOGR(final_range_calc_poly_df, layer = "range_calc_pumila",  :
+  Field names abbreviated for ESRI Shapefile driver
+> #check
+> final_range_calc_poly_df_check = readOGR("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/range_calc_pumila.shp")
+OGR data source with driver: ESRI Shapefile 
+Source: "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/final_pumila_buffers/range_calc_pumila.shp", layer: "range_calc_pumila"
+with 1 features
+It has 1 fields
+> plot(distribution_pumila)
+> plot(polygon_range_calc_pumila, add=T, lwd=4)
+> plot(final_range_calc_poly_df_check, add=T, border="red")
+> plotKML::kml(final_range_calc_poly_df_check, file.name = paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_range_calc_poly_df_check.kml", sep=""))#perfect
+KML file opened for writing...
+Writing to KML...
+Closing  /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/buffer_checks/kml_files/pumila_final_range_calc_poly_df_check.kml
+> 
+> proc.time()
+   user  system elapsed 
+ 57.877   3.129  72.449 

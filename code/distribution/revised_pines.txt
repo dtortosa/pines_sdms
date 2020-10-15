@@ -1,0 +1,116 @@
+epithet_species,critfield,problem,notes
+koraiensis,YES,NO,
+krempfii,YES,NO,
+pumila,YES,YES,"This point is created by the aggregation to 0.5 degree resolution"
+cembra,YES,NO,
+sibirica,YES,NO,
+albicaulis,YES,NO,
+monticola,YES,NO,
+strobus,YES,NO,
+lambertiana,YES,NO,
+flexilis,YES,NO,
+strobiformis,YES,NO,
+ayacahuite,YES,NO,
+peuce,YES,YES,"DONE"
+armandii,YES,NO,
+wallichiana,YES,NO,
+parviflora,YES,NO,
+fenzeliana,YES,YES,"isolated occurrence from vietnam is not confirmed probably dalatensis: 'https://en.wikipedia.org/wiki/Pinus_fenzeliana'; BIANCA: this is because the “corridor” comes from the Critchfield map. We used both here, Critchfield and Farjon. I attach an image of this: green is the Critchfield map and red points the Farjon points; DONE"
+morrisonicola,YES,NO,
+dalatensis,YES,YES,"DONE"
+cembroides,YES,NO,
+maximartinezii,YES,YES,"DONE"
+monophylla,YES,YES,"DONE"
+quadrifolia,YES,NO,
+edulis,YES,NO,
+pinceana,YES,NO,
+nelsonii,YES,NO,
+culminicola,YES,NO,
+bungeana,YES,YES,"DONE"
+gerardiana,YES,NO,
+balfouriana,YES,NO,
+aristata,YES,YES, "BIANCA:Pinus aristata for example will be quite different, because I just realized that the Critchfield map includes Pinus longaeva in the map of P.aristata. I need to remove that (send you the file tomorrow). On the other hand, Pinus longaeva is fine. DONE."
+leiophylla,YES,NO,
+lumholtzii,YES,NO,
+roxburghii,YES,NO,
+canariensis,YES,NO,
+pinea,YES,YES,"This point also falls into the water after the projection"
+resinosa,YES,NO,
+tropicalis,YES,NO,
+nigra,YES,YES, "BIANCA: This point also falls into the water after the projection"
+heldreichii,YES,NO,
+mugo,YES,NO,
+pinaster,YES,NO,
+halepensis,YES,NO,
+brutia,YES,YES, "Bianca: here this isolated population got lost when digitalizing the maps. This small region will not improve the models. So I suggest to move on without adding this small population."
+sylvestris,YES,YES, "missing individual locations and in the past we lost the half os siberia now is included the half of siberia; Some small points were lost, now solve"
+densiflora,YES,YES,"DONE"
+thunbergii,YES,NO,
+massoniana,YES,NO,
+taiwanensis,YES,NO,"crosses in the continent correspond to other species. taiwanensis it is ok"
+luchuensis,YES,YES,"DONE"
+yunnanensis,YES,NO,
+tabuliformis,YES,NO, "there were missing points for this species but now they are included"
+kesiya,YES,YES,"DONE"
+merkusii,YES,YES, "BIANCA: here we loose one population on the Philippines because it falls into the water when projecting the maps. But I could “save” the bigger one. I attach the new map; SOLVED"
+palustris,YES,NO,
+taeda,YES,NO,
+echinata,YES,NO,"the missing area in kentucky is removed in gimnosperm database: 'https://www.conifers.org/pi/Pinus_echinata.php'"
+pungens,YES,NO,
+glabra,YES,NO,
+serotina,YES,NO,
+rigida,YES,NO,
+elliottii,YES,NO,
+caribaea,YES,NO,
+occidentalis,YES,NO,
+cubensis,YES,NO,
+ponderosa,YES,NO,"the missing points at south are points of P. arizonica!!"
+arizonica,YES,NO,
+jeffreyi,YES,NO,
+washoensis,YES,NO,
+engelmannii,YES,NO,
+montezumae,YES,NO,
+durangensis,YES,NO,
+devoniana,YES,NO,"the missing area in East Chiapas is removed in gimnosperm database: 'https://www.conifers.org/pi/Pinus_devoniana.php"
+hartwegii,YES,NO,
+cooperi,YES,NO,
+pseudostrobus,YES,NO,
+douglasiana,YES,YES,"DONE"
+teocote,YES,NO,
+lawsonii,YES,NO,
+sabiniana,YES,NO,
+torreyana,YES,NO,
+coulteri,YES,NO,"southest population is in Baja California and it is correct. the isolated water body is an artefact of the low resolution that is the begining of Baja California. YES"
+contorta,YES,NO,
+banksiana,YES,NO,
+virginiana,YES,NO,
+clausa,YES,NO,
+attenuata,YES,NO,
+radiata,YES,NO,
+muricata,YES,NO,
+patula,YES,YES, "BIANCA: same as with P.brutia; this isolated population got lost when digitalizing the maps; DONE"
+greggii,YES,NO,
+pringlei,YES,NO,
+oocarpa,YES,NO,"the missing area in Belice (Brithish Honduras) is removed in gimnosperm database: 'https://www.conifers.org/pi/Pinus_oocarpa.php"
+amamiana,NO,YES,"Gimnosperme database indicate that this species is only in two island at south Japan like our map: 'https://www.conifers.org/pi/Pinus_amamiana.php'; DONE"
+bhutanica,NO,NO,"gimnosperm db indicate that is present in Bhutan; China: Yunnan; India: Arunachal Pradesh. More or less fit with our map: 'https://www.conifers.org/pi/Pinus_bhutanica.php'"
+chiapensis,NO,NO,"Gimnosperm db indicate that is present in Mexico: Chiapas Guerrero Oaxaca Puebla Veracruz; and Guatemala: El Quiché Huehuetenango. More or less. 'https://www.conifers.org/pi/Pinus_chiapensis.php'"
+densata,NO,YES,"Tibetan plateau left: https://www.journals.uchicago.edu/doi/10.1086/658905; BIANCA: this map is inaccurate. I am still working on the correction for which I will use the data from Farjon Atlas An Atlas of the World Conifers; WORKING ON IT; SOLVED"
+discolor,NO,YES,"should be removed because it would need a lot of effort to disentangle this species occurrences from Pinus cembroides. Moreover the status of Pinus discolor is unclear. For some authors it is a distinct species for some not."
+fragilissima,NO,NO,"only taiwan 'http://www.iucnredlist.org/details/191647/0'"
+herrerae,NO,NO,"According to Gimno db this species is in Sinaloa Durango Jalisco Michoacan Guerrero. More or less. 'https://www.conifers.org/pi/Pinus_herrerae.php'"
+hwangshanensis,NO,NO,"In Anhui Fujian C Guangxi Guizhou S Henan Hubei Hunan Jiangsu Jiangxi SE Yunnan Zhejiang. More or less. 'https://www.conifers.org/pi/Pinus_hwangshanensis.php'"
+johannis,NO,NO,"In  Coahuila Nuevo León and Zacatecas. More or less. 'https://www.conifers.org/pi/Pinus_johannis.php'"
+juarezensis,NO,NO, "Fit with gimno map 'https://www.conifers.org/pi/Pinus_quadrifolia.php'"
+kwangtungensis,NO,YES,"According to gimnosperm database this species occur at several location of China and Vietnam. I think the map for this species has very few cells to cover all of this localities. 'https://www.conifers.org/pi/Pinus_kwangtungensis.php'; BIANCA: true these locations are missing. And for me it is not so clear how the range maps of P.fenzeliana and P.kwangtungensis differ. I could not find a paper showing this. I suggest to use the same range map as for P.fenzeliana (this is stated like this in the Critchfield map). I also realized that the population in Vietnam was not included in the P.fenzeliana-map. I therefore send you also the corrected version of P.fenzeliana; 'https://mail.google.com/mail/u/0/#search/corrected+final+maps/FMfcgxvzKbPwgqQNXlRmnrBMjPpSWNGd'; SOLVED"
+latteri,NO,NO,"In Vietnam Laos Kampuchea Thailand and southern Myanmar; also in extreme S China (Hainan Island). More or less. 'https://www.conifers.org/pi/Pinus_latteri.php'"
+rzedowskii,NO,NO,"In Mexico: Michoacán: at (1710-)2100-2480 m elevation in the Sierra Madre del Sur District of Coalcomán. Perfect. 'https://www.conifers.org/pi/Pinus_rzedowskii.php'"
+longaeva,NO,NO,"Very close to GM DB map 'https://www.conifers.org/pi/Pinus_longaeva.php'"
+maestrensis,NO,NO,"Se distribuye al este de Cuba: en la Sierra Maestra y al este de la Sierra de Nipe en las tierras altas de terminación de la parte oriental de la isla. 'https://www.ecured.cu/Pino_cubano#Distribuci.C3.B3n'"
+maximinoi,NO,YES,"Missing areas in Honduras and Nicaragua? These areas are included in the range according to gimnosperm database: https://www.conifers.org/pi/Pinus_maximinoi.php; SOLVED"
+praetermissa,NO,NO,"In Mexico (Durango Jalisco Nayarit Sinaloa). PERfect: 'http://www.iucnredlist.org/details/42402/0'"
+remota,NO,NO,"In Texas on the Edwards Plateau and in the extreme W along the Rio Grande; and Mexico: Chihuahua Coahuila & extreme W Nuevo León. More or less. https://www.conifers.org/pi/Pinus_remota.php"
+squamata,NO,YES, "In China: Qiaojia Xian, N Yunnan. Perfect: 'https://www.conifers.org/pi/Pinus_squamata.php'; DONE; There is now two areas: because it is based on both, BRAHMS and Critchfield there are 2 pixels now"
+yecorensis,NO,NO,"Perfect respecto to the map of GM DB:'https://www.conifers.org/pi/Pinus_yecorensis.php'"
+jaliscana,NO,NO, "new species"
+tecunumanii,NO,NO, "new species"

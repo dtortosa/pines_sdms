@@ -1,0 +1,158 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #Code for make comprobations in relaton distribution maps created by Bianca two years ago.
+> 
+> ###definimos el directorio de trabajo
+> setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus")
+> 
+> #required packages
+> require(raster)
+Loading required package: raster
+Loading required package: sp
+> require(rgeos)
+Loading required package: rgeos
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.2-CAPI-1.10.2 4d2925d6 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #### Notes about maps archives #####
+> ##ALL the chage will made in my folder of the Bianca`s data (/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS), we will not change the folder with data of Bianca without changes. 
+> ##Bianca's thesis (https://www.wsl.ch/staff/niklaus.zimmermann/research/Thesis_Saladin_2013.pdf)
+> ##critfield and little maps: "https://archive.org/details/geographicdistri991crit"
+> 
+> #p_tabuliformis have two files, p_tabuliformis.img and p_tabuliformis.img TRUE . gri. The second has a litle bit more area and it was called as TRUE, thus we will select this and delete the other. 
+> par(mfcol=c(1,2))
+> plot(crop(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/datos_brutos/Maps/p_tabulaeformis_01.img"), c(60,130,10,55)), main="p_tabuliformis.img")
+> plot(crop(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/datos_brutos/Maps/p_tabulaeformis_01.img TRUE.gri"), c(60,130,10,55)), main="p_tabulaeformis_01.img TRUE.gri")
+> 
+> #actualization!!! 26/04/18: There was a problem with this species, the area included in the second page of this species was in other proijection , thus areas in this page would be difficult to locate. Bianca has dropped in the new map,  I have changd its maps, so "/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_tabuliformis_01.img" is the correct now, and "p_tabuliformis_01_error.img" is the ancient with the error. 
+> 
+> #p_sylvestris have two files: p_sylvestris.img and p_sylvestris_michale.img. The difference between them is that the second include area of P. sibirica as P.sylvesitrs, on the contrary of the first file. Because we are considering sibirica as a different species of P. sylvestris, we will use the first file. 
+>     #In addition, we have "p_sylvestris_01_sin_siberia.img", a raster of sylvestris distribution without the area of siberia, this raster is wrong, the correct is "p_sylvestris_01.img", and it has been used in all analyses. 
+> par(mfcol=c(1,2))
+> plot(crop(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_sylvestris_01_sin_siberia.img"), c(-13.18, 140, 30, 75)), main="Sylvestris without Siberia")
+> plot(crop(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_sylvestris_01.img"), c(-13.18, 140, 30, 75)), main="Sylvestris with Siberia")
+> dev.off()
+null device 
+          1 
+> 
+> #p_devoniana is called as p_devoniana.michoacana_01.img. La verdad es que no lo encuentro en los mapas de critfield, but the distribution is similar to the Bianca's thesis and wikipedia maps ("https://en.wikipedia.org/wiki/Pinus_devoniana")
+> plot(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_devoniana_01.img"), c(-120,-80, 0,50))
+> 
+> #p_kesiya is called as p_kesiya.insularis_01.img. But the distribution is similar to the Bianca's thesis. 
+> plot(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_kesiya_01.img"))
+> 
+> #p_muricata is called as p_murricata_01.img. It is an error. But the distribution is similar to the Bianca's thesis. 
+> plot(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_muricata_01.img"))
+> 
+> #p_tabuliformis is called as p_tabulaeformis_01.img. It is an error. But the distribution is similar to the Bianca's thesis. 
+> plot(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_tabuliformis_01.img"))
+> 
+> #p_wallichiana is called as p_wallichiana.griffithii_01.img. But the distribution is similar to the Bianca's thesis. 
+> plot(raster("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p_wallichiana_01.img"))
+> 
+> 
+> #############LOAD  REVISION DATA
+> #revison done species per species showed in the critfield maps: "https://archive.org/stream/geographicdistri991crit"
+> 
+> #load list of species
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     113 
+> 
+> #load revision data
+> revision = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/distribution/revised_pines.txt", sep=",", header=TRUE)
+> str(revision) #epithet; included or not in critchfield maps; there is problem?; notes
+'data.frame':	113 obs. of  4 variables:
+ $ epithet_species: Factor w/ 113 levels "albicaulis","amamiana",..: 50 51 86 15 97 1 67 100 53 36 ...
+ $ critfield      : Factor w/ 2 levels "NO","YES": 2 2 2 2 2 2 2 2 2 2 ...
+ $ problem        : Factor w/ 2 levels "NO","YES": 1 1 2 1 1 1 1 1 1 1 ...
+ $ notes          : Factor w/ 28 levels ""," Fit with gimno map 'https://www.conifers.org/pi/Pinus_quadrifolia.php'",..: 1 1 1 1 1 1 1 1 1 1 ...
+> 
+> #all species from revision included in epithet_species_list
+> length(which(revision$epithet_species %in% epithet_species_list)) == nrow(revision)
+[1] TRUE
+> 
+> #all species analysed
+> length(which(revision$epithet_species %in% epithet_species_list)) == length(epithet_species_list)
+[1] TRUE
+> 
+> #searh notes for a given species
+> revision$note[which(revision$epithet_species=="discolor")] #e.g. for discolor
+[1] should be removed, because it would need a lot of effort to disentangle this species occurrences from Pinus cembroides. Moreover, the status of Pinus discolor is unclear. For some authors it is a distinct species, for some not.
+28 Levels:  ...
+> 
+> #species do not included in critfield and species included but with problems
+> species_not_included = revision$epithet_species[which(revision$critfield == "NO")]
+> 
+> #plot cropped distribution of all species
+> for (i in 1:length(species_not_included)){
++ 
++     #select the [i] species
++     selected_species = species_not_included[i]
++ 
++     #Cargamos area distribucion
++     distribution = raster(paste("/Volumes/GoogleDrive/My Drive/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p", paste(selected_species, "01.img", sep="_") ,sep="_")) #select the path of the distribution file of the corresponding species
++     
++     #create a polygon of the dsitribution
++     polygon = rasterToPolygons(distribution, fun=function(x){x==1}) #convertimos en poligono the raster using the cell with values=1
++ 
++     #create a buffer
++     polygon_buffer = gBuffer(polygon, byid=FALSE, width=15) #aumentamos el area del poligono en 2 celdas (width=1), según nos indico el test de las especies con datos de euforgen. byid determining if the function should be applied across subgeometries (TRUE) or the entire object (FALSE).  
++ 
++     #crop the distribution using the polygon (more detail)
++     distribution_cropped = crop(distribution, polygon_buffer)
++ 
++     #plot
++     png(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/raw_ocurrences/distribution_pines_cropped/problematic_species/distribution_pines_cropped_", selected_species, ".png", sep=""))
++     plot(distribution_cropped, main=paste("Pinus", selected_species, sep=" "))
++     dev.off()
++ }    
+There were 20 warnings (use warnings() to see them)
+> 
+> #bind all png file into one single pdf using imagemagick (convert command)
+> system("cd /Volumes/GoogleDrive/My\\ Drive/science/phd/nicho_pinus/datos/raw_ocurrences/distribution_pines_cropped/problematic_species; convert *.png full.pdf")
+> 
+> #final problematic species (after manual revision)
+> final_problematic_species = revision$epithet_species[which(revision$problem == "YES")] #In my opinion, the only important case is discolor, which distribution is identicol to cembroides, it is a pseudoreplic and we have to remove it
+> 
+> #bind all png file of FINAL problematic (made at hand the selection) into one single pdf using imagemagick (convert command)
+> system("
++     cd /Volumes/GoogleDrive/My\\ Drive/science/phd/nicho_pinus/datos/raw_ocurrences/final_problematic_species;
++     rm full.pdf; 
++     convert * full.pdf")
+> 
+> proc.time()
+   user  system elapsed 
+ 42.883   1.887  47.517 

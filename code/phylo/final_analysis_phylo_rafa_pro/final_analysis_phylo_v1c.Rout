@@ -1,0 +1,1506 @@
+
+R version 3.4.4 (2018-03-15) -- "Someone to Lean On"
+Copyright (C) 2018 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+Loading required package: colorout
+[Previously saved workspace restored]
+
+> ###########################################################################
+> ######### Extraction and preparation of climatic and species data #########
+> ###########################################################################
+> 
+> #load packages
+> library(raster)
+Loading required package: sp
+> library(rgeos)
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.1-CAPI-1.10.1 r0 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #function to perform phylo analyses
+> phylo_analyses = function(species){
++ 
++     #set function to check if cell values is between ancestral and current value
++     is.between <- function(cell_value, ancestral, current) {
++         
++         #empty vector to save results
++         result = NULL
++     
++         #loop for extractinb results
++         for(v in 1:length(cell_value)){ #for each value of cell_value vector
++     
++             #select the [v] cell_value
++             selected_value = cell_value[v]
++     
++             #test if the [v] cell value is between ancestral an current values
++             test = (selected_value - ancestral)  *  (current - selected_value) #code taken from "https://stat.ethz.ch/pipermail/r-help/2008-August/170749.html". The order is irrelevant, ancestral can be higher or lower than current value. Idem for the sign of numbers, it works with only negative, only positive and negative-positive numbers.  
++  
++             #if test is not zero 
++             if(!test == 0){
++     
++                 #test if test is lower or higher than zero to know is the [v] cell value is between current and ancestral values. then save
++                 result = append(result, test > 0)
++     
++             } else { #if not, then [v] cell value is equal to the current or ancestral value, but we only want TRUE if the value is equal to the current value. 
++     
++                 #If the [v] cell value is equal to the current value
++                 if(current == selected_value){
++     
++                     #result is TRUE
++                     result = append(result, TRUE)
++                 } else { #if not
++     
++                     #if the [v] cell value is equal to ancestral value
++                     if(ancestral == selected_value){
++     
++                         #result is FALSE
++                         result = append(result, FALSE)
++     
++                     } else {
++     
++                         #result is NA, problem
++                         result = append(result, NA)
++     
++                     }
++                 }
++             }
++         }
++     
++         #return results
++         return(result)
++     } #Is very important to add ancestral first, and second current value, becuase TRUE will be returned if the cell_values is equal to "current" (second argument), but FALSE if it is equal to ancestral (first argument)
++ 
++     #set function to covert the suitibalityi phylo correct to a proportion from 0 to 1
++     phylo_proportion = function(x, ancestral_value, current_value){
++     
++         #calculate the maximum distance to the ancestal value (i.e the current value)
++         range_length = abs(current_value - ancestral_value)
++     
++         #calculate between the cell value and the ancestral value
++         distance_to_ancestral = abs(x - ancestral_value)
++     
++         #if range_length is the 1, distance_to_ancestral will be x; so x = (distance_to_ancestral*1)/range_length 
++         distance_to_ancestral/range_length
++     } #Like in the latter function, the order is key. The proportion will have 1 as value is close to the second argument (current value).
++ 
++     #load bio4 currently
++     bio4 = raster("/Users/dsalazar/nicho_pinus/data/climatic_data_phylo/bio4.asc")
++     res(bio4)
++     
++     #load bio17 currently
++     bio17 = raster("/Users/dsalazar/nicho_pinus/data/climatic_data_phylo/bio17.asc")
++     res(bio17)
++     
++     #list of continuos projections and binary projections for all scenarios and climatic models
++     climatic_scenarios = c("bc26", "bc45", "bc60", "bc85", "cc26", "cc45", "cc60", "cc85", "gs26", "gs45", "gs60", "gs85", "he26", "he45", "he60", "he85", "ip26", "ip45", "ip60", "ip85", "mg26", "mg45", "mg60", "mg85", "mr26", "mr45", "mr60", "mr85")
++ 
++     #load projections of variables for all scenarios
++     stack_bio17 = stack(paste("/Users/dsalazar/nicho_pinus/data/climate_proj_phylo/bio17_", climatic_scenarios, ".asc", sep=""))
++     stack_bio4 = stack(paste("/Users/dsalazar/nicho_pinus/data/climate_proj_phylo/bio4_", climatic_scenarios, ".asc", sep=""))
++     
++     #check that the order of scenarios is correct
++     names(stack_bio4) == paste("bio4", climatic_scenarios, sep="_") #all TRUE
++     names(stack_bio17) == paste("bio17", climatic_scenarios, sep="_") #all TRUE
++     
++     ## load ancestral reconstruction
++     final_anc_ou_bio4 = read.table("/Users/dsalazar/nicho_pinus/data/final_recons/final_anc_ou_bio4.csv", sep=",", header=TRUE)
++     final_anc_ou_bio17 = read.table( "/Users/dsalazar/nicho_pinus/data/final_recons/final_anc_ou_bio17.csv", sep=",", header=TRUE)
++     final_anc_bm_bio4 = read.table("/Users/dsalazar/nicho_pinus/data/final_recons/final_anc_bm_bio4.csv", sep=",", header=TRUE)
++     final_anc_bm_bio17 = read.table( "/Users/dsalazar/nicho_pinus/data/final_recons/final_anc_bm_bio17.csv", sep=",", header=TRUE)
++     
++     #list of evolution models: ONLY BM
++     #list_models_bio4 = c("final_anc_ou_bio4", "final_anc_bm_bio4")
++     #list_models_bio17 = c("final_anc_ou_bio17", "final_anc_bm_bio17")
++     list_models_bio4 = c("final_anc_bm_bio4")
++     list_models_bio17 = c("final_anc_bm_bio17")
++ 
++     #load buffer of pseudo absences (broader) to crop climatic variables
++     PA_buffer = raster(paste("/Users/dsalazar/nicho_pinus/data/pa_buffers/", species, "_PA_buffer.asc", sep="")) #usamos PA buffer que es más amplio para la ver el rango filo por si salen sitios interesantes lejos para migración asistida, pero los plots en general se hacen con un area más pequeña. 
++ 
++     #crop climatic variables with PA buffer
++     stack_bio17_cropped = crop(stack_bio17, PA_buffer)
++     stack_bio4_cropped = crop(stack_bio4, PA_buffer)
++     
++     #load species distribution (withput buffer)
++     distri_raster = raster(paste("/Users/dsalazar/nicho_pinus/data/MAPS/p", paste(species, "01.img", sep="_"), sep="_"))
++     
++     #load ensamble of binary suitability
++     projected_suit = raster(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_projections_bin/ensamble_projections_bin_", species, ".tif", sep=""))
++     
++     #crop future sutiabiity aroun the whole PA buffer not for plotting but for analsis
++     ensamble_suitability = crop(projected_suit, PA_buffer)
++     
++     #loop for comparing projected climate and phylo range
++     phylo_rasters_bio17 = stack()
++     phylo_rasters_bio17_proportion = stack()
++     for(s in 1:length(climatic_scenarios)){
++ 
++         #select the climatic scenario
++         selected_scenario = climatic_scenarios[s]
++ 
++         #create a empty raster with the same extent and resolution of the raster layer of the [s] IPCC scenario
++         raster_subsetted = raster(extent(stack_bio17_cropped[[s]]), resolution = res(stack_bio17_cropped[[s]]))
++ 
++         #add to the empty raster those cells of the [s] IPCC raster in which the habitat suitability is higher than 25 and lower than 75
++         raster_subsetted[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] <- stack_bio17_cropped[[s]][which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] #suitability map has the same resolution and extent than IPCC maps because the suitability map was obtained from these raster of ICPP scenarios. 
++ 
++         #for each evolution model 
++         for(m in 1:length(list_models_bio17)){
++ 
++             #select the [m] evolution model 
++             selected_model = list_models_bio17[m]
++ 
++             #extract data of [m] model
++             model = get(selected_model)
++ 
++             #select the row of the corresponding species
++             model = model[which(model$species == paste("Pinus_", species, sep="")),]
++ 
++             #extract all cell values from the raster with climatic data of the [s] scenario only in those areas with uncertainty (raster_subsetted)
++             cell_values = getValues(raster_subsetted)
++ 
++             #extract ID of those cells without NA
++             cells_withot_NA = which(!is.na(cell_values))
++ 
++             #extract, from all cells withput NA, those whose value is inside the phylogenetic range (including the current value but not including the ancestral). For that we used is.between function, created by me. 
++             cell_inside_phylo_range = which(is.between(cell_value = na.omit(getValues(raster_subsetted)), ancestral = model$ace, current = model$current_value))
++ 
++             #from ID of cells without NA, select the ID of those whose vale is inside of the phylo range
++             final_cells = cells_withot_NA[cell_inside_phylo_range]
++ 
++             #create a empty raster with the same extent and resolution than the [s] IPCC raster
++             final_raster = raster(extent(stack_bio17_cropped[[s]]), resolution = res(stack_bio17_cropped[[s]]))
++             final_raster_proportion = raster(extent(stack_bio17_cropped[[s]]), resolution = res(stack_bio17_cropped[[s]]))
++ 
++             #fill the raster with zeros
++             final_raster[] <- 0
++             final_raster_proportion[] <- 0
++ 
++             #add to these final cells a value of suitability without and with proportion
++             final_raster[final_cells] <- 1
++             final_raster_proportion[final_cells] <- phylo_proportion(x=raster_subsetted[final_cells], ancestral_value=model$ace, current_value=model$current_value)
++ 
++             #add the name of the raster
++             names(final_raster) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")
++             names(final_raster_proportion) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")        
++ 
++             #save the raster into a stack
++             phylo_rasters_bio17 = stack(phylo_rasters_bio17, final_raster)
++             phylo_rasters_bio17_proportion = stack(phylo_rasters_bio17_proportion, final_raster_proportion)
++         }    
++     }
++ 
++     #check that all scenarios has been included
++     nlayers(phylo_rasters_bio17) == length(climatic_scenarios)
++     nlayers(phylo_rasters_bio17_proportion) == length(climatic_scenarios)
++ 
++     #sum suitability across IPCC scenarios for bio17
++     sum_phylo_bio17 = calc(phylo_rasters_bio17, function(x) (sum(x)))
++ 
++     #loop for comparing projected climate and phylo range
++     phylo_rasters_bio4 = stack()
++     phylo_rasters_bio4_proportion = stack()
++     for(s in 1:length(climatic_scenarios)){
++ 
++         #select the climatic scenario
++         selected_scenario = climatic_scenarios[s]
++ 
++         #create a empty raster with the same extent and resolution of the raster layer of the [s] IPCC scenario
++         raster_subsetted = raster(extent(stack_bio4_cropped[[s]]), resolution = res(stack_bio4_cropped[[s]]))
++ 
++         #add to the empty raster those cells of the [s] IPCC raster in which the habitat suitability is higher than 25 and lower than 75
++         raster_subsetted[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] <- stack_bio4_cropped[[s]][which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] #suitability map has the same resolution and extent than IPCC maps because the suitability map was obtained from these raster of ICPP scenarios. 
++ 
++         #for each evolution model 
++         for(m in 1:length(list_models_bio4)){
++ 
++             #select the [m] evolution model 
++             selected_model = list_models_bio4[m]
++ 
++             #extract data of [m] model
++             model = get(selected_model)
++ 
++             #select the row of the corresponding species
++             model = model[which(model$species == paste("Pinus_", species, sep="")),]
++ 
++             #extract all cell values from the raster with climatic data of the [s] scenario only in those areas with uncertainty (raster_subsetted)
++             cell_values = getValues(raster_subsetted)
++ 
++             #extract ID of those cells without NA
++             cells_withot_NA = which(!is.na(cell_values))
++ 
++             #extract, from all cells withput NA, those whose value is inside the phylogenetic range (including the current value but not including the ancestral). For that we used is.between function, created by me. 
++             cell_inside_phylo_range = which(is.between(cell_value = na.omit(getValues(raster_subsetted)), ancestral = model$ace, current = model$current_value))
++ 
++             #from ID of cells without NA, select the ID of those whose vale is inside of the phylo range
++             final_cells = cells_withot_NA[cell_inside_phylo_range]
++ 
++             #create a empty raster with the same extent and resolution than the [s] IPCC raster
++             final_raster = raster(extent(stack_bio4_cropped[[s]]), resolution = res(stack_bio4_cropped[[s]]))
++             final_raster_proportion = raster(extent(stack_bio4_cropped[[s]]), resolution = res(stack_bio4_cropped[[s]]))
++ 
++             #fill the raster with zeros
++             final_raster[] <- 0
++             final_raster_proportion[] <- 0
++ 
++             #add to these final cells a value of suitability without and with proportion
++             final_raster[final_cells] <- 1
++             final_raster_proportion[final_cells] <- phylo_proportion(x=raster_subsetted[final_cells], ancestral_value=model$ace, current_value=model$current_value)
++ 
++             #add the name of the raster
++             names(final_raster) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")
++             names(final_raster_proportion) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")        
++ 
++             #save the raster into a stack
++             phylo_rasters_bio4 = stack(phylo_rasters_bio4, final_raster)
++             phylo_rasters_bio4_proportion = stack(phylo_rasters_bio4_proportion, final_raster_proportion)
++         }    
++     }    
++ 
++     #check that all scenarios has been included
++     nlayers(phylo_rasters_bio4) == length(climatic_scenarios)
++     nlayers(phylo_rasters_bio4_proportion) == length(climatic_scenarios)
++     
++     #sum suitability across IPCC scenarios for bio4
++     sum_phylo_bio4 = calc(phylo_rasters_bio4, function(x) (sum(x)))
++     
++     #calculate intersection between sum both suitaiblity maps (bio17, bio4)
++     intersection_ensamble_phylo = sum_phylo_bio17 * sum_phylo_bio4 #this will be used to exclude areas not shared between variables from the final ensamble. 
++     
++     #bind bio4 and bio17 rasters without proportions
++     phylo_rasters = stack(phylo_rasters_bio4, phylo_rasters_bio17)
++     nlayers(phylo_rasters) == length(climatic_scenarios)*2
++     
++     #bind bio4 and bio17 rasters with proportions
++     phylo_rasters_proportion = stack(phylo_rasters_bio4_proportion, phylo_rasters_bio17_proportion)
++     nlayers(phylo_rasters_proportion) == length(climatic_scenarios)*2
++     
++     #calculate the proportion of cells that fall inside the differents phylo ranges across IPCC scenarios and global circulation models without and with proportions
++     ensamble_phylo = calc(phylo_rasters, function(x) (sum(x)*0.5)/nlayers(phylo_rasters)) #En tanto por 0.5, para luego sumarle 0.5 y que todos los valores estén por encima de 0.5. Así ganamos contraste y los mapas son comparables entre especies. 
++     ensamble_phylo_proportion = calc(phylo_rasters_proportion, function(x) (sum(x)*0.5)/nlayers(phylo_rasters_proportion)) #En tanto por 0.5, para luego sumarle 0.5 y que todos los valores estén por encima de 0.5. Así ganamos contraste y los mapas son comparables entre especies. 
++ 
++     #sumamos 0.5 para tener valores de idoneidad de 0.5 a 1 (mayor contraste)
++     ensamble_phylo = calc(ensamble_phylo, function(x) (x+0.5))
++     ensamble_phylo_proportion = calc(ensamble_phylo_proportion, function(x) (x+0.5))
++     
++     #ponemos como cero los casos con el valor mínimo (sería el 0 en el raster inicial antes de sumar), para que así queden transparentes
++     second_ensamble_phylo = ensamble_phylo
++     second_ensamble_phylo[which(getValues(second_ensamble_phylo) == min(getValues(second_ensamble_phylo)))] <- 0
++     second_ensamble_phylo_proportion = ensamble_phylo_proportion
++     second_ensamble_phylo_proportion[which(getValues(second_ensamble_phylo_proportion) == min(getValues(second_ensamble_phylo_proportion)))] <- 0
++     
++     #check that raster withput proportians has a equal or higher suitability than the raster with proportions
++     median(getValues(second_ensamble_phylo)[which(!getValues(second_ensamble_phylo)==0)]) >= median(getValues(second_ensamble_phylo_proportion)[which(!getValues(second_ensamble_phylo_proportion)==0)])
++ 
++     #select only those areas suitable for at least one scenario for each variables in the suitability without proportions
++     #bio17 and bio4 suitaiblity don't overlap in areas with zero in intersection_ensamble_phylo
++     second_ensamble_phylo[intersection_ensamble_phylo == 0] <- 0
++     second_ensamble_phylo_proportion[intersection_ensamble_phylo == 0] <- 0
++     
++     #save second ensables
++     writeRaster(second_ensamble_phylo, paste("/Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/without_proportions/", species, "_phylo_ensamble_without_proportions.asc", sep=""), overwrite=TRUE)
++     writeRaster(second_ensamble_phylo_proportion, paste("/Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/", species, "_phylo_ensamble_with_proportions.asc", sep=""), overwrite=TRUE)
++ }
+> 
+> ########Paralelize the process######
+> require(foreach)
+Loading required package: foreach
+> require(doParallel) #for parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+> 
+> #list species
+> list_species = read.table("/Users/dsalazar/nicho_pinus/data/list_species.txt", sep="\t", header=T)
+> str(list_species)
+'data.frame':	112 obs. of  1 variable:
+ $ genus.specific_epithet: Factor w/ 112 levels "Pinus albicaulis ",..: 1 3 2 4 5 6 7 8 9 10 ...
+> summary(list_species)
+       genus.specific_epithet
+ Pinus albicaulis :  1       
+ Pinus amamiana   :  1       
+ Pinus aristata   :  1       
+ Pinus arizonica  :  1       
+ Pinus armandii   :  1       
+ Pinus attenuata  :  1       
+ (Other)          :106       
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     112 
+> 
+> #transform to a vector
+> epithet_species_list = as.vector(epithet_species_list)
+> 
+> # set up cluster
+> clust <- makeCluster(10)
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+> registerDoParallel(clust)
+> 
+> #paralelize
+> foreach(species = epithet_species_list, .packages=c("raster", "rgeos")) %dopar% {
++     phylo_analyses(species = species)
++ } 
+[[1]]
+class       : RasterLayer 
+dimensions  : 1254, 1458, 1828332  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -179, -57.5, -14.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/albicaulis_phylo_ensamble_with_proportions.asc 
+names       : albicaulis_phylo_ensamble_with_proportions 
+
+
+[[2]]
+class       : RasterLayer 
+dimensions  : 1272, 1392, 1770624  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -169.5, -53.5, -16, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/aristata_phylo_ensamble_with_proportions.asc 
+names       : aristata_phylo_ensamble_with_proportions 
+
+
+[[3]]
+class       : RasterLayer 
+dimensions  : 1230, 1206, 1483380  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 79.5, 180, -20, 82.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/amamiana_phylo_ensamble_with_proportions.asc 
+names       : amamiana_phylo_ensamble_with_proportions 
+
+
+[[4]]
+class       : RasterLayer 
+dimensions  : 1338, 1362, 1822356  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -162, -48.5, -29.5, 82  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/arizonica_phylo_ensamble_with_proportions.asc 
+names       : arizonica_phylo_ensamble_with_proportions 
+
+
+[[5]]
+class       : RasterLayer 
+dimensions  : 1422, 1542, 2192724  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 43.5, 172, -32, 86.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/armandii_phylo_ensamble_with_proportions.asc 
+names       : armandii_phylo_ensamble_with_proportions 
+
+
+[[6]]
+class       : RasterLayer 
+dimensions  : 1314, 1314, 1726596  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -175, -65.5, -19.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/attenuata_phylo_ensamble_with_proportions.asc 
+names       : attenuata_phylo_ensamble_with_proportions 
+
+
+[[7]]
+class       : RasterLayer 
+dimensions  : 1302, 1428, 1859256  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -156, -37, -37, 71.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/ayacahuite_phylo_ensamble_with_proportions.asc 
+names       : ayacahuite_phylo_ensamble_with_proportions 
+
+
+[[8]]
+class       : RasterLayer 
+dimensions  : 1260, 1290, 1625400  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -174.5, -67, -15, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/balfouriana_phylo_ensamble_with_proportions.asc 
+names       : balfouriana_phylo_ensamble_with_proportions 
+
+
+[[9]]
+class       : RasterLayer 
+dimensions  : 1200, 2028, 2433600  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -178.5, -9.5, -10, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/banksiana_phylo_ensamble_with_proportions.asc 
+names       : banksiana_phylo_ensamble_with_proportions 
+
+
+[[10]]
+class       : RasterLayer 
+dimensions  : 1284, 1350, 1733400  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 38, 150.5, -25.5, 81.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/bhutanica_phylo_ensamble_with_proportions.asc 
+names       : bhutanica_phylo_ensamble_with_proportions 
+
+
+[[11]]
+class       : RasterLayer 
+dimensions  : 1284, 1488, 1910592  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -27.5, 96.5, -17, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/brutia_phylo_ensamble_with_proportions.asc 
+names       : brutia_phylo_ensamble_with_proportions 
+
+
+[[12]]
+class       : RasterLayer 
+dimensions  : 1326, 1386, 1837836  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 53.5, 169, -20.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/bungeana_phylo_ensamble_with_proportions.asc 
+names       : bungeana_phylo_ensamble_with_proportions 
+
+
+[[13]]
+class       : RasterLayer 
+dimensions  : 1218, 1242, 1512756  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -68.5, 35, -22.5, 79  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/canariensis_phylo_ensamble_with_proportions.asc 
+names       : canariensis_phylo_ensamble_with_proportions 
+
+
+[[14]]
+class       : RasterLayer 
+dimensions  : 1392, 1386, 1929312  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -141.5, -26, -38.5, 77.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/caribaea_phylo_ensamble_with_proportions.asc 
+names       : caribaea_phylo_ensamble_with_proportions 
+
+
+[[15]]
+class       : RasterLayer 
+dimensions  : 1164, 1458, 1697112  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -45, 76.5, -7, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/cembra_phylo_ensamble_with_proportions.asc 
+names       : cembra_phylo_ensamble_with_proportions 
+
+
+[[16]]
+class       : RasterLayer 
+dimensions  : 1404, 1404, 1971216  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -163, -46, -32.5, 84.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/cembroides_phylo_ensamble_with_proportions.asc 
+names       : cembroides_phylo_ensamble_with_proportions 
+
+
+[[17]]
+class       : RasterLayer 
+dimensions  : 1290, 1344, 1733760  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -151.5, -39.5, -36, 71.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/chiapensis_phylo_ensamble_with_proportions.asc 
+names       : chiapensis_phylo_ensamble_with_proportions 
+
+
+[[18]]
+class       : RasterLayer 
+dimensions  : 1290, 1320, 1702800  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -139, -29, -25.5, 82  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/clausa_phylo_ensamble_with_proportions.asc 
+names       : clausa_phylo_ensamble_with_proportions 
+
+
+[[19]]
+class       : RasterLayer 
+dimensions  : 1326, 1530, 2028780  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -180, -52.5, -20.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/contorta_phylo_ensamble_with_proportions.asc 
+names       : contorta_phylo_ensamble_with_proportions 
+
+
+[[20]]
+class       : RasterLayer 
+dimensions  : 1284, 1266, 1625544  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -158.5, -53, -28.5, 78.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/cooperi_phylo_ensamble_with_proportions.asc 
+names       : cooperi_phylo_ensamble_with_proportions 
+
+
+[[21]]
+class       : RasterLayer 
+dimensions  : 1314, 1308, 1718712  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -173, -64, -20.5, 89  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/coulteri_phylo_ensamble_with_proportions.asc 
+names       : coulteri_phylo_ensamble_with_proportions 
+
+
+[[22]]
+class       : RasterLayer 
+dimensions  : 1224, 1242, 1520208  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -127, -23.5, -30.5, 71.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/cubensis_phylo_ensamble_with_proportions.asc 
+names       : cubensis_phylo_ensamble_with_proportions 
+
+
+[[23]]
+class       : RasterLayer 
+dimensions  : 1230, 1230, 1512900  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -151.5, -49, -26.5, 76  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/culminicola_phylo_ensamble_with_proportions.asc 
+names       : culminicola_phylo_ensamble_with_proportions 
+
+
+[[24]]
+class       : RasterLayer 
+dimensions  : 1242, 1230, 1527660  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 57, 159.5, -38.5, 65  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/dalatensis_phylo_ensamble_with_proportions.asc 
+names       : dalatensis_phylo_ensamble_with_proportions 
+
+
+[[25]]
+class       : RasterLayer 
+dimensions  : 1344, 1284, 1725696  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 51, 158, -27, 85  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/densata_phylo_ensamble_with_proportions.asc 
+names       : densata_phylo_ensamble_with_proportions 
+
+
+[[26]]
+class       : RasterLayer 
+dimensions  : 1320, 1272, 1679040  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 74, 180, -20, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/densiflora_phylo_ensamble_with_proportions.asc 
+names       : densiflora_phylo_ensamble_with_proportions 
+
+
+[[27]]
+class       : RasterLayer 
+dimensions  : 1314, 1368, 1797552  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -156.5, -42.5, -35, 74.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/devoniana_phylo_ensamble_with_proportions.asc 
+names       : devoniana_phylo_ensamble_with_proportions 
+
+
+[[28]]
+class       : RasterLayer 
+dimensions  : 1332, 1332, 1774224  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -159.5, -48.5, -32.5, 78.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/douglasiana_phylo_ensamble_with_proportions.asc 
+names       : douglasiana_phylo_ensamble_with_proportions 
+
+
+[[29]]
+class       : RasterLayer 
+dimensions  : 1362, 1344, 1830528  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -160.5, -48.5, -32, 81.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/durangensis_phylo_ensamble_with_proportions.asc 
+names       : durangensis_phylo_ensamble_with_proportions 
+
+
+[[30]]
+class       : RasterLayer 
+dimensions  : 1338, 1512, 2023056  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -148, -22, -21.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/echinata_phylo_ensamble_with_proportions.asc 
+names       : echinata_phylo_ensamble_with_proportions 
+
+
+[[31]]
+class       : RasterLayer 
+dimensions  : 1320, 1380, 1821600  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -166.5, -51.5, -20, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/edulis_phylo_ensamble_with_proportions.asc 
+names       : edulis_phylo_ensamble_with_proportions 
+
+
+[[32]]
+class       : RasterLayer 
+dimensions  : 1326, 1362, 1806012  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -142, -28.5, -26, 84.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/elliottii_phylo_ensamble_with_proportions.asc 
+names       : elliottii_phylo_ensamble_with_proportions 
+
+
+[[33]]
+class       : RasterLayer 
+dimensions  : 1368, 1338, 1830384  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -162.5, -51, -30, 84  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/engelmannii_phylo_ensamble_with_proportions.asc 
+names       : engelmannii_phylo_ensamble_with_proportions 
+
+
+[[34]]
+class       : RasterLayer 
+dimensions  : 1320, 1290, 1702800  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 57, 164.5, -32, 78  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/fenzeliana_phylo_ensamble_with_proportions.asc 
+names       : fenzeliana_phylo_ensamble_with_proportions 
+
+
+[[35]]
+class       : RasterLayer 
+dimensions  : 1296, 1416, 1835136  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -170.5, -52.5, -18, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/flexilis_phylo_ensamble_with_proportions.asc 
+names       : flexilis_phylo_ensamble_with_proportions 
+
+
+[[36]]
+class       : RasterLayer 
+dimensions  : 1248, 1230, 1535040  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 69.5, 172, -28.5, 75.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/fragilissima_phylo_ensamble_with_proportions.asc 
+names       : fragilissima_phylo_ensamble_with_proportions 
+
+
+[[37]]
+class       : RasterLayer 
+dimensions  : 1290, 1356, 1749240  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 17, 130, -19.5, 88  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/gerardiana_phylo_ensamble_with_proportions.asc 
+names       : gerardiana_phylo_ensamble_with_proportions 
+
+
+[[38]]
+class       : RasterLayer 
+dimensions  : 1284, 1374, 1764216  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -142.5, -28, -21.5, 85.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/glabra_phylo_ensamble_with_proportions.asc 
+names       : glabra_phylo_ensamble_with_proportions 
+
+
+[[39]]
+class       : RasterLayer 
+dimensions  : 1296, 1266, 1640736  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -152.5, -47, -31, 77  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/greggii_phylo_ensamble_with_proportions.asc 
+names       : greggii_phylo_ensamble_with_proportions 
+
+
+[[40]]
+class       : RasterLayer 
+dimensions  : 1308, 1770, 2315160  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -60, 87.5, -19, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/halepensis_phylo_ensamble_with_proportions.asc 
+names       : halepensis_phylo_ensamble_with_proportions 
+
+
+[[41]]
+class       : RasterLayer 
+dimensions  : 1374, 1440, 1978560  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -158, -38, -37, 77.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/hartwegii_phylo_ensamble_with_proportions.asc 
+names       : hartwegii_phylo_ensamble_with_proportions 
+
+
+[[42]]
+class       : RasterLayer 
+dimensions  : 1218, 1326, 1615068  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -35.5, 75, -11.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/heldreichii_phylo_ensamble_with_proportions.asc 
+names       : heldreichii_phylo_ensamble_with_proportions 
+
+
+[[43]]
+class       : RasterLayer 
+dimensions  : 1356, 1296, 1757376  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -159.5, -51.5, -32.5, 80.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/herrerae_phylo_ensamble_with_proportions.asc 
+names       : herrerae_phylo_ensamble_with_proportions 
+
+
+[[44]]
+class       : RasterLayer 
+dimensions  : 1302, 1374, 1788948  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 57.5, 172, -26, 82.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/hwangshanensis_phylo_ensamble_with_proportions.asc 
+names       : hwangshanensis_phylo_ensamble_with_proportions 
+
+
+[[45]]
+class       : RasterLayer 
+dimensions  : 1332, 1332, 1774224  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -175, -64, -21, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/jeffreyi_phylo_ensamble_with_proportions.asc 
+names       : jeffreyi_phylo_ensamble_with_proportions 
+
+
+[[46]]
+class       : RasterLayer 
+dimensions  : 1290, 1266, 1633140  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -154, -48.5, -27.5, 80  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/johannis_phylo_ensamble_with_proportions.asc 
+names       : johannis_phylo_ensamble_with_proportions 
+
+
+[[47]]
+class       : RasterLayer 
+dimensions  : 1266, 1248, 1579968  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -168, -64, -20.5, 85  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/juarezensis_phylo_ensamble_with_proportions.asc 
+names       : juarezensis_phylo_ensamble_with_proportions 
+
+
+[[48]]
+class       : RasterLayer 
+dimensions  : 1446, 1584, 2290464  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 40, 172, -39, 81.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/kesiya_phylo_ensamble_with_proportions.asc 
+names       : kesiya_phylo_ensamble_with_proportions 
+
+
+[[49]]
+class       : RasterLayer 
+dimensions  : 1290, 1272, 1640880  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 74, 180, -17.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/koraiensis_phylo_ensamble_with_proportions.asc 
+names       : koraiensis_phylo_ensamble_with_proportions 
+
+
+[[50]]
+class       : RasterLayer 
+dimensions  : 1236, 1230, 1520280  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 57, 159.5, -39, 64  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/krempfii_phylo_ensamble_with_proportions.asc 
+names       : krempfii_phylo_ensamble_with_proportions 
+
+
+[[51]]
+class       : RasterLayer 
+dimensions  : 1236, 1230, 1520280  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 53.5, 156, -27, 76  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/kwangtungensis_phylo_ensamble_with_proportions.asc 
+names       : kwangtungensis_phylo_ensamble_with_proportions 
+
+
+[[52]]
+class       : RasterLayer 
+dimensions  : 1326, 1332, 1766232  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -175, -64, -20.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/lambertiana_phylo_ensamble_with_proportions.asc 
+names       : lambertiana_phylo_ensamble_with_proportions 
+
+
+[[53]]
+class       : RasterLayer 
+dimensions  : 1374, 1338, 1838412  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 50, 161.5, -39.5, 75  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/latteri_phylo_ensamble_with_proportions.asc 
+names       : latteri_phylo_ensamble_with_proportions 
+
+
+[[54]]
+class       : RasterLayer 
+dimensions  : 1278, 1356, 1732968  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -156.5, -43.5, -34.5, 72  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/lawsonii_phylo_ensamble_with_proportions.asc 
+names       : lawsonii_phylo_ensamble_with_proportions 
+
+
+[[55]]
+class       : RasterLayer 
+dimensions  : 1440, 1410, 2030400  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -162.5, -45, -34.5, 85.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/leiophylla_phylo_ensamble_with_proportions.asc 
+names       : leiophylla_phylo_ensamble_with_proportions 
+
+
+[[56]]
+class       : RasterLayer 
+dimensions  : 1272, 1320, 1679040  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -169.5, -59.5, -16, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/longaeva_phylo_ensamble_with_proportions.asc 
+names       : longaeva_phylo_ensamble_with_proportions 
+
+
+[[57]]
+class       : RasterLayer 
+dimensions  : 1248, 1278, 1594944  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 72.5, 179, -26, 78  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/luchuensis_phylo_ensamble_with_proportions.asc 
+names       : luchuensis_phylo_ensamble_with_proportions 
+
+
+[[58]]
+class       : RasterLayer 
+dimensions  : 1338, 1332, 1782216  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -160, -49, -31.5, 80  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/lumholtzii_phylo_ensamble_with_proportions.asc 
+names       : lumholtzii_phylo_ensamble_with_proportions 
+
+
+[[59]]
+class       : RasterLayer 
+dimensions  : 1224, 1242, 1520208  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -127, -23.5, -30.5, 71.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/maestrensis_phylo_ensamble_with_proportions.asc 
+names       : maestrensis_phylo_ensamble_with_proportions 
+
+
+[[60]]
+class       : RasterLayer 
+dimensions  : 1410, 1452, 2047320  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 52, 173, -30, 87.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/massoniana_phylo_ensamble_with_proportions.asc 
+names       : massoniana_phylo_ensamble_with_proportions 
+
+
+[[61]]
+class       : RasterLayer 
+dimensions  : 1230, 1230, 1512900  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -154.5, -52, -30, 72.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/maximartinezii_phylo_ensamble_with_proportions.asc 
+names       : maximartinezii_phylo_ensamble_with_proportions 
+
+
+[[62]]
+class       : RasterLayer 
+dimensions  : 1314, 1368, 1797552  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -156.5, -42.5, -35, 74.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/maximinoi_phylo_ensamble_with_proportions.asc 
+names       : maximinoi_phylo_ensamble_with_proportions 
+
+
+[[63]]
+class       : RasterLayer 
+dimensions  : 1494, 1392, 2079648  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 45.5, 161.5, -49.5, 75  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/merkusii_phylo_ensamble_with_proportions.asc 
+names       : merkusii_phylo_ensamble_with_proportions 
+
+
+[[64]]
+class       : RasterLayer 
+dimensions  : 1344, 1332, 1790208  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -171.5, -60.5, -22, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/monophylla_phylo_ensamble_with_proportions.asc 
+names       : monophylla_phylo_ensamble_with_proportions 
+
+
+[[65]]
+class       : RasterLayer 
+dimensions  : 1368, 1392, 1904256  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -155, -39, -36.5, 77.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/montezumae_phylo_ensamble_with_proportions.asc 
+names       : montezumae_phylo_ensamble_with_proportions 
+
+
+[[66]]
+class       : RasterLayer 
+dimensions  : 1266, 1392, 1762272  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -178.5, -62.5, -15.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/monticola_phylo_ensamble_with_proportions.asc 
+names       : monticola_phylo_ensamble_with_proportions 
+
+
+[[67]]
+class       : RasterLayer 
+dimensions  : 1230, 1230, 1512900  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 69.5, 172, -27, 75.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/morrisonicola_phylo_ensamble_with_proportions.asc 
+names       : morrisonicola_phylo_ensamble_with_proportions 
+
+
+[[68]]
+class       : RasterLayer 
+dimensions  : 1200, 1554, 1864800  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -52, 77.5, -10, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/mugo_phylo_ensamble_with_proportions.asc 
+names       : mugo_phylo_ensamble_with_proportions 
+
+
+[[69]]
+class       : RasterLayer 
+dimensions  : 1356, 1326, 1798056  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -174.5, -64, -23, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/muricata_phylo_ensamble_with_proportions.asc 
+names       : muricata_phylo_ensamble_with_proportions 
+
+
+[[70]]
+class       : RasterLayer 
+dimensions  : 1272, 1260, 1602720  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -153, -48, -29, 77  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/nelsonii_phylo_ensamble_with_proportions.asc 
+names       : nelsonii_phylo_ensamble_with_proportions 
+
+
+[[71]]
+class       : RasterLayer 
+dimensions  : 1260, 1764, 2222640  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -56.5, 90.5, -15, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/nigra_phylo_ensamble_with_proportions.asc 
+names       : nigra_phylo_ensamble_with_proportions 
+
+
+[[72]]
+class       : RasterLayer 
+dimensions  : 1254, 1314, 1647756  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -128.5, -19, -33, 71.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/occidentalis_phylo_ensamble_with_proportions.asc 
+names       : occidentalis_phylo_ensamble_with_proportions 
+
+
+[[73]]
+class       : RasterLayer 
+dimensions  : 1416, 1512, 2140992  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -160, -34, -38.5, 79.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/oocarpa_phylo_ensamble_with_proportions.asc 
+names       : oocarpa_phylo_ensamble_with_proportions 
+
+
+[[74]]
+class       : RasterLayer 
+dimensions  : 1350, 1458, 1968300  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -146.5, -25, -24.5, 88  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/palustris_phylo_ensamble_with_proportions.asc 
+names       : palustris_phylo_ensamble_with_proportions 
+
+
+[[75]]
+class       : RasterLayer 
+dimensions  : 1320, 1224, 1615680  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 78, 180, -20, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/parviflora_phylo_ensamble_with_proportions.asc 
+names       : parviflora_phylo_ensamble_with_proportions 
+
+
+[[76]]
+class       : RasterLayer 
+dimensions  : 1302, 1272, 1656144  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -151, -45, -34, 74.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/patula_phylo_ensamble_with_proportions.asc 
+names       : patula_phylo_ensamble_with_proportions 
+
+
+[[77]]
+class       : RasterLayer 
+dimensions  : 1206, 1284, 1548504  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -31.5, 75.5, -10.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/peuce_phylo_ensamble_with_proportions.asc 
+names       : peuce_phylo_ensamble_with_proportions 
+
+
+[[78]]
+class       : RasterLayer 
+dimensions  : 1302, 1488, 1937376  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -59.5, 64.5, -18.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pinaster_phylo_ensamble_with_proportions.asc 
+names       : pinaster_phylo_ensamble_with_proportions 
+
+
+[[79]]
+class       : RasterLayer 
+dimensions  : 1308, 1278, 1671624  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -154, -47.5, -31, 78  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pinceana_phylo_ensamble_with_proportions.asc 
+names       : pinceana_phylo_ensamble_with_proportions 
+
+
+[[80]]
+class       : RasterLayer 
+dimensions  : 1284, 1818, 2334312  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -59.5, 92, -17, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pinea_phylo_ensamble_with_proportions.asc 
+names       : pinea_phylo_ensamble_with_proportions 
+
+
+[[81]]
+class       : RasterLayer 
+dimensions  : 1320, 1524, 2011680  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -175, -48, -20, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/ponderosa_phylo_ensamble_with_proportions.asc 
+names       : ponderosa_phylo_ensamble_with_proportions 
+
+
+[[82]]
+class       : RasterLayer 
+dimensions  : 1338, 1284, 1717992  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -160, -53, -32, 79.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/praetermissa_phylo_ensamble_with_proportions.asc 
+names       : praetermissa_phylo_ensamble_with_proportions 
+
+
+[[83]]
+class       : RasterLayer 
+dimensions  : 1266, 1314, 1663524  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -153.5, -44, -34.5, 71  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pringlei_phylo_ensamble_with_proportions.asc 
+names       : pringlei_phylo_ensamble_with_proportions 
+
+
+[[84]]
+class       : RasterLayer 
+dimensions  : 1392, 1494, 2079648  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -159, -34.5, -38, 78  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pseudostrobus_phylo_ensamble_with_proportions.asc 
+names       : pseudostrobus_phylo_ensamble_with_proportions 
+
+
+[[85]]
+class       : RasterLayer 
+dimensions  : 1266, 1542, 1952172  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 51.5, 180, -15.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pumila_phylo_ensamble_with_proportions.asc 
+names       : pumila_phylo_ensamble_with_proportions 
+
+
+[[86]]
+class       : RasterLayer 
+dimensions  : 1278, 1344, 1717632  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -135.5, -23.5, -16.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/pungens_phylo_ensamble_with_proportions.asc 
+names       : pungens_phylo_ensamble_with_proportions 
+
+
+[[87]]
+class       : RasterLayer 
+dimensions  : 1266, 1248, 1579968  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -168, -64, -20.5, 85  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/quadrifolia_phylo_ensamble_with_proportions.asc 
+names       : quadrifolia_phylo_ensamble_with_proportions 
+
+
+[[88]]
+class       : RasterLayer 
+dimensions  : 1320, 1266, 1671120  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -173.5, -68, -21.5, 88.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/radiata_phylo_ensamble_with_proportions.asc 
+names       : radiata_phylo_ensamble_with_proportions 
+
+
+[[89]]
+class       : RasterLayer 
+dimensions  : 1314, 1272, 1671408  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -154, -48, -27.5, 82  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/remota_phylo_ensamble_with_proportions.asc 
+names       : remota_phylo_ensamble_with_proportions 
+
+
+[[90]]
+class       : RasterLayer 
+dimensions  : 1230, 1740, 2140200  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -148, -3, -12.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/resinosa_phylo_ensamble_with_proportions.asc 
+names       : resinosa_phylo_ensamble_with_proportions 
+
+
+[[91]]
+class       : RasterLayer 
+dimensions  : 1290, 1470, 1896300  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -139.5, -17, -17.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/rigida_phylo_ensamble_with_proportions.asc 
+names       : rigida_phylo_ensamble_with_proportions 
+
+
+[[92]]
+class       : RasterLayer 
+dimensions  : 1338, 1464, 1958832  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 20.5, 142.5, -24.5, 87  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/roxburghii_phylo_ensamble_with_proportions.asc 
+names       : roxburghii_phylo_ensamble_with_proportions 
+
+
+[[93]]
+class       : RasterLayer 
+dimensions  : 1248, 1248, 1557504  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -154, -50, -33, 71  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/rzedowskii_phylo_ensamble_with_proportions.asc 
+names       : rzedowskii_phylo_ensamble_with_proportions 
+
+
+[[94]]
+class       : RasterLayer 
+dimensions  : 1278, 1296, 1656288  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -174.5, -66.5, -16.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/sabiniana_phylo_ensamble_with_proportions.asc 
+names       : sabiniana_phylo_ensamble_with_proportions 
+
+
+[[95]]
+class       : RasterLayer 
+dimensions  : 1356, 1374, 1863144  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -138.5, -24, -23, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/serotina_phylo_ensamble_with_proportions.asc 
+names       : serotina_phylo_ensamble_with_proportions 
+
+
+[[96]]
+class       : RasterLayer 
+dimensions  : 1152, 2064, 2377728  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 6, 178, -6, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/sibirica_phylo_ensamble_with_proportions.asc 
+names       : sibirica_phylo_ensamble_with_proportions 
+
+
+[[97]]
+class       : RasterLayer 
+dimensions  : 1230, 1236, 1520280  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 50, 153, -22.5, 80  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/squamata_phylo_ensamble_with_proportions.asc 
+names       : squamata_phylo_ensamble_with_proportions 
+
+
+[[98]]
+class       : RasterLayer 
+dimensions  : 1386, 1368, 1896048  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -162.5, -48.5, -29.5, 86  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/strobiformis_phylo_ensamble_with_proportions.asc 
+names       : strobiformis_phylo_ensamble_with_proportions 
+
+
+[[99]]
+class       : RasterLayer 
+dimensions  : 1284, 1734, 2226456  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -147, -2.5, -17, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/strobus_phylo_ensamble_with_proportions.asc 
+names       : strobus_phylo_ensamble_with_proportions 
+
+
+[[100]]
+class       : RasterLayer 
+dimensions  : 1254, 2874, 3603996  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -59.5, 180, -14.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/sylvestris_phylo_ensamble_with_proportions.asc 
+names       : sylvestris_phylo_ensamble_with_proportions 
+
+
+[[101]]
+class       : RasterLayer 
+dimensions  : 1482, 1590, 2356380  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 42, 174.5, -33.5, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/tabuliformis_phylo_ensamble_with_proportions.asc 
+names       : tabuliformis_phylo_ensamble_with_proportions 
+
+
+[[102]]
+class       : RasterLayer 
+dimensions  : 1356, 1500, 2034000  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -149, -24, -23, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/taeda_phylo_ensamble_with_proportions.asc 
+names       : taeda_phylo_ensamble_with_proportions 
+
+
+[[103]]
+class       : RasterLayer 
+dimensions  : 1248, 1230, 1535040  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 69.5, 172, -28.5, 75.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/taiwanensis_phylo_ensamble_with_proportions.asc 
+names       : taiwanensis_phylo_ensamble_with_proportions 
+
+
+[[104]]
+class       : RasterLayer 
+dimensions  : 1398, 1434, 2004732  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -159.5, -40, -36, 80.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/teocote_phylo_ensamble_with_proportions.asc 
+names       : teocote_phylo_ensamble_with_proportions 
+
+
+[[105]]
+class       : RasterLayer 
+dimensions  : 1332, 1260, 1678320  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 75, 180, -21, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/thunbergii_phylo_ensamble_with_proportions.asc 
+names       : thunbergii_phylo_ensamble_with_proportions 
+
+
+[[106]]
+class       : RasterLayer 
+dimensions  : 1248, 1260, 1572480  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -171, -66, -18.5, 85.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/torreyana_phylo_ensamble_with_proportions.asc 
+names       : torreyana_phylo_ensamble_with_proportions 
+
+
+[[107]]
+class       : RasterLayer 
+dimensions  : 1230, 1242, 1527660  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -135, -31.5, -29, 73.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/tropicalis_phylo_ensamble_with_proportions.asc 
+names       : tropicalis_phylo_ensamble_with_proportions 
+
+
+[[108]]
+class       : RasterLayer 
+dimensions  : 1308, 1422, 1859976  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -140.5, -22, -19, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/virginiana_phylo_ensamble_with_proportions.asc 
+names       : virginiana_phylo_ensamble_with_proportions 
+
+
+[[109]]
+class       : RasterLayer 
+dimensions  : 1356, 1590, 2156040  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 18, 150.5, -25.5, 87.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/wallichiana_phylo_ensamble_with_proportions.asc 
+names       : wallichiana_phylo_ensamble_with_proportions 
+
+
+[[110]]
+class       : RasterLayer 
+dimensions  : 1224, 1236, 1512864  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -171.5, -68.5, -12, 90  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/washoensis_phylo_ensamble_with_proportions.asc 
+names       : washoensis_phylo_ensamble_with_proportions 
+
+
+[[111]]
+class       : RasterLayer 
+dimensions  : 1284, 1272, 1633248  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : -160, -54, -27.5, 79.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/yecorensis_phylo_ensamble_with_proportions.asc 
+names       : yecorensis_phylo_ensamble_with_proportions 
+
+
+[[112]]
+class       : RasterLayer 
+dimensions  : 1332, 1326, 1766232  (nrow, ncol, ncell)
+resolution  : 0.08333333, 0.08333333  (x, y)
+extent      : 46.5, 157, -29.5, 81.5  (xmin, xmax, ymin, ymax)
+coord. ref. : NA 
+data source : /Users/dsalazar/nicho_pinus/results/final_analyses/phylo_ensamble/with_proportions/yunnanensis_phylo_ensamble_with_proportions.asc 
+names       : yunnanensis_phylo_ensamble_with_proportions 
+
+
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> proc.time()
+     user    system   elapsed 
+    1.719     0.163 27821.361 

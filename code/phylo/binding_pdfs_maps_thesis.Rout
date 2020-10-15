@@ -1,0 +1,570 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> #set working directory
+> setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions")
+> 
+> #list species
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> str(list_species)
+'data.frame':	114 obs. of  1 variable:
+ $ genus.specific_epithet: Factor w/ 114 levels "Pinus albicaulis",..: 1 2 3 4 5 6 7 8 9 10 ...
+> summary(list_species)
+      genus.specific_epithet
+ Pinus albicaulis:  1       
+ Pinus amamiana  :  1       
+ Pinus aristata  :  1       
+ Pinus arizonica :  1       
+ Pinus armandii  :  1       
+ Pinus attenuata :  1       
+ (Other)         :108       
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     114 
+> 
+> #drop discolor (problem tazonomy, no diferetiaced from cembriodes). Also remove tecunumi y jaslicana, for which we didn't create maps in the beginning
+> epithet_species_list=epithet_species_list[which(!epithet_species_list %in% c("discolor", "jaliscana", "tecunumanii"))]
+> 
+> #check it
+> !c("discolor", "jaliscana", "tecunumanii") %in% epithet_species_list
+[1] TRUE TRUE TRUE
+> length(epithet_species_list) == 112
+[1] TRUE
+> 
+> #create a vector with the complete name of the pdf
+> final_list_species = paste(epithet_species_list, "_with_proportions.pdf", sep="")
+> 
+> #copy a necesary program 
+> #system("cp /Users/diegosalazar/cpdf-binaries-master/OSX-Intel/cpdf /usr/bin/cpdf")
+> 
+> #add this package to bash.profile to use it in any directory
+> #export PATH=$PATH:/usr/bin/cpdf
+> 
+> #create sequence of numbers to combine each pair of species into one figure (speices1 and species2 into figure 1, species3 and speceis4 into figure 2). Therefore, for each two species we select one number, until 112 (1,3,5,...)
+> seq_binding_species = seq(1,length(final_list_species),2)
+> length(seq_binding_species) == 56 #56 pages
+[1] TRUE
+> summary(seq_binding_species%%2==0) #no even number, only 1,3,5,7,9,11...
+   Mode   FALSE 
+logical      56 
+> 
+> #loop for binding each pair of species
+> for(i in 1:length(seq_binding_species)){
++ 
++     #select the index for selecting species to bind in the pdf
++     index_selecting_species = seq_binding_species[i]
++ 
++     #selected species
++     first_species = final_list_species[index_selecting_species]
++     second_species = final_list_species[index_selecting_species+1]
++ 
++     #set the path for saving images
++     output_path = "/Volumes/GoogleDrive/My\\ Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page"
++     #if the number figure for the pdf file
++     number_figure = i
++  
++     #set the number of page for the PhD
++     number_pages=251+i
++ 
++     #load the
++     system(paste("cd /Volumes/GoogleDrive/My\\ Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions;", #set working directory
++         "pdfjam ", first_species, " ", second_species, " --paper a4paper --nup 1x2 --no-landscape --scale 0.925 --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile ", output_path, "/figure_", number_figure, ".pdf;", #take the pdf of first and second species, bind them into a4paper (--paper a4paper), in only one column (--nup 1x2 --no-landscape), slightly reduce the size of both figures (--scale 0.925; scale = 1 would be the same size), remove blanck space from the bottom (--trim '0cm 8.5cm 0cm 0cm'; left, bottom, right and top), put more separaton between the bottom-top margins and the figures (--offset '0cm 0.7cm'; offX, offy; see "https://osl.ugr.es/CTAN/macros/latex/contrib/pdfpages/pdfpages.pdf"), control the separation btween figures (--delta '0cm -0.1cm'; see the previous link), and save in the output path using the number figure (from 1 to 56; 1:length(seq_binding_species).
++         "cpdf -add-text '", number_pages, "' -pos-center '501 35' -font 'Times-Roman' -font-size 10.5 ", output_path, "/figure_", number_figure, ".pdf", " -o ",  output_path, "/figure_", number_figure, ".pdf", sep="")) #add number pages (-add-text) in the bottomright position (-pos-center '501 35'; first number ix the X, the second is the Y), in Timres New Roman (-font 'Times-Roman'), select the figure obtained from pdfjm and overwritte it. See "/Users/diegosalazar/cpdf-binaries-master/cpdfmanual.pdf".
++ }
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_1.pdf -- albicaulis_with_proportions.pdf - amamiana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_1.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_2.pdf -- aristata_with_proportions.pdf - arizonica_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_2.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_3.pdf -- armandii_with_proportions.pdf - attenuata_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_3.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_4.pdf -- ayacahuite_with_proportions.pdf - balfouriana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_4.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_5.pdf -- banksiana_with_proportions.pdf - bhutanica_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_5.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_6.pdf -- brutia_with_proportions.pdf - bungeana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_6.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_7.pdf -- canariensis_with_proportions.pdf - caribaea_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_7.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_8.pdf -- cembra_with_proportions.pdf - cembroides_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_8.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_9.pdf -- chiapensis_with_proportions.pdf - clausa_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_9.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_10.pdf -- contorta_with_proportions.pdf - cooperi_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_10.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_11.pdf -- coulteri_with_proportions.pdf - cubensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_11.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_12.pdf -- culminicola_with_proportions.pdf - dalatensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_12.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_13.pdf -- densata_with_proportions.pdf - densiflora_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_13.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_14.pdf -- devoniana_with_proportions.pdf - douglasiana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_14.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_15.pdf -- durangensis_with_proportions.pdf - echinata_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_15.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_16.pdf -- edulis_with_proportions.pdf - elliottii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_16.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_17.pdf -- engelmannii_with_proportions.pdf - fenzeliana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_17.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_18.pdf -- flexilis_with_proportions.pdf - fragilissima_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_18.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_19.pdf -- gerardiana_with_proportions.pdf - glabra_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_19.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_20.pdf -- greggii_with_proportions.pdf - halepensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_20.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_21.pdf -- hartwegii_with_proportions.pdf - heldreichii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_21.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_22.pdf -- herrerae_with_proportions.pdf - hwangshanensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_22.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_23.pdf -- jeffreyi_with_proportions.pdf - johannis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_23.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_24.pdf -- juarezensis_with_proportions.pdf - kesiya_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_24.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_25.pdf -- koraiensis_with_proportions.pdf - krempfii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_25.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_26.pdf -- kwangtungensis_with_proportions.pdf - lambertiana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_26.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_27.pdf -- latteri_with_proportions.pdf - lawsonii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_27.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_28.pdf -- leiophylla_with_proportions.pdf - longaeva_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_28.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_29.pdf -- luchuensis_with_proportions.pdf - lumholtzii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_29.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_30.pdf -- maestrensis_with_proportions.pdf - massoniana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_30.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_31.pdf -- maximartinezii_with_proportions.pdf - maximinoi_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_31.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_32.pdf -- merkusii_with_proportions.pdf - monophylla_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_32.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_33.pdf -- montezumae_with_proportions.pdf - monticola_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_33.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_34.pdf -- morrisonicola_with_proportions.pdf - mugo_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_34.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_35.pdf -- muricata_with_proportions.pdf - nelsonii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_35.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_36.pdf -- nigra_with_proportions.pdf - occidentalis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_36.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_37.pdf -- oocarpa_with_proportions.pdf - palustris_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_37.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_38.pdf -- parviflora_with_proportions.pdf - patula_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_38.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_39.pdf -- peuce_with_proportions.pdf - pinaster_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_39.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_40.pdf -- pinceana_with_proportions.pdf - pinea_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_40.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_41.pdf -- ponderosa_with_proportions.pdf - praetermissa_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_41.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_42.pdf -- pringlei_with_proportions.pdf - pseudostrobus_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_42.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_43.pdf -- pumila_with_proportions.pdf - pungens_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_43.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_44.pdf -- quadrifolia_with_proportions.pdf - radiata_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_44.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_45.pdf -- remota_with_proportions.pdf - resinosa_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_45.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_46.pdf -- rigida_with_proportions.pdf - roxburghii_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_46.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_47.pdf -- rzedowskii_with_proportions.pdf - sabiniana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_47.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_48.pdf -- serotina_with_proportions.pdf - sibirica_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_48.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_49.pdf -- squamata_with_proportions.pdf - strobiformis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_49.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_50.pdf -- strobus_with_proportions.pdf - sylvestris_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_50.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_51.pdf -- tabuliformis_with_proportions.pdf - taeda_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_51.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_52.pdf -- taiwanensis_with_proportions.pdf - teocote_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_52.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_53.pdf -- thunbergii_with_proportions.pdf - torreyana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_53.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_54.pdf -- tropicalis_with_proportions.pdf - virginiana_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_54.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_55.pdf -- wallichiana_with_proportions.pdf - washoensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_55.pdf'.
+          ----
+  pdfjam: This is pdfjam version 2.08.
+  pdfjam: Reading any site-wide or user-specific defaults...
+          (none found)
+  pdfjam: Effective call for this run of pdfjam:
+          /Library/TeX/texbin/pdfjam --paper a4paper --nup '1x2' --no-landscape --scale '0.925' --trim '0cm 8.5cm 0cm 0cm' --offset '0cm 0.7cm' --delta '0cm -0.1cm' --outfile /Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_56.pdf -- yecorensis_with_proportions.pdf - yunnanensis_with_proportions.pdf - 
+  pdfjam: Calling pdflatex...
+  pdfjam: Finished.  Output was to '/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/figure_56.pdf'.
+> 
+> #check the number is 56
+> list_pdfs = list.files("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/with_proportions_2_species_per_page/", pattern=".pdf", full.names = TRUE)
+> 
+> #reorder files according to numerically order
+> library(gtools)
+> list_pdfs_order = mixedsort(list_pdfs)
+> length(list_pdfs_order)==length(seq_binding_species) #TRUE
+[1] TRUE
+> 
+> #bind all pdfs into one single pdf
+> require(staplr)
+Loading required package: staplr
+Warning message:
+package ‘staplr’ was built under R version 3.4.4 
+> staple_pdf(input_files=list_pdfs_order, output_filepath = "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/final_figures/suple_a4/full_2_species_per_page/full_with_proportions.pdf")
+> 
+> proc.time()
+   user  system elapsed 
+ 71.987  26.376 112.130 

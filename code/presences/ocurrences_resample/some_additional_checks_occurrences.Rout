@@ -1,0 +1,251 @@
+
+R version 3.4.3 (2017-11-30) -- "Kite-Eating Tree"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #loop that cleans ocurrences and save them for modelling
+> 
+> ###definimos el directorio de trabajo
+> setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus")
+> 
+> #Librerias
+> require(raster) #for work with rasters
+Loading required package: raster
+Loading required package: sp
+> require(rgeos) #for creating the buffer and the centroids of the cells without gbif points
+Loading required package: rgeos
+rgeos version: 0.3-26, (SVN revision 560)
+ GEOS runtime version: 3.6.2-CAPI-1.10.2 4d2925d6 
+ Linking to sp version: 1.2-5 
+ Polygon checking: TRUE 
+
+> 
+> #load list of species
+> list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> summary(is.na(epithet_species_list)) #all false
+   Mode   FALSE 
+logical     114 
+> #check
+> require(tidyverse)
+Loading required package: tidyverse
+── Attaching packages ────────────────────────────────── tidyverse 1.2.1.9000 ──
+✔ ggplot2 3.0.0     ✔ purrr   0.2.5
+✔ tibble  1.4.2     ✔ dplyr   0.7.6
+✔ tidyr   0.8.1     ✔ stringr 1.3.1
+✔ readr   1.1.1     ✔ forcats 0.3.0
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ tidyr::extract() masks raster::extract()
+✖ dplyr::filter()  masks stats::filter()
+✖ dplyr::lag()     masks stats::lag()
+✖ dplyr::select()  masks raster::select()
+Warning messages:
+1: package ‘ggplot2’ was built under R version 3.4.4 
+2: package ‘tidyr’ was built under R version 3.4.4 
+3: package ‘purrr’ was built under R version 3.4.4 
+4: package ‘dplyr’ was built under R version 3.4.4 
+5: package ‘stringr’ was built under R version 3.4.4 
+> paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
+  [1] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [16] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [31] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [46] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [61] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [76] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+ [91] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+[106] TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE TRUE
+> 
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check
+> c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+[1] FALSE FALSE FALSE
+> 
+> 
+> #make the loop for calculating the number of occurrences per species and checking that all species have lon-lat indicated in that name
+> test_lon_lat = NULL
+> ocurrences_per_species = data.frame(species=NA, number_ocurrences=NA, n_unknown_basisOfRecord=NA)
+> for (i in 1:length(epithet_species_list)){
++ 
++     #select the [i] species
++     species = epithet_species_list[i]
++ 
++     #load presencias raw
++     presencia_raw<-read.csv(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/raw_ocurrences/ocurrences/tree_species/final_species/Pinus", paste(species, "csv", sep="."), sep="_"), header=T, fill=TRUE, check.names=TRUE, stringsAsFactors=FALSE) 
++ 
++     #check that lon-lat are indicated with these names
++     test_lon_lat = append(test_lon_lat, length(which(colnames(presencia_raw) %in% c("lon", "lat"))) == 2)
++ 
++     #calculate the number of occurrences with basis of record = "unknown"
++     n_unknown_basisOfRecord = length(which(presencia_raw$basisOfRecord == "UNKNOWN"))
++ 
++     #load the presences of the [i] species
++     presences = read.table(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/ocurrences", paste(species, "final.presences.csv", sep="_"), sep="/"), sep=",", header=T)
++ 
++     #extract the number of rows (i.e. the number of occurrences)
++     number_ocurrences = nrow(presences)
++ 
++     #save it
++     ocurrences_per_species = rbind.data.frame(ocurrences_per_species, cbind.data.frame(species, number_ocurrences, n_unknown_basisOfRecord))
++ }
+> 
+> #remove the first row with NA from ocurrences_per_species
+> ocurrences_per_species = ocurrences_per_species[-1,]
+> #check that you have 112 nrows
+> nrow(ocurrences_per_species) == 112
+[1] TRUE
+> #take a look
+> ocurrences_per_species
+           species number_ocurrences n_unknown_basisOfRecord
+2       albicaulis              1009                      19
+3         amamiana                14                       0
+4         aristata               152                      14
+5        arizonica               356                     243
+6         armandii               736                      33
+7        attenuata               282                      16
+8       ayacahuite               282                      86
+9      balfouriana               101                       4
+10       banksiana              3044                      80
+11       bhutanica               202                       0
+12          brutia               482                      16
+13        bungeana               343                      10
+14     canariensis                34                      10
+15        caribaea               257                      47
+16          cembra               377                     542
+17      cembroides               673                     860
+18      chiapensis               167                      29
+19          clausa               120                      22
+20        contorta              2404                      79
+21         cooperi               123                     134
+22        coulteri               171                      17
+23        cubensis                26                      13
+24     culminicola                29                     143
+25      dalatensis                88                       1
+26         densata               355                      31
+27      densiflora               671                      76
+28       devoniana               292                     115
+29     douglasiana               230                      64
+30     durangensis               270                     119
+31        echinata               901                     301
+32          edulis               568                     132
+33       elliottii               258                      16
+34     engelmannii               326                     124
+35      fenzeliana               255                       1
+36        flexilis              1040                      85
+37    fragilissima                29                       2
+38      gerardiana               220                       7
+39          glabra               259                      44
+40         greggii                96                      91
+41      halepensis              1257                      26
+42       hartwegii               396                     320
+43     heldreichii               149                       6
+44        herrerae               201                     106
+45  hwangshanensis               377                       1
+46        jeffreyi               385                      47
+47        johannis               134                      82
+48     juarezensis                55                      10
+49          kesiya               749                       7
+50      koraiensis               698                      59
+51        krempfii                31                       1
+52  kwangtungensis               261                       0
+53     lambertiana               417                      25
+54         latteri               366                       1
+55        lawsonii               190                      81
+56      leiophylla               543                     442
+57        longaeva               242                      32
+58      luchuensis                28                       2
+59      lumholtzii               253                     120
+60     maestrensis                22                       0
+61      massoniana               918                      12
+62  maximartinezii                40                      59
+63       maximinoi               438                      99
+64        merkusii               119                       4
+65      monophylla               568                      91
+66      montezumae               345                     153
+67       monticola               768                      24
+68   morrisonicola                36                      10
+69            mugo              1081                    1802
+70        muricata               131                     108
+71        nelsonii                78                     118
+72           nigra              1449                     558
+73    occidentalis                81                       6
+74         oocarpa               571                     269
+75       palustris               482                      36
+76      parviflora               275                       1
+77          patula               219                     108
+78           peuce               143                       3
+79        pinaster              1076                      13
+80        pinceana               147                     288
+81           pinea              1060                       8
+82       ponderosa              1808                     167
+83    praetermissa               151                      23
+84        pringlei               134                      37
+85   pseudostrobus               555                     412
+86          pumila              4807                       5
+87         pungens               229                       8
+88     quadrifolia                70                      83
+89         radiata                51                      48
+90          remota               180                      40
+91        resinosa              1361                      69
+92          rigida               623                     119
+93      roxburghii               332                       5
+94      rzedowskii                52                     343
+95       sabiniana               268                      26
+96        serotina               309                      33
+97        sibirica              4132                       1
+98        squamata                48                       1
+99    strobiformis               517                     245
+100        strobus              1976                     636
+101     sylvestris             12298                   11477
+102   tabuliformis               733                       4
+103          taeda               698                     138
+104    taiwanensis                48                      48
+105        teocote               526                     277
+106     thunbergii               304                      77
+107      torreyana                45                      19
+108     tropicalis                27                       1
+109     virginiana               545                      38
+110    wallichiana               579                      15
+111     washoensis                50                      48
+112     yecorensis               100                     158
+113    yunnanensis               351                     121
+> 
+> #calculate the ratio between presenceis with unknown basis of record and the total number of presences
+> ocurrences_per_species$unknown_presence_ratio = ocurrences_per_species$n_unknown_basisOfRecord / ocurrences_per_species$number_ocurrences
+> 
+> #save as csv
+> write.table(ocurrences_per_species, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/ocurrences/ocurrences_per_species.csv", sep=",", col.names = TRUE, row.names = FALSE)
+> 
+> #check that the test of long-lat is ok
+> summary(test_lon_lat)
+   Mode    TRUE 
+logical     112 
+> 
+> proc.time()
+   user  system elapsed 
+ 77.262   2.849  84.314 
