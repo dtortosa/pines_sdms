@@ -1,18 +1,18 @@
 #set working directory
-setwd("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus")
+setwd("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus")
 
 #required packages
 require(raster)
 require(RColorBrewer)
 
 #environment variable for using it as a background
-bio1 = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/finals/bio1.asc")
-clay = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/finals/clay.asc")
+bio1 = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/datos/finals/bio1.asc")
+clay = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/datos/finals/clay.asc")
 environment_var = bio1*clay
 environment_var[which(getValues(environment_var) >= min(getValues(environment_var),na.rm = TRUE))] <- 0 #set all continent areas as 0
 
 #list species
-list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+list_species = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
 str(list_species)
 summary(list_species)
 
@@ -39,11 +39,11 @@ epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("
 c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
 
 ##load results from sinthesis_figures_v2 in Rafa-pro
-current_suit_stack_sum = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/current_suit_stack_sum.asc") 
-projected_suit_phylo_stack_sum = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/projected_suit_phylo_stack_sum.asc") 
-projected_suit_stack_sum = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/projected_suit_stack_sum.asc")
-sum_distributions_sum = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/sum_distributions_sum.asc")
-raster_range_calc_stack_sum = raster("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/raster_range_calc_stack_sum.asc")
+current_suit_stack_sum = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/current_suit_stack_sum.asc") 
+projected_suit_phylo_stack_sum = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/projected_suit_phylo_stack_sum.asc") 
+projected_suit_stack_sum = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/projected_suit_stack_sum.asc")
+sum_distributions_sum = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/sum_distributions_sum.asc")
+raster_range_calc_stack_sum = raster("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/raster_range_calc_stack_sum.asc")
 
 #convert raster_range_calc_stack_sum to zero-one
 raster_range_calc_stack_sum[which(getValues(raster_range_calc_stack_sum) > 0)] <- 1
@@ -115,7 +115,7 @@ colfunc_divergence <- colorRampPalette(mypalette_divergence)
 ###########################################
 
 ##plot
-pdf("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/current_future_suit_v2.pdf", width=12, height=12)
+cairo_pdf("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/current_future_suit_v3.pdf", width=12, height=12) #we have to use cairo_pdf. In Ubuntu 18.04, the delta symbol is not correctly showed.
 par(mfcol=c(2,1), mai=c(0,0.4,0,1.1), oma=c(0,0,2,1))
 
 ##first pannel
@@ -141,7 +141,7 @@ dev.off()
 
 
 ##plot
-pdf("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/future_suit_phylo_no_phylo_v2.pdf", width=12, height=12)
+cairo_pdf("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/future_suit_phylo_no_phylo_v3.pdf", width=12, height=12) #we have to use cairo_pdf. In Ubuntu 18.04, the delta symbol is not correctly showed.
 par(mfcol=c(2,1), mai=c(0,0.4,0,1.1), oma=c(0,0,2,1))
 
 ##first pannel
@@ -181,7 +181,7 @@ barplot(rep(1,24), col = terrain.colors(24))
 
 
 ##plot
-pdf("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/phylo_no_phylo_difference_v2.pdf", width=20, height=8)
+cairo_pdf("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/phylo_no_phylo_difference_v3.pdf", width=20, height=8) #we have to use cairo_pdf. In Ubuntu 18.04, the delta symbol is not correctly showed.
 par(mfcol=c(1,1), mai=c(0,1.1,0,1.1), oma=c(0,0,2,1))
 
 
@@ -204,7 +204,7 @@ dev.off()
 ###############################
 
 #load the table with range loss
-suitability_changes = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/initial_global_figures/suitability_changes.csv", sep=",", header=T)
+suitability_changes = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/initial_global_figures/suitability_changes.csv", sep=",", header=T)
 str(suitability_changes)
 
 ###stack histogram for range loss
@@ -248,7 +248,7 @@ length(which(v2_range_change>-100 & v2_range_change<=-80)) == head(hv2_range_cha
 length(which(v2_range_change>80 & v2_range_change<=100)) == tail(hv2_range_change, 1) #It gives 44, like the first count, which goes from 90 (not including it) to 100 (including it). 
 
 #5a) Generate a Frequency BarPlot with bars parallels
-pdf(file="/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/range_loss_change_histograms.pdf",width=6,height=8)
+pdf(file="/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/range_loss_change_histograms.pdf",width=6,height=8)
 par(mfcol=c(2,1), mar=c(5.2,5.2,5.2,5.2), mai=c(1,0.75,0.2,0.1), mgp=c(2.5,1.7,0), cex.main=1.7, cex.axis=1.8)
 
 ##range loss
@@ -324,7 +324,7 @@ str(counts_text_range_loss)
 counts_text_range_loss
 
 #save it
-write.table(counts_text_range_loss, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/hist_counts_range_loss.csv", sep=",", row.names = TRUE, col.names = NA) #we set row.names = TRUE and col.names = NA to get as first column of the csv an empty space and then the two row names. The rest of column have as first cell the range label. If we set col.names=TRUE, then the first column with row names has a range label, and the following columns are wrong set. See "https://stackoverflow.com/questions/2478352/write-table-writes-unwanted-leading-empty-column-to-header-when-has-rownames".
+write.table(counts_text_range_loss, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/hist_counts_range_loss.csv", sep=",", row.names = TRUE, col.names = NA) #we set row.names = TRUE and col.names = NA to get as first column of the csv an empty space and then the two row names. The rest of column have as first cell the range label. If we set col.names=TRUE, then the first column with row names has a range label, and the following columns are wrong set. See "https://stackoverflow.com/questions/2478352/write-table-writes-unwanted-leading-empty-column-to-header-when-has-rownames".
 
 
 #range change
@@ -355,14 +355,14 @@ str(counts_text_range_change)
 counts_text_range_change
 
 #save it
-write.table(counts_text_range_change, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/hist_counts_range_change.csv", sep=",", row.names = TRUE, col.names = NA) #we set row.names = TRUE and col.names = NA to get as first column of the csv an empty space and then the two row names. The rest of column have as first cell the range label. If we set col.names=TRUE, then the first column with row names has a range label, and the following columns are wrong set. See "https://stackoverflow.com/questions/2478352/write-table-writes-unwanted-leading-empty-column-to-header-when-has-rownames".
+write.table(counts_text_range_change, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/hist_counts_range_change.csv", sep=",", row.names = TRUE, col.names = NA) #we set row.names = TRUE and col.names = NA to get as first column of the csv an empty space and then the two row names. The rest of column have as first cell the range label. If we set col.names=TRUE, then the first column with row names has a range label, and the following columns are wrong set. See "https://stackoverflow.com/questions/2478352/write-table-writes-unwanted-leading-empty-column-to-header-when-has-rownames".
 
 
 
 ### extract percentage for the paper results
 #extract the number of species
 #list species
-list_species = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
+list_species = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/code/presences/species.txt", sep="\t", header=T)
 str(list_species)
 summary(list_species)
 
@@ -558,4 +558,4 @@ differ_percent = rbind.data.frame(median_values, sd_values, differ_percent)
 str(differ_percent)
 
 #save it
-write.table(differ_percent, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/global_figures/final_global_figures/differ_phylo_inside_v2.csv", col.names = TRUE, row.names = FALSE, sep=",")
+write.table(differ_percent, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/differ_phylo_inside_v2.csv", col.names = TRUE, row.names = FALSE, sep=",")
