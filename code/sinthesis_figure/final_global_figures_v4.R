@@ -1,3 +1,43 @@
+#!/usr/bin/env Rscript
+
+#This is done to have the possibility to run this script as an executable: 'chmod +x myscript.R' and then ' ./myscript.R'. If you run the script as 'R CMD BATCH myscript.R', i THINK this is not used, because it is annotated. 
+    #https://www.jonzelner.net/statistics/make/docker/reproducibility/2016/05/31/script-is-a-program/
+
+#In case you run this script as an executable, you can save the output without warnings "./myscript.R > myscript.Rout" or with errors "./myscript.R &> myscript.Rout"
+    #https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
+
+
+
+######################################################################
+################ PLOTTING FINAL GLOBAL FIGURES #######################
+######################################################################
+
+#This script plots the global figures for SDMs.
+
+
+
+###################################################
+##### DIFFERENCES RESPECT TO PREVIOUS VERSION #####
+###################################################
+
+#Respect to version 2:
+    #I have changed the path for running the analyses in the laptop of David (msi)
+
+    #I have created the map plots with cairo pdf because the symbol delta was not properly displayed.
+
+    #I HAVE NOT revised the entire script after these changes, only I checked that the global figures between versions (2 and 3) are the same.
+
+    #I had to install raster, for that I had to install several ubuntu libraries
+        #sudo apt install libgeos-dev #https://stackoverflow.com/questions/53389181/installing-the-r-package-rgeos-on-linux-geos-config-not-found-or-not-executab
+        #sudo apt install libgdal-dev #https://stackoverflow.com/questions/12141422/error-gdal-config-not-found-while-installing-r-dependent-packages-whereas-gdal
+        #sudo apt-get install libudunits2-dev
+
+
+
+########################
+##### BEGIN SCRIPT #####
+########################
+
 #set working directory
 setwd("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus")
 
