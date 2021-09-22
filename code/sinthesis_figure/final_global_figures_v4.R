@@ -603,9 +603,9 @@ names(median_values) <- c("selected_species", colnames(differ_percent[,-1]))
 names(first_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
 names(third_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
 names(interquartile_range) <- c("selected_species", colnames(differ_percent[,-1]))
-    #It makes sense to use the mean and the standard deviation as measures of center and spread only for distributions that are reasonably symmetric with a central peak. When outliers are present, the mean and standard deviation are not a good choice (unless you want that these outliers influence the summary statistic). This is the case for several of the variables presented in this table (see annotated plot line). Therefore, we are going to use the median and the interquartile range.
+    #It makes sense to use the mean and the standard deviation as measures of center and spread only for distributions that are reasonably symmetric with a central peak. When outliers are present, the mean and standard deviation are not a good choice (unless you want that these outliers influence the summary statistic). An outlier can decrease/increase the mean so that the mean is too low or too high to be representative of whole sample The outlier can also decrease/increase the standard deviation, which gives the impression of a wide variability in the variable This makes sense because the standard deviation measures the average deviation of the data from the mean. So a point that has a large deviation from the mean will increase the average of the deviations. This is the case for several of the variables presented in this table (see annotated plot line). Therefore, we are going to use the median and the interquartile range.
         #par(mfcol=c(3,2)); for(i in 2:ncol(differ_percent)){plot(differ_percent[,i])}
-        #Link very useful an simple: https://courses.lumenlearning.com/wmopen-concepts-statistics/chapter/standard-deviation-4-of-4/
+        #Link very useful and simple: https://courses.lumenlearning.com/wmopen-concepts-statistics/chapter/standard-deviation-4-of-4/
 
 #bind to the data.frame
 differ_percent = rbind.data.frame(median_values, first_quartile_values, third_quartile_values, interquartile_range, differ_percent)
