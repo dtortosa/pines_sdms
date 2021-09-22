@@ -34,7 +34,8 @@
 
 #Respect to version 3
     # I have changed the paths for the new computes
-    # I have changed the median for mean in the calculation of a global statistics of range loss and change across the whole genus.
+    # I have changed the SD by interquartile range to show dispersion around the global median of range loss and change across Pinus.
+    # I have not check anything else of this script between version 3 and 4.
 
 
 ########################
