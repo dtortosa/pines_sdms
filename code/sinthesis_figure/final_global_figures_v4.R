@@ -32,6 +32,9 @@
         #sudo apt install libgdal-dev #https://stackoverflow.com/questions/12141422/error-gdal-config-not-found-while-installing-r-dependent-packages-whereas-gdal
         #sudo apt-get install libudunits2-dev
 
+#Respect to version 3
+    # I have changed the paths for the new computes
+    # I have changed the median for mean in the calculation of a global statistics of range loss and change across the whole genus.
 
 
 ########################
@@ -587,15 +590,25 @@ for(i in 1:length(epithet_species_list)){
 differ_percent = differ_percent[which(!apply(is.na(differ_percent), MARGIN=1, FUN=all)),]#remove the row with all NA taking only rows without all NA. This was made applying all to a data frame with true or false for is.na. Rows with all TRUe would be NA rows
 nrow(differ_percent)
 
-#calcualte median and sd values
+#calculate median and the interquartile range
 median_values = cbind.data.frame("global median", rbind.data.frame(apply(differ_percent[,-1], 2, median)))
-sd_values = cbind.data.frame("global standard deviation", rbind.data.frame(apply(differ_percent[,-1], 2, sd)))
+first_quartile_values = cbind.data.frame("global first quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.25)))
+third_quartile_values = cbind.data.frame("global third quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.75)))
+interquartile_range = cbind.data.frame("global interquartile range", third_quartile_values[-1]-first_quartile_values[-1]) #we have to add [-1] to avoid selecting the first column with the name
+#check
+interquartile_range[,-1] == third_quartile_values[-1] - first_quartile_values[-1]
+#add column names
 names(median_values) <- c("selected_species", colnames(differ_percent[,-1]))
-names(sd_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(first_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(third_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(interquartile_range) <- c("selected_species", colnames(differ_percent[,-1]))
+    #It makes sense to use the mean and the standard deviation as measures of center and spread only for distributions that are reasonably symmetric with a central peak. When outliers are present, the mean and standard deviation are not a good choice (unless you want that these outliers influence the summary statistic). This is the case for several of the variables presented in this table (see annotated plot line). Therefore, we are going to use the median and the interquartile range.
+        #par(mfcol=c(3,2)); for(i in 2:ncol(differ_percent)){plot(differ_percent[,i])}
+        #Link very useful an simple: https://courses.lumenlearning.com/wmopen-concepts-statistics/chapter/standard-deviation-4-of-4/
 
 #bind to the data.frame
-differ_percent = rbind.data.frame(median_values, sd_values, differ_percent)
+differ_percent = rbind.data.frame(median_values, first_quartile_values, third_quartile_values, interquartile_range, differ_percent)
 str(differ_percent)
 
 #save it
-write.table(differ_percent, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/differ_phylo_inside_v2.csv", col.names = TRUE, row.names = FALSE, sep=",")
+write.table(differ_percent, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/global_figures/final_global_figures/differ_phylo_inside_v3.csv", col.names = TRUE, row.names = FALSE, sep=",")
