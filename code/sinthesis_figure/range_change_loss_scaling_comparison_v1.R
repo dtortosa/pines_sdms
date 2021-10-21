@@ -1,3 +1,13 @@
+
+
+
+####QUITA TODO LO QUE NO SEA LA TABLA RANGE CHANGE AND LOSS, LUEGO CARGA RANGE LOSS AND CHANGE WITH SCALING AND CALDUALTE
+    ##CORRELATION
+    ## PLOT
+    #ALL THESE GO TO THE SUPPLE 15.
+
+
+
 #set wroking directory
 setwd("/Users/dsalazar/nicho_pinus")
 
