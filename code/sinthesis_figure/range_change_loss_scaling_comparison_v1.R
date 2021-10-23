@@ -1,22 +1,42 @@
+#!/usr/bin/env Rscript
+
+#This is done to have the possibility to run this script as an executable: 'chmod +x myscript.R' and then ' ./myscript.R'. If you run the script as 'R CMD BATCH myscript.R', i THINK this is not used, because it is annotated. 
+    #https://www.jonzelner.net/statistics/make/docker/reproducibility/2016/05/31/script-is-a-program/
+
+#In case you run this script as an executable, you can save the output without warnings "./myscript.R > myscript.Rout" or with errors "./myscript.R &> myscript.Rout"
+    #https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
 
 
 
-####QUITA TODO LO QUE NO SEA LA TABLA RANGE CHANGE AND LOSS, LUEGO CARGA RANGE LOSS AND CHANGE WITH SCALING AND CALDUALTE
-    ##CORRELATION
-    ## PLOT
-    #ALL THESE GO TO THE SUPPLE 15.
+####################################################################################################################
+################ RANGE CHANGE AND LOSS BETWEEN SCALED AND NON-SCALED PHYLOGENETIC CORRECTION #######################
+####################################################################################################################
+
+#This script calculated range change and loss considering the phylogenetic correction without scaling, and then, the results are compared with those of the scaled phylogenetic correction.
 
 
+
+###################################################
+##### DIFFERENCES RESPECT TO PREVIOUS VERSION #####
+###################################################
+
+#Respect to version 1:
+
+
+
+########################
+##### BEGIN SCRIPT #####
+########################
 
 #set wroking directory
-setwd("/Users/dsalazar/nicho_pinus")
+setwd("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus")
 
 #require packages
 require(raster)
 require(rgeos)
 
 #load species names
-list_species = read.table("/Users/dsalazar/nicho_pinus/data/list_species.txt", sep="\t", header=TRUE)
+list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
 
 #extract epithet from species list
 epithet_species_list = NULL
@@ -41,25 +61,28 @@ epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("
 c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
 
 #load environment variables for using them as a background
-clay = raster("/Users/dsalazar/nicho_pinus/data/climate/finals/clay.asc") 
-bio1 = raster("/Users/dsalazar/nicho_pinus/data/climate/finals/bio1.asc") 
+clay = raster("datos/finals/clay.asc") 
+bio1 = raster("datos/finals/bio1.asc") 
 environment_var = clay*bio1 
 environment_var[which(getValues(environment_var) >= min(getValues(environment_var), na.rm = TRUE))] <- 0 #set all continent areas as 0
 
 #load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
-buffer_albicaulis = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers/albicaulis_distribution_buffer", ".asc", sep=""))
+buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
 
 #resample environment_var
 environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
 
 #open stacks for saving binary raster with current and future suitability
-current_suit_stack = stack()
-projected_suit_inside_range_stack = stack()
-phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack()
-projected_suit_stack = stack()
-phylo_ensamble_intersect_projected_suit_stack = stack()
-sum_distributions = stack()
-raster_range_calc_stack = stack()
+#QUITAR!!!??? SOLO QUEREMOS RANGE CHANGE AND LOSS, RIGHT?
+if(FALSE){
+    current_suit_stack = stack()
+    projected_suit_inside_range_stack = stack()
+    phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack()
+    projected_suit_stack = stack()
+    phylo_ensamble_intersect_projected_suit_stack = stack()
+    sum_distributions = stack()
+    raster_range_calc_stack = stack()
+}
 
 #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Becasue of this, I have carefully masked and cropped all the predicions (current, future and phylogenetic)
 
@@ -76,7 +99,7 @@ for(i in 1:length(epithet_species_list)){
     print(species)
 
     #load distribution buffer
-    ocurrences_buffer = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers/", species, "_distribution_buffer", ".asc", sep=""))
+    ocurrences_buffer = raster(paste("results/ocurrences/", species, "_distribution_buffer", ".asc", sep=""))
 
     #drop sea areas inside the ocurrences_buffer
     ocurrences_buffer = mask(ocurrences_buffer, environment_var_low_res, inverse=FALSE)     
@@ -85,13 +108,13 @@ for(i in 1:length(epithet_species_list)){
     ocurrences_buffer[which(is.na(getValues(ocurrences_buffer)))] <- 0
 
     #save it
-    sum_distributions = stack(sum_distributions, ocurrences_buffer)
+    #sum_distributions = stack(sum_distributions, ocurrences_buffer)
 
     #load the polygon used for calculations of changes of substitutability (calc_ranges)
     if(!species=="pumila"){
-        raster_range_calc = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers_range_calc/", species, "_range_calc_buffer.asc", sep=""))
+        raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_range_calc_buffer.asc", sep=""))
     } else {
-        raster_range_calc = raster(paste("/Users/dsalazar/nicho_pinus/data/buffers_range_calc/", species, "_buffer_range_calc.asc", sep=""))        
+        raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_buffer_range_calc.asc", sep=""))        
     }                
     polygon_range_calc = rasterToPolygons(raster_range_calc, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
 
@@ -118,10 +141,10 @@ for(i in 1:length(epithet_species_list)){
     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
 
     #save raster_range_calc
-    raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
+    #raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
 
     #load predicted suitability
-    current_suit = raster(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))    
+    current_suit = raster(paste("results/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))
 
     #crop current suitability to reduce map size
     current_suit = crop(current_suit, polygon_range_calc)
@@ -133,7 +156,7 @@ for(i in 1:length(epithet_species_list)){
     current_suit = mask(current_suit, environment_var_cropped)
 
     #load projected suitability
-    projected_suit = raster(paste("/Users/dsalazar/nicho_pinus/results/final_analyses/ensamble_projections_bin/ensamble_projections_bin_", species, ".tif", sep=""))
+    projected_suit = raster(paste("results/ensamble_projections_bin/ensamble_projections_bin_", species, ".tif", sep=""))
 
     #crop current suitability to reduce map size
     projected_suit = crop(projected_suit, polygon_range_calc)
@@ -144,8 +167,8 @@ for(i in 1:length(epithet_species_list)){
     #mask with clay to remove water bodies
     projected_suit = mask(projected_suit, environment_var_cropped)
 
-    #load phylo ensamble with proportion
-    phylo_ensamble = raster(paste("/Users/dsalazar/nicho_pinus/results/phylo_ensamble/with_proportions/", species, "_phylo_ensamble_with_proportions.asc", sep=""))
+    #load phylo ensamble without proportion
+    phylo_ensamble = raster(paste("results/phylo_reconstruction/final_figures/phylo_ensamble/without_proportions/", species, "_phylo_ensamble_without_proportions.asc", sep=""))
 
     #crop phylo ensamble to reduce map size
     phylo_ensamble = crop(phylo_ensamble, polygon_range_calc)
@@ -240,25 +263,25 @@ for(i in 1:length(epithet_species_list)){
     suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, range_loss_no_phylo, range_loss_phylo, range_change_no_phylo,range_change_phylo))
 
     #extend the extent of the predictions to the whole globe
-    current_suit = extend(current_suit, environment_var)
-    projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
-    phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
-    projected_suit = extend(projected_suit, environment_var)
-    phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
+    #current_suit = extend(current_suit, environment_var)
+    #projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
+    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
+    #projected_suit = extend(projected_suit, environment_var)
+    #phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
 
     #set NAs as zero to avoid propagation of NAs in the sum
-    current_suit[which(is.na(getValues(current_suit)))] <- 0      
-    projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
-    phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
-    projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
-    phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
+    #current_suit[which(is.na(getValues(current_suit)))] <- 0      
+    #projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
+    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
+    #projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
+    #phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
 
     #save rasters
-    current_suit_stack = stack(current_suit_stack, current_suit)
-    projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
-    phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
-    projected_suit_stack = stack(projected_suit_stack, projected_suit)
-    phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
+    #current_suit_stack = stack(current_suit_stack, current_suit)
+    #projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
+    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
+    #projected_suit_stack = stack(projected_suit_stack, projected_suit)
+    #phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
 }
 
 #remove first row without NAs
@@ -267,28 +290,62 @@ suitability_changes = suitability_changes[-1,]
 #check all species are included in the table
 nrow(suitability_changes) == length(epithet_species_list)
 
+#save the table
+write.table(suitability_changes, "results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", row.names=FALSE, col.names=TRUE)
+
 #check all species are included in the stacks
-nlayers(current_suit_stack) == 112
-nlayers(projected_suit_inside_range_stack) == 112
-nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
-nlayers(projected_suit_stack) == 112
-nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
-nlayers(raster_range_calc_stack)
-nlayers(sum_distributions)
+#nlayers(current_suit_stack) == 112
+#nlayers(projected_suit_inside_range_stack) == 112
+#nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
+#nlayers(projected_suit_stack) == 112
+#nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
+#nlayers(raster_range_calc_stack)
+#nlayers(sum_distributions)
 
 #sum predictions under current and future conditions
-current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
-projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
-projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
-sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
-raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+#current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
+#projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
+#projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
+#sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
+#raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
 
 #save the rasters
-writeRaster(current_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/current_suit_stack_sum.asc", overwrite=TRUE)
-writeRaster(projected_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_stack_sum.asc", overwrite=TRUE)
-writeRaster(projected_suit_phylo_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_phylo_stack_sum.asc", overwrite=TRUE)
-writeRaster(sum_distributions_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/sum_distributions_sum.asc", overwrite=TRUE)
-writeRaster(raster_range_calc_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/raster_range_calc_stack_sum.asc", overwrite=TRUE)
+#writeRaster(current_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/current_suit_stack_sum.asc", overwrite=TRUE)
+#writeRaster(projected_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_stack_sum.asc", overwrite=TRUE)
+#writeRaster(projected_suit_phylo_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_phylo_stack_sum.asc", overwrite=TRUE)
+#writeRaster(sum_distributions_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/sum_distributions_sum.asc", overwrite=TRUE)
+#writeRaster(raster_range_calc_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/raster_range_calc_stack_sum.asc", overwrite=TRUE)
 
-#save the table
-write.table(suitability_changes, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/suitability_changes.csv", sep=",", row.names=FALSE, col.names=TRUE)
+
+##POOOR AQUIII!!
+##Calculate the differences between phylo - no phylo
+differ_percent = data.frame(selected_species=NA, range_loss_no_phylo=NA, range_loss_phylo=NA, differ_range_loss=NA, range_change_no_phylo=NA, range_change_phylo=NA, differ_range_change=NA)
+for(i in 1:length(epithet_species_list)){
+
+    #selected species
+    selected_species = epithet_species_list[i]
+
+    #extract percentage
+    range_loss_no_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_loss_no_phylo
+    range_loss_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_loss_phylo   
+    range_change_no_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_change_no_phylo
+    range_change_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_change_phylo  
+
+    #calculate absolute difference
+    differ_range_loss = abs(range_loss_phylo-range_loss_no_phylo)
+    differ_range_change = abs(range_change_phylo-range_change_no_phylo)
+
+    #save it
+    differ_percent = rbind.data.frame(
+        differ_percent, 
+        cbind.data.frame(selected_species, range_loss_no_phylo, range_loss_phylo, differ_range_loss, range_change_no_phylo, range_change_phylo, differ_range_change))
+}
+differ_percent = differ_percent[which(!apply(is.na(differ_percent), MARGIN=1, FUN=all)),]#remove the row with all NA taking only rows without all NA. This was made applying all to a data frame with true or false for is.na. Rows with all TRUe would be NA rows
+nrow(differ_percent)
+
+
+
+## cargar differ percent with phylo scaled and compare
+    ##CORRELATION
+    ## PLOT
+    #ALL THESE GO TO THE SUPPLE 15.
