@@ -86,6 +86,12 @@ if(FALSE){
 
 #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Becasue of this, I have carefully masked and cropped all the predicions (current, future and phylogenetic)
 
+
+
+#############################################################################
+##### CALCULATE RANGE LOSS AND CHANGE WITH AND WITHOUT PHYLO NON-SCALES #####
+#############################################################################
+
 #open data frame to save metrics of suitability change
 suitability_changes = data.frame(species=NA, range_loss_no_phylo=NA, range_loss_phylo=NA, range_change_no_phylo=NA, range_change_phylo=NA)
 
@@ -285,13 +291,14 @@ for(i in 1:length(epithet_species_list)){
 }
 
 #remove first row without NAs
-suitability_changes = suitability_changes[-1,]
+suitability_changes = suitability_changes[-which(rowSums(is.na(suitability_changes)) == ncol(suitability_changes)),]
 
 #check all species are included in the table
 nrow(suitability_changes) == length(epithet_species_list)
 
 #save the table
 write.table(suitability_changes, "results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", row.names=FALSE, col.names=TRUE)
+    #suitability_changes = read.table("results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", header=TRUE)
 
 #check all species are included in the stacks
 #nlayers(current_suit_stack) == 112
@@ -317,7 +324,6 @@ write.table(suitability_changes, "results/global_figures/initial_global_figures/
 #writeRaster(raster_range_calc_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/raster_range_calc_stack_sum.asc", overwrite=TRUE)
 
 
-##POOOR AQUIII!!
 ##Calculate the differences between phylo - no phylo
 differ_percent = data.frame(selected_species=NA, range_loss_no_phylo=NA, range_loss_phylo=NA, differ_range_loss=NA, range_change_no_phylo=NA, range_change_phylo=NA, differ_range_change=NA)
 for(i in 1:length(epithet_species_list)){
@@ -325,27 +331,93 @@ for(i in 1:length(epithet_species_list)){
     #selected species
     selected_species = epithet_species_list[i]
 
+    #select the [i] row
+    selected_row = suitability_changes[which(suitability_changes$species==selected_species),]
+
     #extract percentage
-    range_loss_no_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_loss_no_phylo
-    range_loss_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_loss_phylo   
-    range_change_no_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_change_no_phylo
-    range_change_phylo = suitability_changes[which(suitability_changes$species==selected_species),]$range_change_phylo  
+    range_loss_no_phylo = selected_row$range_loss_no_phylo
+    range_loss_phylo = selected_row$range_loss_phylo   
+    range_change_no_phylo = selected_row$range_change_no_phylo
+    range_change_phylo = selected_row$range_change_phylo  
 
     #calculate absolute difference
     differ_range_loss = abs(range_loss_phylo-range_loss_no_phylo)
     differ_range_change = abs(range_change_phylo-range_change_no_phylo)
 
     #save it
-    differ_percent = rbind.data.frame(
-        differ_percent, 
-        cbind.data.frame(selected_species, range_loss_no_phylo, range_loss_phylo, differ_range_loss, range_change_no_phylo, range_change_phylo, differ_range_change))
+    differ_percent = rbind.data.frame( differ_percent, cbind.data.frame(selected_species, range_loss_no_phylo, range_loss_phylo, differ_range_loss, range_change_no_phylo, range_change_phylo, differ_range_change))
 }
-differ_percent = differ_percent[which(!apply(is.na(differ_percent), MARGIN=1, FUN=all)),]#remove the row with all NA taking only rows without all NA. This was made applying all to a data frame with true or false for is.na. Rows with all TRUe would be NA rows
+differ_percent = differ_percent[-which(rowSums(is.na(differ_percent)) == ncol(differ_percent)),]
 nrow(differ_percent)
 
+#save it
+write.table(differ_percent, "results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", col.names = TRUE, row.names = FALSE, sep=",")
 
 
-## cargar differ percent with phylo scaled and compare
-    ##CORRELATION
-    ## PLOT
-    #ALL THESE GO TO THE SUPPLE 15.
+
+##############################################
+##### COMPARE PHYLO SCALE AND NON-SCALED #####
+##############################################
+
+#copy differ_percent as phylo_non_scaled to avoid confusion 
+phylo_nonscaled = differ_percent
+
+
+#load results phylo scaled
+phylo_scaled = read.table("results/global_figures/final_global_figures/differ_phylo_inside_v3.csv", header=TRUE, sep=",")
+#remove rows of summary metrics (median, IQR...)
+phylo_scaled = phylo_scaled[which(!phylo_scaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
+
+#select only the two phylogenetic columns
+phylo_nonscaled = phylo_nonscaled[, which(colnames(phylo_nonscaled) %in% c("range_loss_phylo", "range_change_phylo"))]
+phylo_scaled = phylo_scaled[, which(colnames(phylo_scaled) %in% c("range_loss_phylo", "range_change_phylo"))]
+
+#
+par(mfcol=c(1,2))
+plot()
+plot()
+dev.off()
+
+## POR AQUII, PLOT COPIADO NO REVISADO!!
+#open the pdf
+pdf("results/global_figures/final_global_figures/phylo_scaled_non_scaled.pdf", height = 6, width = 12)
+par(mfrow=c(1,2),  mar=c(6.5, 4, 2, 2) +0.1)
+
+##plot body fat percentage vs. leptin
+#make the plot
+plot(phylo_nonscaled$range_loss_phylo, phylo_scaled$range_loss_phylo, type="p", xlab="Range loss ", ylab="Leptin (ng/ml)", cex.lab=1.5)
+
+#make the correlation
+tests_pc = cor.test(myData_ptpn1$CRF_Body_fat_PC, myData_ptpn1$Leptin_ng_ml, test="spearman")
+
+#extract and plot the results of the correlation
+tests_pc_p = bquote(italic(p.value) == .(format(tests_pc$p.value, digits = 3)))
+text(x=17, y=160, labels = tests_pc_p, cex=1.3)
+tests_pc_t = bquote(italic(t) == .(format(tests_pc$statistic, digits = 3)))
+text(x=17, y=145, labels = tests_pc_t, cex=1.3)
+tests_pc_rho = bquote(italic(rho) == .(format(tests_pc$estimate, digits = 3)))
+text(x=17, y=130, labels = tests_pc_rho, cex=1.3)
+
+
+##plot FMI vs. leptin
+#make the plot
+plot(phylo_nonscaled$range_change_phylo, phylo_scaled$range_change_phylo, type="p", xlab=expression(paste("Fat mass index (kg/m"^"2",")", sep="")), ylab="Leptin (ng/ml)", cex.lab=1.5)
+    #for superscript
+        #https://stackoverflow.com/questions/10628547/use-superscripts-in-r-axis-labels
+
+#make the correlation
+tests_fmi = cor.test(myData_ptpn1$FMI, myData_ptpn1$Leptin_ng_ml, test="spearman")
+
+#extract and plot the results of the correlation
+tests_fmi_p = bquote(italic(p.value) == .(format(tests_fmi$p.value, digits = 3)))
+text(x=17, y=160, labels = tests_fmi_p, cex=1.3)
+tests_fmi_t = bquote(italic(t) == .(format(tests_fmi$statistic, digits = 3)))
+text(x=17, y=145, labels = tests_fmi_t, cex=1.3)
+tests_fmi_rho = bquote(italic(rho) == .(format(tests_fmi$estimate, digits = 3)))
+text(x=17, y=130, labels = tests_fmi_rho, cex=1.3)
+
+#add the title plot
+#mtext("Online supplementary figure S2", side=1, font=2, cex=2, adj=0.015, padj=1.5, outer=TRUE, line=-3)
+
+#close the pdf
+dev.off()
