@@ -48,7 +48,8 @@ for(i in 1:nrow(list_species)){
     #extract epithet
     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
 }
-summary(is.na(epithet_species_list)) #all false
+#check there is no NA
+summary(!is.na(epithet_species_list))
 #check
 if(FALSE){
     require(tidyverse)
@@ -57,20 +58,22 @@ if(FALSE){
 
 #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
 epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
-#check
-c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+#check these species are not present
+!c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
 
 #load environment variables for using them as a background
-clay = raster("datos/finals/clay.asc") 
-bio1 = raster("datos/finals/bio1.asc") 
-environment_var = clay*bio1 
-environment_var[which(getValues(environment_var) >= min(getValues(environment_var), na.rm = TRUE))] <- 0 #set all continent areas as 0
+clay = raster("datos/finals/clay.asc")
+bio1 = raster("datos/finals/bio1.asc")
+environment_var = clay*bio1
+environment_var[which(getValues(environment_var) >= min(getValues(environment_var), na.rm = TRUE))] <- 0 #set all continent areas as 0. These are areas with data, that is not NA. All continent areas will be zero, while the rest would be zero.
 
 #load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
 buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
 
 #resample environment_var
 environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
+
+###CHECKING HERE
 
 #open stacks for saving binary raster with current and future suitability
 #QUITAR!!!??? SOLO QUEREMOS RANGE CHANGE AND LOSS, RIGHT?
