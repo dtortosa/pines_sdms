@@ -350,8 +350,31 @@ for(i in 1:length(epithet_species_list)){
 differ_percent = differ_percent[-which(rowSums(is.na(differ_percent)) == ncol(differ_percent)),]
 nrow(differ_percent)
 
+#calculate median and the interquartile range
+median_values = cbind.data.frame("global median", rbind.data.frame(apply(differ_percent[,-1], 2, median)))
+first_quartile_values = cbind.data.frame("global first quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.25)))
+third_quartile_values = cbind.data.frame("global third quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.75)))
+interquartile_range = cbind.data.frame("global interquartile range", third_quartile_values[-1]-first_quartile_values[-1]) #we have to add [-1] to avoid selecting the first column with the name
+#check
+interquartile_range[,-1] == third_quartile_values[-1] - first_quartile_values[-1]
+#add column names
+names(median_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(first_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(third_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
+names(interquartile_range) <- c("selected_species", colnames(differ_percent[,-1]))
+    #It makes sense to use the mean and the standard deviation as measures of center and spread only for distributions that are reasonably symmetric with a central peak. When outliers are present, the mean and standard deviation are not a good choice (unless you want that these outliers influence the summary statistic). An outlier can decrease/increase the mean so that the mean is too low or too high to be representative of whole sample The outlier can also decrease/increase the standard deviation, which gives the impression of a wide variability in the variable This makes sense because the standard deviation measures the average deviation of the data from the mean. So a point that has a large deviation from the mean will increase the average of the deviations. This is the case for several of the variables presented in this table (see annotated plot line). Therefore, we are going to use the median and the interquartile range.
+        #par(mfcol=c(3,2)); for(i in 2:ncol(differ_percent)){plot(differ_percent[,i])}
+        #Link very useful and simple: https://courses.lumenlearning.com/wmopen-concepts-statistics/chapter/standard-deviation-4-of-4/
+    # I guess it does not make sense to use median +- IQR because the distance between the median and the second quartile could be different from the distance to the third quartile. 
+        #For example, consider the following sequence: c(1,2,3,4,5,6,7,8,9,9,9,10). The second quartile would be 3.750, the median would be 6.500, and the third quartile would be 9.000. 9.000-6.500=2.5, while 6.500-3.750=2.75. Therefore, the median is closer to the second quartile.
+
+#bind to the data.frame
+differ_percent = rbind.data.frame(median_values, first_quartile_values, third_quartile_values, interquartile_range, differ_percent)
+str(differ_percent)
+
 #save it
-write.table(differ_percent, "results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", col.names = TRUE, row.names = FALSE, sep=",")
+write.table(differ_percent, "results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", sep=",", col.names = TRUE, row.names = FALSE)
+    #differ_percent = read.table("results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", header=TRUE, sep=",")
 
 
 
@@ -361,63 +384,73 @@ write.table(differ_percent, "results/global_figures/final_global_figures/differ_
 
 #copy differ_percent as phylo_non_scaled to avoid confusion 
 phylo_nonscaled = differ_percent
-
+#remove rows of summary metrics (median, IQR...)
+phylo_nonscaled = phylo_nonscaled[which(!phylo_nonscaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
 
 #load results phylo scaled
 phylo_scaled = read.table("results/global_figures/final_global_figures/differ_phylo_inside_v3.csv", header=TRUE, sep=",")
 #remove rows of summary metrics (median, IQR...)
 phylo_scaled = phylo_scaled[which(!phylo_scaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
 
+#merge both dataframes
+phylo_scaled_nonscaled = merge(x=phylo_nonscaled, y=phylo_scaled, by="selected_species", suffixes = c("_p_nonscaled", "_p_scaled"), all.x = TRUE, all.y = TRUE)
+    #suffixes: a character vector of length 2 specifying the suffixes to be used for making unique the names of columns in the result which are not used for merging (appearing in ‘by’ etc).
+    #all.x: logical; if ‘TRUE’, then extra rows will be added to the output, one for each row in ‘x’ that has no matching row in ‘y’.  These rows will have ‘NA’s in those columns that are usually filled with values from ‘y’.  The default is ‘FALSE’, so that only rows with data from both ‘x’ and ‘y’ are included in the output.
+    #all.y: logical; analogous to ‘all.x’.
+
+
 #select only the two phylogenetic columns
-phylo_nonscaled = phylo_nonscaled[, which(colnames(phylo_nonscaled) %in% c("range_loss_phylo", "range_change_phylo"))]
-phylo_scaled = phylo_scaled[, which(colnames(phylo_scaled) %in% c("range_loss_phylo", "range_change_phylo"))]
+#phylo_nonscaled = phylo_nonscaled[, which(colnames(phylo_nonscaled) %in% c("range_loss_phylo", "range_change_phylo"))]
+#phylo_scaled = phylo_scaled[, which(colnames(phylo_scaled) %in% c("range_loss_phylo", "range_change_phylo"))]
+    #if the two phylogentic variables are similar, then the difference between phylo and non-phylo would be the same because in that case you compare with non-phylo, which is the same with or without phylo scaling.
 
-#
-par(mfcol=c(1,2))
-plot()
-plot()
-dev.off()
 
-## POR AQUII, PLOT COPIADO NO REVISADO!!
+##plot range loss phylo scaled vs non-scaled
 #open the pdf
-pdf("results/global_figures/final_global_figures/phylo_scaled_non_scaled.pdf", height = 6, width = 12)
+pdf("results/global_figures/final_global_figures/phylo_scaled_vs_non_scaled.pdf", height = 6, width = 12)
 par(mfrow=c(1,2),  mar=c(6.5, 4, 2, 2) +0.1)
 
-##plot body fat percentage vs. leptin
 #make the plot
-plot(phylo_nonscaled$range_loss_phylo, phylo_scaled$range_loss_phylo, type="p", xlab="Range loss ", ylab="Leptin (ng/ml)", cex.lab=1.5)
+plot(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, type="p", xlab="Range loss - Phylo non-scaled", ylab="Range loss - Phylo scaled", cex.lab=1.5)
 
 #make the correlation
-tests_pc = cor.test(myData_ptpn1$CRF_Body_fat_PC, myData_ptpn1$Leptin_ng_ml, test="spearman")
+tests_rl = cor.test(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, test="spearman")
 
 #extract and plot the results of the correlation
-tests_pc_p = bquote(italic(p.value) == .(format(tests_pc$p.value, digits = 3)))
-text(x=17, y=160, labels = tests_pc_p, cex=1.3)
-tests_pc_t = bquote(italic(t) == .(format(tests_pc$statistic, digits = 3)))
-text(x=17, y=145, labels = tests_pc_t, cex=1.3)
-tests_pc_rho = bquote(italic(rho) == .(format(tests_pc$estimate, digits = 3)))
-text(x=17, y=130, labels = tests_pc_rho, cex=1.3)
+tests_rl_p = bquote(italic(p.value) == .(format(tests_rl$p.value, digits = 3)))
+text(x=20, y=60, labels = tests_rl_p, cex=1.3)
+tests_rl_t = bquote(italic(t) == .(format(tests_rl$statistic, digits = 3)))
+text(x=20, y=55, labels = tests_rl_t, cex=1.3)
+tests_rl_rho = bquote(italic(rho) == .(format(tests_rl$estimate, digits = 3)))
+text(x=20, y=50, labels = tests_rl_rho, cex=1.3)
 
 
-##plot FMI vs. leptin
+##plot range change phylo scaled vs. non-scaled
 #make the plot
-plot(phylo_nonscaled$range_change_phylo, phylo_scaled$range_change_phylo, type="p", xlab=expression(paste("Fat mass index (kg/m"^"2",")", sep="")), ylab="Leptin (ng/ml)", cex.lab=1.5)
-    #for superscript
-        #https://stackoverflow.com/questions/10628547/use-superscripts-in-r-axis-labels
+plot(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, type="p", xlab="Range change - Phylo non-scaled", ylab="Range change - Phylo scaled", cex.lab=1.5)
 
 #make the correlation
-tests_fmi = cor.test(myData_ptpn1$FMI, myData_ptpn1$Leptin_ng_ml, test="spearman")
+tests_rg = cor.test(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, test="spearman")
 
 #extract and plot the results of the correlation
-tests_fmi_p = bquote(italic(p.value) == .(format(tests_fmi$p.value, digits = 3)))
-text(x=17, y=160, labels = tests_fmi_p, cex=1.3)
-tests_fmi_t = bquote(italic(t) == .(format(tests_fmi$statistic, digits = 3)))
-text(x=17, y=145, labels = tests_fmi_t, cex=1.3)
-tests_fmi_rho = bquote(italic(rho) == .(format(tests_fmi$estimate, digits = 3)))
-text(x=17, y=130, labels = tests_fmi_rho, cex=1.3)
+tests_rg_p = bquote(italic(p.value) == .(format(tests_rg$p.value, digits = 3)))
+text(x=-35, y=47, labels = tests_rg_p, cex=1.3)
+tests_rg_t = bquote(italic(t) == .(format(tests_rg$statistic, digits = 3)))
+text(x=-35, y=37, labels = tests_rg_t, cex=1.3)
+tests_rg_rho = bquote(italic(rho) == .(format(tests_rg$estimate, digits = 3)))
+text(x=-35, y=27, labels = tests_rg_rho, cex=1.3)
 
 #add the title plot
 #mtext("Online supplementary figure S2", side=1, font=2, cex=2, adj=0.015, padj=1.5, outer=TRUE, line=-3)
 
 #close the pdf
 dev.off()
+
+
+## see the data reordered based on the difference between phylo scaled and non-scaled
+#range loss
+phylo_scaled_nonscaled[order(abs(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled - phylo_scaled_nonscaled$range_loss_phylo_p_scaled), decreasing = TRUE), c("selected_species", "range_loss_phylo_p_nonscaled", "range_loss_phylo_p_scaled")]
+#range change
+phylo_scaled_nonscaled[order(abs(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled - phylo_scaled_nonscaled$range_change_phylo_p_scaled), decreasing = TRUE), c("selected_species", "range_change_phylo_p_nonscaled", "range_change_phylo_p_scaled")]
+
+#Only a few species show some differences between scaled and non-scaled. Given this and the great correlation between the two approaches across the whole genus, it seems that the scaling is not influencing results at the scale of the whole genus.
