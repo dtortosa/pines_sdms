@@ -73,11 +73,8 @@ buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buf
 #resample environment_var
 environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
 
-###CHECKING HERE
-
 #open stacks for saving binary raster with current and future suitability
-#QUITAR!!!??? SOLO QUEREMOS RANGE CHANGE AND LOSS, RIGHT?
-if(FALSE){
+if(FALSE){ #Right now we are not interested in saving the rasters
     current_suit_stack = stack()
     projected_suit_inside_range_stack = stack()
     phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack()
@@ -87,7 +84,7 @@ if(FALSE){
     raster_range_calc_stack = stack()
 }
 
-#It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Becasue of this, I have carefully masked and cropped all the predicions (current, future and phylogenetic)
+#It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Because of this, I have carefully masked and cropped all the predictions (current, future and phylogenetic)
 
 
 
@@ -117,9 +114,11 @@ for(i in 1:length(epithet_species_list)){
     ocurrences_buffer[which(is.na(getValues(ocurrences_buffer)))] <- 0
 
     #save it
-    #sum_distributions = stack(sum_distributions, ocurrences_buffer)
+    if(FALSE){ #Right now, we are not interesting in saving. 
+        sum_distributions = stack(sum_distributions, ocurrences_buffer)
+    }
 
-    #load the polygon used for calculations of changes of substitutability (calc_ranges)
+    #load the polygon used for calculations of changes of suitability (calc_ranges)
     if(!species=="pumila"){
         raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_range_calc_buffer.asc", sep=""))
     } else {
@@ -150,7 +149,9 @@ for(i in 1:length(epithet_species_list)){
     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
 
     #save raster_range_calc
-    #raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
+    if(FALSE){ #Right now, we are not interested in saving rasters now
+        raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
+    }
 
     #load predicted suitability
     current_suit = raster(paste("results/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))
@@ -232,10 +233,12 @@ for(i in 1:length(epithet_species_list)){
     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = mask(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, polygon_range_calc)
 
     #mask with environment_var to remove water bodies
-    phylo_ensamble_intersect_projected_suit = mask(phylo_ensamble_intersect_projected_suit, environment_var_cropped)    
+    phylo_ensamble_intersect_projected_suit = mask(phylo_ensamble_intersect_projected_suit, environment_var_cropped)
     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = mask(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var_cropped)
 
-    #check that all cells with 1 with and without phylo are included in the phinal raster
+    ####POR AQUIII
+
+    #check that all cells with 1 with and without phylo are included in the final raster
     #inside-outside current range
     print(summary(which(getValues(projected_suit) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
     print(summary(which(getValues(phylo_ensamble) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
@@ -271,26 +274,30 @@ for(i in 1:length(epithet_species_list)){
     #save metrics of suitability changes
     suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, range_loss_no_phylo, range_loss_phylo, range_change_no_phylo,range_change_phylo))
 
-    #extend the extent of the predictions to the whole globe
-    #current_suit = extend(current_suit, environment_var)
-    #projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
-    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
-    #projected_suit = extend(projected_suit, environment_var)
-    #phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
+
+    ##do some operations with the rasters before saving
+    extend the extent of the predictions to the whole globe
+    current_suit = extend(current_suit, environment_var)
+    projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
+    phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
+    projected_suit = extend(projected_suit, environment_var)
+    phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
 
     #set NAs as zero to avoid propagation of NAs in the sum
-    #current_suit[which(is.na(getValues(current_suit)))] <- 0      
-    #projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
-    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
-    #projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
-    #phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
+    current_suit[which(is.na(getValues(current_suit)))] <- 0      
+    projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
+    phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
+    projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
+    phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
 
     #save rasters
-    #current_suit_stack = stack(current_suit_stack, current_suit)
-    #projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
-    #phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
-    #projected_suit_stack = stack(projected_suit_stack, projected_suit)
-    #phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
+    if(FALSE){ #Right now we are not interested in saving the rasters
+        current_suit_stack = stack(current_suit_stack, current_suit)
+        projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
+        phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
+        projected_suit_stack = stack(projected_suit_stack, projected_suit)
+        phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
+    }
 }
 
 #remove first row without NAs
