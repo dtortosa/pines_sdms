@@ -84,6 +84,8 @@ if(FALSE){ #Right now we are not interested in saving the rasters
     raster_range_calc_stack = stack()
 }
 
+#You will find along this script several parts where rasters are not save. The rasters resulting from current predictions along future projections inside/outside of current suitable areas and with/without phylogenetic correction are not saved. In the original script that uses phylo-scaled suitability and run in rafa-pro ("sinthesis_figures_v2.R"), these rasters are saved in stacks to further processing with "final_global_figures_v4.R" and calculate the global maps.
+
 #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Because of this, I have carefully masked and cropped all the predictions (current, future and phylogenetic)
 
 
@@ -236,9 +238,8 @@ for(i in 1:length(epithet_species_list)){
     phylo_ensamble_intersect_projected_suit = mask(phylo_ensamble_intersect_projected_suit, environment_var_cropped)
     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = mask(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var_cropped)
 
-    ####POR AQUIII
-
-    #check that all cells with 1 with and without phylo are included in the final raster
+    
+    ##check that all cells with 1 with and without phylo are included in the final raster
     #inside-outside current range
     print(summary(which(getValues(projected_suit) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
     print(summary(which(getValues(phylo_ensamble) == 1) %in% which(getValues(phylo_ensamble_intersect_projected_suit) == 1)))
@@ -255,17 +256,17 @@ for(i in 1:length(epithet_species_list)){
     future_suitable_area_no_phylo_elsewhere = length(which(getValues(projected_suit)==1))
     future_suitable_area_phylo_elsewhere = length(which(getValues(phylo_ensamble_intersect_projected_suit)==1))
 
-    #calculate range loss as (current suitable area - nº cells of that area that remain suitable ) / current suitable area, then multiplied by 100
-    range_loss_no_phylo = ((current_suitable_area - future_suitable_area_no_phylo_inside_current_range) / current_suitable_area ) * 100
-    range_loss_phylo = ((current_suitable_area - future_suitable_area_phylo_inside_current_range) / current_suitable_area ) * 100    
-
-    #check that phylosuitaiblity increase suitable areas
+    #check that phylo-suitaiblity increase suitable areas
     print(future_suitable_area_phylo_elsewhere >= future_suitable_area_no_phylo_elsewhere)
     print(future_suitable_area_phylo_inside_current_range >= future_suitable_area_no_phylo_inside_current_range)
 
     #check that suitability outside current range and under future conditons is at least equal to the suitability inside areas that are currently suitable
     print(future_suitable_area_no_phylo_elsewhere >= future_suitable_area_no_phylo_inside_current_range)
     print(future_suitable_area_phylo_elsewhere >= future_suitable_area_phylo_inside_current_range)
+
+    #calculate range loss as (current suitable area - nº cells of that area that remain suitable ) / current suitable area, then multiplied by 100
+    range_loss_no_phylo = ((current_suitable_area - future_suitable_area_no_phylo_inside_current_range) / current_suitable_area ) * 100
+    range_loss_phylo = ((current_suitable_area - future_suitable_area_phylo_inside_current_range) / current_suitable_area ) * 100
 
     #calculate range change as (nº cells of that area that are suitable across the whole calc_range_buffer - current suitable areas) / current suitable area, then multiplied by 100. Here we consider future suitability of both areas that are suitable or unsuitable currently
     range_change_no_phylo = ((future_suitable_area_no_phylo_elsewhere - current_suitable_area) / current_suitable_area ) * 100
@@ -275,8 +276,8 @@ for(i in 1:length(epithet_species_list)){
     suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, range_loss_no_phylo, range_loss_phylo, range_change_no_phylo,range_change_phylo))
 
 
-    ##do some operations with the rasters before saving
-    extend the extent of the predictions to the whole globe
+    ##do some operations with the rasters so we can save all of them in stacks
+    #extend the extent of the predictions to the whole globe
     current_suit = extend(current_suit, environment_var)
     projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
     phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
@@ -311,27 +312,33 @@ write.table(suitability_changes, "results/global_figures/initial_global_figures/
     #suitability_changes = read.table("results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", header=TRUE)
 
 #check all species are included in the stacks
-#nlayers(current_suit_stack) == 112
-#nlayers(projected_suit_inside_range_stack) == 112
-#nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
-#nlayers(projected_suit_stack) == 112
-#nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
-#nlayers(raster_range_calc_stack)
-#nlayers(sum_distributions)
+if(FALSE){
+    nlayers(current_suit_stack) == 112
+    nlayers(projected_suit_inside_range_stack) == 112
+    nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
+    nlayers(projected_suit_stack) == 112
+    nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
+    nlayers(raster_range_calc_stack)
+    nlayers(sum_distributions)
+}
 
 #sum predictions under current and future conditions
-#current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
-#projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
-#projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
-#sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
-#raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+if(FALSE){ #Right now we are not interested in saving the rasters
+    current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
+    projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
+    projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
+    sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
+    raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+}
 
 #save the rasters
-#writeRaster(current_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/current_suit_stack_sum.asc", overwrite=TRUE)
-#writeRaster(projected_suit_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_stack_sum.asc", overwrite=TRUE)
-#writeRaster(projected_suit_phylo_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/projected_suit_phylo_stack_sum.asc", overwrite=TRUE)
-#writeRaster(sum_distributions_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/sum_distributions_sum.asc", overwrite=TRUE)
-#writeRaster(raster_range_calc_stack_sum, "/Users/dsalazar/nicho_pinus/results/final_analyses/synthesis_figure/raster_range_calc_stack_sum.asc", overwrite=TRUE)
+if(FALSE){ #Right now we are not interested in saving the rasters
+    #writeRaster(current_suit_stack_sum, "results/global_figures/initial_global_figures/current_suit_stack_sum.asc", overwrite=TRUE)
+    #writeRaster(projected_suit_stack_sum, "results/global_figures/initial_global_figures/projected_suit_stack_sum.asc", overwrite=TRUE)
+    writeRaster(projected_suit_phylo_stack_sum, "results/global_figures/initial_global_figures/projected_suit_phylo_nonscaled_stack_sum.asc", overwrite=TRUE)
+    #writeRaster(sum_distributions_sum, "results/global_figures/initial_global_figures/sum_distributions_sum.asc", overwrite=TRUE)
+    #writeRaster(raster_range_calc_stack_sum, "results/global_figures/initial_global_figures/raster_range_calc_stack_sum.asc", overwrite=TRUE)
+}
 
 
 ##Calculate the differences between phylo - no phylo
@@ -358,7 +365,9 @@ for(i in 1:length(epithet_species_list)){
     differ_percent = rbind.data.frame( differ_percent, cbind.data.frame(selected_species, range_loss_no_phylo, range_loss_phylo, differ_range_loss, range_change_no_phylo, range_change_phylo, differ_range_change))
 }
 differ_percent = differ_percent[-which(rowSums(is.na(differ_percent)) == ncol(differ_percent)),]
-nrow(differ_percent)
+
+#check all species are included in the table
+nrow(differ_percent) == length(epithet_species_list)
 
 #calculate median and the interquartile range
 median_values = cbind.data.frame("global median", rbind.data.frame(apply(differ_percent[,-1], 2, median)))
@@ -401,6 +410,8 @@ phylo_nonscaled = phylo_nonscaled[which(!phylo_nonscaled$selected_species %in% c
 phylo_scaled = read.table("results/global_figures/final_global_figures/differ_phylo_inside_v3.csv", header=TRUE, sep=",")
 #remove rows of summary metrics (median, IQR...)
 phylo_scaled = phylo_scaled[which(!phylo_scaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
+
+##POR AQUIO
 
 #merge both dataframes
 phylo_scaled_nonscaled = merge(x=phylo_nonscaled, y=phylo_scaled, by="selected_species", suffixes = c("_p_nonscaled", "_p_scaled"), all.x = TRUE, all.y = TRUE)
