@@ -411,19 +411,11 @@ phylo_scaled = read.table("results/global_figures/final_global_figures/differ_ph
 #remove rows of summary metrics (median, IQR...)
 phylo_scaled = phylo_scaled[which(!phylo_scaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
 
-##POR AQUIO
-
 #merge both dataframes
 phylo_scaled_nonscaled = merge(x=phylo_nonscaled, y=phylo_scaled, by="selected_species", suffixes = c("_p_nonscaled", "_p_scaled"), all.x = TRUE, all.y = TRUE)
     #suffixes: a character vector of length 2 specifying the suffixes to be used for making unique the names of columns in the result which are not used for merging (appearing in ‘by’ etc).
     #all.x: logical; if ‘TRUE’, then extra rows will be added to the output, one for each row in ‘x’ that has no matching row in ‘y’.  These rows will have ‘NA’s in those columns that are usually filled with values from ‘y’.  The default is ‘FALSE’, so that only rows with data from both ‘x’ and ‘y’ are included in the output.
     #all.y: logical; analogous to ‘all.x’.
-
-
-#select only the two phylogenetic columns
-#phylo_nonscaled = phylo_nonscaled[, which(colnames(phylo_nonscaled) %in% c("range_loss_phylo", "range_change_phylo"))]
-#phylo_scaled = phylo_scaled[, which(colnames(phylo_scaled) %in% c("range_loss_phylo", "range_change_phylo"))]
-    #if the two phylogentic variables are similar, then the difference between phylo and non-phylo would be the same because in that case you compare with non-phylo, which is the same with or without phylo scaling.
 
 
 ##plot range loss phylo scaled vs non-scaled
@@ -462,7 +454,7 @@ tests_rg_rho = bquote(italic(rho) == .(format(tests_rg$estimate, digits = 3)))
 text(x=-35, y=27, labels = tests_rg_rho, cex=1.3)
 
 #add the title plot
-#mtext("Online supplementary figure S2", side=1, font=2, cex=2, adj=0.015, padj=1.5, outer=TRUE, line=-3)
+#mtext("Online supplementary figure ...", side=1, font=2, cex=2, adj=0.015, padj=1.5, outer=TRUE, line=-3)
 
 #close the pdf
 dev.off()
