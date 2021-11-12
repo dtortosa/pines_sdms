@@ -29,7 +29,10 @@
 *.adf
 *.kmz
 datos/
-literature/
+literature/books
+literature/info
+literature/papers
+literature/proyectos
 manuscript/
 presentaciones/
 questions/
