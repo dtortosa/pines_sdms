@@ -5,6 +5,7 @@
 # Respect to version 2
     #I have changed the path and modified the final plot to include the test statistic of the spearman correlation test. I have not checked the script, BUT the result of the plot is the same than the original plot.
     #NOT RUN THE ENTIRE SCRIPT, AVOID PARTS WHEN THERE IS WRITTING OF FILES. These files has to be modified by hand, so we are using those created with the previous version of the script (version 2).
+    #I installed phangor (used for other packages) by source (version 2.7.0), becuase the current version (2.8.0) does not accept R.3.6.4, my current version.
 
 
 #######################################################
