@@ -427,13 +427,17 @@ par(mfrow=c(1,2),  mar=c(6.5, 4, 2, 2) +0.1)
 plot(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, type="p", xlab="Range loss - Phylo non-scaled", ylab="Range loss - Phylo scaled", cex.lab=1.5)
 
 #make the correlation
-tests_rl = cor.test(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, test="spearman")
+tests_rl = cor.test(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, method="spearman")
 
 #extract and plot the results of the correlation
-tests_rl_p = bquote(italic(p.value) == .(format(tests_rl$p.value, digits = 3)))
+if(tests_rl$p.value < 2.2e-16){
+    tests_rl_p = bquote(italic(p.value) < .(format(2.2e-16)))
+}else{
+    tests_rl_p = bquote(italic(p.value) == .(format(tests_rl$p.value, digits = 3)))
+}
 text(x=20, y=60, labels = tests_rl_p, cex=1.3)
-tests_rl_t = bquote(italic(t) == .(format(tests_rl$statistic, digits = 3)))
-text(x=20, y=55, labels = tests_rl_t, cex=1.3)
+tests_rl_s = bquote(italic(S) == .(format(tests_rl$statistic, digits = 3)))
+text(x=20, y=55, labels = tests_rl_s, cex=1.3)
 tests_rl_rho = bquote(italic(rho) == .(format(tests_rl$estimate, digits = 3)))
 text(x=20, y=50, labels = tests_rl_rho, cex=1.3)
 
@@ -443,13 +447,17 @@ text(x=20, y=50, labels = tests_rl_rho, cex=1.3)
 plot(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, type="p", xlab="Range change - Phylo non-scaled", ylab="Range change - Phylo scaled", cex.lab=1.5)
 
 #make the correlation
-tests_rg = cor.test(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, test="spearman")
+tests_rg = cor.test(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, method="spearman")
 
 #extract and plot the results of the correlation
-tests_rg_p = bquote(italic(p.value) == .(format(tests_rg$p.value, digits = 3)))
+if(tests_rg$p.value < 2.2e-16){
+    tests_rg_p = bquote(italic(p.value) < .(format(2.2e-16)))
+}else{
+    tests_rg_p = bquote(italic(p.value) == .(format(tests_rg$p.value, digits = 3)))
+}
 text(x=-35, y=47, labels = tests_rg_p, cex=1.3)
-tests_rg_t = bquote(italic(t) == .(format(tests_rg$statistic, digits = 3)))
-text(x=-35, y=37, labels = tests_rg_t, cex=1.3)
+tests_rg_s = bquote(italic(S) == .(format(tests_rg$statistic, digits = 3)))
+text(x=-35, y=37, labels = tests_rg_s, cex=1.3)
 tests_rg_rho = bquote(italic(rho) == .(format(tests_rg$estimate, digits = 3)))
 text(x=-35, y=27, labels = tests_rg_rho, cex=1.3)
 
