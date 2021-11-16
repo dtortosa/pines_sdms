@@ -1,5 +1,12 @@
 #######code for reconstructing climate niche with the ndbl phylogeny
 
+### differences respect to previous versions
+
+# Respect to version 2
+    #I have changed the path and modified the final plot to include the test statistic of the spearman correlation test. I have not checked the script, BUT the result of the plot is the same than the original plot.
+    #NOT RUN THE ENTIRE SCRIPT, AVOID PARTS WHEN THERE IS WRITTING OF FILES. These files has to be modified by hand, so we are using those created with the previous version of the script (version 2).
+
+
 #######################################################
 ########## RECONSTRUCTION OF ANCESTRAL STATE ##########
 #######################################################
@@ -11,17 +18,17 @@ require(geiger)
 require(diversitree)
 
 #load climate data obtained when the first ancestral reconstruction was performed
-climate_medians = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_medians/climate_medians.csv", header=TRUE, sep=",") 
+climate_medians = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_medians/climate_medians.csv", header=TRUE, sep=",") 
 str(climate_medians)
 
 #load sd climate data
-climate_sd = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_ranges/climate_sd.csv", header=TRUE, sep=",") 
+climate_sd = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_ranges/climate_sd.csv", header=TRUE, sep=",") 
 str(climate_sd)
-climate_se = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_ranges/climate_se.csv", header=TRUE, sep=",")
+climate_se = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/climatic_var_ranges/climate_se.csv", header=TRUE, sep=",")
 str(climate_se)
 
 ####load a prepare tree_fbdl
-tree_fbdl<-read.nexus("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/phlyo/phylogeny/FBDl_MCC_commAnc.tre") 
+tree_fbdl<-read.nexus("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/datos/phlyo/phylogeny/FBDl_MCC_commAnc.tre") 
 ## new species icnldued by bianca in tree_fbdl that we have to drop, and also discolor
 species_to_drop = tree_fbdl$tip.label[which(!tree_fbdl$tip.label %in% paste("Pinus_", climate_medians$species, sep=""))]
 
@@ -32,7 +39,7 @@ tree_fbdl_prunned = drop.tip(tree_fbdl, species_to_drop)
 c("Pinus_discolor", "Pinus_jaliscana", "Pinus_tecunumanii") %in% tree_fbdl_prunned$tip.label
 
 ####load a prepare tree_ndbl
-tree_ndbl<-read.nexus("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/datos/phlyo/phylogeny/NDbl_MCC_commAnc.tre") 
+tree_ndbl<-read.nexus("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/datos/phlyo/phylogeny/NDbl_MCC_commAnc.tre") 
 ## new species icnldued by bianca in tree_ndbl that we have to drop, and also discolor
 species_to_drop = tree_ndbl$tip.label[which(!tree_ndbl$tip.label %in% paste("Pinus_", climate_medians$species, sep=""))]
 
@@ -95,7 +102,7 @@ pgls_recon_bio4_fbdl = ace(x=bio4_vector, phy=tree_fbdl_prunned, type="continuou
 species_names = paste("Pinus_", climate_medians$species, sep="")
 
 #write species names
-write.table(species_names, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_species_names.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #We don't want quotes because these files will be copied to compare. quote: a logical value (‘TRUE’ or ‘FALSE’) or a numeric vector.  If ‘TRUE’, any character or factor columns will be surrounded by double quotes.  If a numeric vector, its elements are taken as the indices of columns to quote.  In both cases, row and column names are quoted if they are written.  If ‘FALSE’, nothing is quoted.
+write.table(species_names, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_species_names.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #We don't want quotes because these files will be copied to compare. quote: a logical value (‘TRUE’ or ‘FALSE’) or a numeric vector.  If ‘TRUE’, any character or factor columns will be surrounded by double quotes.  If a numeric vector, its elements are taken as the indices of columns to quote.  In both cases, row and column names are quoted if they are written.  If ‘FALSE’, nothing is quoted.
 
 #bind climatic data to SE estimates (0 in our cases for all speices because we have not intraspecies data)
 climate_medians$species == climate_se$species
@@ -103,14 +110,14 @@ compare_bio4 = paste(climate_medians$median_bio4, "<", climate_se$se_bio4, ">", 
 compare_bio17 = paste(climate_medians$median_bio17, "<", climate_se$se_bio17, ">", sep="")
 
 #write variables
-write.table(compare_bio4, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_bio4.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
-write.table(compare_bio17, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_bio17.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
+write.table(compare_bio4, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_bio4.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
+write.table(compare_bio17, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/compare_bio17.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
 
 #save the tree prunned for compare 4.6
-write.tree(tree_fbdl_prunned, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/FBDl_MCC_commAnc_prunned.tree") #You have to copy hasta el ";", no etas espacio, sino no funciona
+write.tree(tree_fbdl_prunned, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare4.6_data/FBDl_MCC_commAnc_prunned.tree") #You have to copy hasta el ";", no etas espacio, sino no funciona
 
 
-#En "/Volumes/GoogleDrive/My Drive/science/software/Comp46bExec" pinchas startForm.class para activar compare. Le das a main window. 
+#En "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/software/Comp46bExec" pinchas startForm.class para activar compare. Le das a main window. 
 
 #Copias todos estos archivos creados con al código de justo arriba en Taxon names, Taxon means (rasgos) y Enter Phylogeny. Indicas que son 112 taxa, 1 rasgo y 1 filogenia. Hay que indicar que si queremos usar los SE dentro de especie ó asumir que la variación dentro de especie es desconocida. En este caso incluímos los valores de SE como variabilidad intraespecífica. Seleccionar PGLS-ancestros y exeecute.   
 
@@ -121,9 +128,9 @@ write.tree(tree_fbdl_prunned, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_p
 #Le das a guardar en un archivo llamado "compare_res_bioX_XX.txt". De ese archivo copias la parte de "Trait #1: Ancestral state estimates" y la pegas en un excel, le das a pegar con el importador de datos (se hace en el boton que surge al pegar como el de mantener-quitar formato). Así te separará cada columna. Solo falta añadir a "Adj." el "SE" que queda en la siguiente columna (es SE adjusted) y guardar como .csv.
 
 #load results of OU with SE intraespecífica (alpha = 0.07 for bio4 and 0.03 for bio17)
-anc_ou_bio4_fbdl = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare_results/anc_bio4_ou.csv", sep=",", header=TRUE)
+anc_ou_bio4_fbdl = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare_results/anc_bio4_ou.csv", sep=",", header=TRUE)
 str(anc_ou_bio4_fbdl)
-anc_ou_bio17_fbdl = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction/compare_results/anc_bio17_ou.csv", sep=",", header=TRUE)
+anc_ou_bio17_fbdl = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction/compare_results/anc_bio17_ou.csv", sep=",", header=TRUE)
 str(anc_ou_bio17_fbdl)
 
 #change names of root by 112+1 (as notation of ape)
@@ -161,7 +168,7 @@ fitContinuous(phy = tree_ndbl_prunned, dat = bio17_vector, SE=intra_var_bio4, mo
 species_names = paste("Pinus_", climate_medians$species, sep="")
 
 #write species names
-write.table(species_names, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_species_names.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #We don't want quotes because these files will be copied to compare. quote: a logical value (‘TRUE’ or ‘FALSE’) or a numeric vector.  If ‘TRUE’, any character or factor columns will be surrounded by double quotes.  If a numeric vector, its elements are taken as the indices of columns to quote.  In both cases, row and column names are quoted if they are written.  If ‘FALSE’, nothing is quoted.
+write.table(species_names, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_species_names.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #We don't want quotes because these files will be copied to compare. quote: a logical value (‘TRUE’ or ‘FALSE’) or a numeric vector.  If ‘TRUE’, any character or factor columns will be surrounded by double quotes.  If a numeric vector, its elements are taken as the indices of columns to quote.  In both cases, row and column names are quoted if they are written.  If ‘FALSE’, nothing is quoted.
 
 #bind climatic data to SE estimates (0 in our cases for all speices because we have not intraspecies data)
 climate_medians$species == climate_se$species
@@ -169,14 +176,14 @@ compare_bio4 = paste(climate_medians$median_bio4, "<", climate_se$se_bio4, ">", 
 compare_bio17 = paste(climate_medians$median_bio17, "<", climate_se$se_bio17, ">", sep="")
 
 #write variables
-write.table(compare_bio4, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_bio4.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
-write.table(compare_bio17, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_bio17.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
+write.table(compare_bio4, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_bio4.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
+write.table(compare_bio17, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/compare_bio17.txt", sep="\t", col.names = FALSE, row.names =  FALSE, quote=FALSE) #YOU HAVE TO DROP " FROM THE FILE
 
 #save the tree prunned for compare 4.6
-write.tree(tree_ndbl_prunned, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/NDbl_MCC_commAnc_prunned.tree") #You have to copy hasta el ";", no etas espacio, sino no funciona
+write.tree(tree_ndbl_prunned, "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare4.6_data/NDbl_MCC_commAnc_prunned.tree") #You have to copy hasta el ";", no etas espacio, sino no funciona
 
 
-#En "/Volumes/GoogleDrive/My Drive/science/software/Comp46bExec" pinchas startForm.class para activar compare. Le das a main window. 
+#En "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/software/Comp46bExec" pinchas startForm.class para activar compare. Le das a main window. 
 
 #Copias todos estos archivos creados con al código de justo arriba en Taxon names (nombres), Taxon means (rasgos) y Enter Phylogeny. Indicas que son 112 taxa, 1 rasgo y 1 filogenia. Hay que indicar que si queremos usar los SE dentro de especie ó asumir que la variación dentro de especie es desconocida. En este caso incluímos los valores de SE como variabilidad intraespecífica. Seleccionar PGLS-ancestros y exeecute.   
 
@@ -187,9 +194,9 @@ write.tree(tree_ndbl_prunned, "/Volumes/GoogleDrive/My Drive/science/phd/nicho_p
 #Le das a guardar en un archivo llamado "compare_res_bioX_XX.txt". De ese archivo copias la parte de "Trait #1: Ancestral state estimates" y la pegas en un excel, le das a pegar con el importador de datos (se hace en el boton que surge al pegar como el de mantener-quitar formato). Así te separará cada columna. Solo falta añadir a "Adj." el "SE" que queda en la siguiente columna (es SE adjusted) y guardar como .csv.
 
 #load results of OU with SE intraespecífica (alpha = 0.1 for bio4 and 0.046 for bio17)
-anc_ou_bio4_ndbl = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare_results/anc_bio4_ou_ndbl.csv", sep=",", header=TRUE)
+anc_ou_bio4_ndbl = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare_results/anc_bio4_ou_ndbl.csv", sep=",", header=TRUE)
 str(anc_ou_bio4_ndbl)
-anc_ou_bio17_ndbl = read.table("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare_results/anc_bio17_ou_ndbl.csv", sep=",", header=TRUE)
+anc_ou_bio17_ndbl = read.table("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/compare_results/anc_bio17_ou_ndbl.csv", sep=",", header=TRUE)
 str(anc_ou_bio17_ndbl)
 
 
@@ -219,7 +226,7 @@ test_bio17_bm = cor.test(pgls_recon_bio17_ndbl$ace, pgls_recon_bio17_fbdl$ace, m
 test_bio4_bm = cor.test(pgls_recon_bio4_ndbl$ace, pgls_recon_bio4_fbdl$ace, method="spearman")
 
 #figure
-pdf("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/cors_bio4_bio17_ndb_fbdl.pdf")
+pdf("/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/phd/nicho_pinus/results/phylo_reconstruction_ndbl/cors_bio4_bio17_ndb_fbdl_v2.pdf")
 par(mfrow=c(2,2))
 
 #bio4
@@ -232,6 +239,8 @@ if(test_bio4_bm$p.value < 2.2e-16){
     p_bio4_bm = bquote(italic(p.value) == .(format(round(test_bio4_bm$p.value,4))))
 }
 text(x=9500, y=2800, labels = p_bio4_bm, cex=1)
+s_bio4_bm = bquote(S == .(format(round(test_bio4_bm$statistic,2))))
+text(x=9500, y=2000, labels = s_bio4_bm, cex=1)
 
 #title two first pannels
 title(main=paste("Ancestral state under Brownian motion", sep=""), outer=TRUE, cex.main=2, font.main= 2, line=-2.5)
@@ -246,6 +255,8 @@ if(test_bio17_bm$p.value < 2.2e-16){
     p_bio17_bm = bquote(italic(p.value) == .(format(round(test_bio17_bm$p.value,4))))
 }
 text(x=-250, y=-650, labels = p_bio17_bm, cex=1)
+s_bio17_bm = bquote(S == .(format(round(test_bio17_bm$statistic,2))))
+text(x=-250, y=-700, labels = s_bio17_bm, cex=1)
 
 #bio4
 plot(anc_ou_bio4_ndbl$State~anc_ou_bio4_fbdl$State, xlab="BIO4 anc across FBDl phylogeny", ylab="BIO4 anc across NDbl phylogeny")
@@ -257,6 +268,8 @@ if(test_bio4_ou$p.value < 2.2e-16){
     p_bio4_ou = bquote(italic(p.value) == .(format(round(test_bio4_ou$p.value,4))))
 }
 text(x=7000, y=5500, labels = p_bio4_ou, cex=1)
+s_bio4_ou = bquote(S == .(format(round(test_bio4_ou$statistic,2))))
+text(x=7000, y=5280, labels = s_bio4_ou, cex=1)
 
 #bio17
 plot(anc_ou_bio17_ndbl$State~anc_ou_bio17_fbdl$State, xlab="BIO17 anc across FBDl phylogeny", ylab="BIO17 anc across NDbl phylogeny")
@@ -268,6 +281,8 @@ if(test_bio17_ou$p.value < 2.2e-16){
     p_bio17_ou = bquote(italic(p.value) == .(format(round(test_bio17_ou$p.value,4))))
 }
 text(x=-400, y=-635, labels = p_bio17_ou, cex=1)
+s_bio17_ou = bquote(S == .(format(round(test_bio17_ou$statistic,2))))
+text(x=-400, y=-670, labels = s_bio17_ou, cex=1)
 
 #title two second pannels
 title(main=paste("Ancestral state under Ornstein-Uhlenbeck", sep=""), outer=TRUE, cex.main=2, font.main= 2, line = -23.5)
