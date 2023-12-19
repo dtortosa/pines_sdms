@@ -1,0 +1,5 @@
+        - An integrated high-resolution mapping shows congruent biodiversity patterns of Fagales and Pinales.
+            - ellos usan diferentes tipos de algortimos, diferentes niveles de complejidad en esos algorgistmos, diferentes metodos de pseudo-absences... para hacer SDMs. Prueban diferentes modeling choices y cogen la que mejor funciona!! También crean poliginos a partir de datos de occurencia para especies con pocas ocurrencias, y ahí también tunean parametros com la distancia minima para considerar una ocurrencia como outlier! tienen en cuentan muchas decisiones y las varían. El resultado al combinar SDMs y poligonos los validan especificamente en dos generos, quercus y pinus, comparando sus mapas de distributicion con mapas previos de esos generos. En el caso del de critfield hay una correlacion around 0.7.
+            - podemos usar esta referencia para
+                - decir que hay muchos datos de pinos.
+                - justifcar la consiredacion de diferentes modelin choices ya que ellos analizan varias opciones en cada caso y cogen la mejor para predecir distribucion actual.
