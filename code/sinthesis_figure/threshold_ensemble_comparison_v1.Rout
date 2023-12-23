@@ -1,0 +1,123 @@
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127481  6.9     350000 18.7   198111 10.6
+Vcells 245982  1.9    8388608 64.0  1016781  7.8
+Loading required package: colorout
+Loading required package: raster
+Loading required package: sp
+Loading required package: sf
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+   Mode    TRUE 
+logical     114 
+[1] TRUE TRUE TRUE
+Loading required package: foreach
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+Warning message:
+executing %dopar% sequentially: no parallel backend registered 
+       species selected_threshold   range_change   range_loss
+2   albicaulis                  0  13.7766307929  3.962588769
+3   albicaulis                  1   5.8459623691  7.861117212
+4   albicaulis                  2   2.6649095834  9.923859726
+5   albicaulis                  3   2.3337309872 10.462645392
+6   albicaulis                  4   0.6058007754 11.728303012
+7   albicaulis                  5  -0.7549209663 12.723680286
+8   albicaulis                  6  -0.7249112739 12.914369856
+9   albicaulis                  7  -1.8066148154 13.680812505
+10  albicaulis                  8  -2.7712753908 14.343426716
+11  albicaulis                  9  -2.7850371020 14.526066803
+12  albicaulis                 10  -3.6510691872 15.134578334
+13  albicaulis                 11  -4.5438071076 15.764073021
+14  albicaulis                 12  -4.5833092916 15.979074106
+15  albicaulis                 13  -5.4930471410 16.640701633
+16  albicaulis                 14  -5.4567321681 16.742643208
+17  albicaulis                 15  -6.2152043607 17.233419332
+18  albicaulis                 16  -6.9077224496 17.720315804
+19  albicaulis                 17  -6.8213838447 17.863572323
+20  albicaulis                 18  -7.4906073889 18.319505322
+21  albicaulis                 19  -8.1304790232 18.706950532
+22  albicaulis                 20  -7.9273229979 18.625456700
+23  albicaulis                 21  -8.6027451368 19.055988940
+24  albicaulis                 22  -9.2801421941 19.484546262
+25  albicaulis                 23  -8.9107724267 19.357609412
+26  albicaulis                 24  -9.5759343228 19.723148832
+27  albicaulis                 25 -10.2071390049 20.080698320
+28  albicaulis                 26 -10.2224640310 20.162817878
+29  albicaulis                 27 -10.9035586185 20.587998227
+30  albicaulis                 28 -10.7759234037 20.559835749
+31  albicaulis                 29 -11.3674709816 20.942003944
+32  albicaulis                 30 -11.9468217023 21.320106519
+33  albicaulis                 31 -11.6546910285 21.055224800
+34  albicaulis                 32 -12.2151508930 21.422705810
+35  albicaulis                 33 -12.8289878875 21.857934716
+36  albicaulis                 34 -11.8949084525 21.135356576
+37  albicaulis                 35 -12.5156759468 21.528300309
+38  albicaulis                 36 -13.1050915475 21.910793412
+39  albicaulis                 37 -13.0014122805 21.951476571
+40  albicaulis                 38 -13.6590712675 22.358297675
+41  albicaulis                 39 -13.3141578779 22.143389794
+42  albicaulis                 40 -13.9256418451 22.558857995
+43  albicaulis                 41 -14.4604239906 22.933844679
+44  albicaulis                 42 -14.2168882006 22.770680088
+45  albicaulis                 43 -14.7911558481 23.172882522
+46  albicaulis                 44 -15.3417645288 23.557878436
+47  albicaulis                 45 -15.2798822460 23.604917962
+48  albicaulis                 46 -15.8578293433 23.994545218
+49  albicaulis                 47 -16.4336118447 24.403653838
+50  albicaulis                 48 -16.3706580555 24.450165823
+51  albicaulis                 49 -16.9357654041 24.853813929
+52  albicaulis                 50 -17.5205096876 25.270553325
+53  albicaulis                 51 -17.5296703297 25.406593407
+54  albicaulis                 52 -18.1626373626 25.861538462
+55  albicaulis                 53 -17.9559420547 25.944494975
+56  albicaulis                 54 -18.5194223218 26.352685405
+57  albicaulis                 55 -19.1183974089 26.789715376
+58  albicaulis                 56 -18.9457190823 26.930050364
+59  albicaulis                 57 -19.5277000560 27.335198657
+60  albicaulis                 58 -20.0761052043 27.713486290
+61  albicaulis                 59 -19.9742442727 27.920112060
+62  albicaulis                 60 -20.5797297908 28.333559261
+63  albicaulis                 61 -21.2349193439 28.778636302
+64  albicaulis                 62 -21.2036213541 29.080294634
+65  albicaulis                 63 -21.9584502064 29.620761214
+66  albicaulis                 64 -21.6545068341 29.892408570
+67  albicaulis                 65 -22.3240672331 30.326468415
+68  albicaulis                 66 -23.0744366457 30.804396010
+69  albicaulis                 67 -18.4216381932 28.716592083
+70  albicaulis                 68 -19.2202141074 29.253096645
+71  albicaulis                 69 -19.9866491952 29.730264296
+72  albicaulis                 70 -19.8098098098 29.909909910
+73  albicaulis                 71 -20.6231231231 30.377877878
+74  albicaulis                 72 -21.4114114114 30.820820821
+75  albicaulis                 73 -21.4475247024 30.962068181
+76  albicaulis                 74 -22.2182911728 31.391675722
+77  albicaulis                 75 -23.0067473655 31.864244017
+78  albicaulis                 76 -23.3126019576 32.149775693
+79  albicaulis                 77 -24.2608075041 32.720738173
+80  albicaulis                 78 -24.5479297236 32.929209904
+81  albicaulis                 79 -25.4263844652 33.448063290
+82  albicaulis                 80 -26.3202506935 33.972053837
+83  albicaulis                 81 -26.6618328715 34.264702074
+84  albicaulis                 82 -27.5707589922 34.782608696
+85  albicaulis                 83 -28.4978118445 35.365253645
+86  albicaulis                 84 -28.7171173056 35.599602531
+87  albicaulis                 85 -29.5957324408 36.195805659
+88  albicaulis                 86 -30.5397207259 36.792008786
+89  albicaulis                 87 -30.7356327924 36.908701061
+90  albicaulis                 88 -31.9559520343 37.771660005
+91  albicaulis                 89 -32.2487986900 38.111728544
+92  albicaulis                 90 -33.5829910606 39.070092078
+93  albicaulis                 91 -34.9037609729 39.958658828
+94  albicaulis                 92 -35.6421669743 40.638909999
+95  albicaulis                 93 -37.0779502768 41.691998697
+96  albicaulis                 94 -39.0158506134 43.211920530
+97  albicaulis                 95 -39.9135805889 44.209622469
+98  albicaulis                 96 -42.8496246849 46.713569509
+99  albicaulis                 97 -48.5416724372 51.843337119
+100 albicaulis                 98 -51.2813941568 54.852212541
+101 albicaulis                 99 -56.9622415855 59.818326784
+102 albicaulis                100 -65.4934791275 66.834671678
