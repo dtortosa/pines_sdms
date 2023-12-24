@@ -87,9 +87,10 @@ if(FALSE){ #Right now we are not interested in saving the rasters
 
 
 
-#################################################################
-##### CALCULATE RANGE LOSS AND CHANGE AND STACK PREDICTIONS #####
-#################################################################
+
+###########################
+##### DEFINE FUNCTION #####
+###########################
 
 #species="albicaulis"
 master_processor=function(species){
@@ -169,7 +170,7 @@ master_processor=function(species){
         #in the case of pumila, masking with the polygon_range_calc buffer leaves the sea of japan with zero instead of NA. This is caused when removing sea areas from the raster of that buffer, the two extremes of the Japan's sea almost touch and the area inside is included. This is not a problem because after that, we mask with the environmnetal varaible (bio1 and clay), so sea areas are removed. In species with several polygons of distribution is not a problem because: 1) The calc_range_buffer is ver big, so in almost all cases all polygons are included within it. If sea areas inside of them they will be removedd with environment_var. 
 
     #open data frame to save metrics of suitability change
-    suitability_changes = data.frame(species=NA, selected_threshold=NA, range_change=NA, range_loss=NA)
+    suitability_changes = data.frame(species=NA, selected_threshold=NA, current_suitable_area=NA, future_suitable_area_inside_current_range=NA, future_suitable_area_elsewhere=NA, range_change=NA, range_loss=NA)
 
     #for each threshold
     #selected_threshold=50
@@ -210,52 +211,109 @@ master_processor=function(species){
         suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, selected_threshold, current_suitable_area, future_suitable_area_inside_current_range, future_suitable_area_elsewhere, range_change, range_loss))
     }
 
+    #remove the first row with all NAs
     suitability_changes=suitability_changes[-1,]
+
+    #check that the suitable area is equal or lower always as the threshold increases. Note that we can have higher decreases of current suitable area than future suitable area as the threshold increases, leading to less range loss with a higher threshold, like threshold 66 vs 67 in albicaulis. This is ok. We calculate range loss as (current-future)/current. If the current area decreases more than the future, this means that the denominator is smaller while the numerator is larger, so the total is larger. This is an expected behaviour because we have proportionally higher future suitability respect to the current suitability, as current has decreased more.
+    #the important thing here is that always the current suitability is lower than in the previous threshold, and the same for the future suitability. This is what we are going to check here.
+    #suit_var="current_suitable_area"
+    for(suit_var in c("current_suitable_area", "future_suitable_area_inside_current_range", "future_suitable_area_elsewhere")){
+
+        #select the column corresponding with the selected variable 
+        selected_variable=suitability_changes[,which(colnames(suitability_changes)==suit_var)]
+        
+        #sort the variable from higher to lower
+        selected_variable_sorted=sort(selected_variable, decreasing=TRUE)
+
+        #check whether the variable is the same after sorting
+        if(identical(selected_variable_sorted, selected_variable) == FALSE){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE SIZE OF SUITABLE AREA")
+        }
+    }
 
     return(suitability_changes)
 }
 
-#master_processor(species="albicaulis")
+#run it for just one species
+master_processor(species="albicaulis")
 
+
+
+
+#######################
+##### PARALLELIZE #####
+#######################
 require(foreach)
 require(doParallel) #for parallel
 
-threshold_results_df = foreach(i=epithet_species_list[1:20], .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
+#set up cluster
+clust <- makeCluster(25) 
+registerDoParallel(clust)
+
+#run the function in parallel
+threshold_results_df = foreach(i=epithet_species_list, .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
     master_processor(species=i)
 }
+    #.combine: 
+        #function that is used to process the tasks results as they generated.  This can be specified as either a function or a non-empty character string naming the function. Specifying 'c' is useful for concatenating the results into a vector, for example.  The values 'cbind' and 'rbind' can combine vectors into a matrix.
+        #we use rbind.data.frame to combine each vector as a row in a data.frame
 
-##I do not see difference cores working!!!
+#stop the cluster 
+stopCluster(clust)
 
+#see the results
 print(threshold_results_df)
 
+#check we have all species and the correct number of rows
+check_1=nrow(threshold_results_df) == length(epithet_species_list)*101
+    #we have calculated range loss/change per each of the 112 species across 101 thresholds
+check_2=identical(unique(threshold_results_df$species), epithet_species_list)
+if(check_1 & check_2){
+    print("GOOD TO GO! We have the correct number of rows")
+} else {
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATIONS ACROSS THREHOLDS, WE DO NOT HAVE ALL SPECIES OR THE EXPECTED NUMBER OF ROWS")
+}
+
+#make a folder to save the results
 system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons")
 
-write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/eso.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
+#save the table
+write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
+#threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
 
+
+
+
+
+###########################
+##### PROCESS RESULTS #####
+###########################
+
+##plot range loss and change across thresholds
+#calculate median of range change/loss per threshold
+library(dplyr)
+mean_range_loss <- group_by(threshold_results_df, selected_threshold) %>% 
+    summarise(range_loss=median(range_loss), na.rm=TRUE)
+mean_range_change <- group_by(threshold_results_df, selected_threshold) %>% 
+    summarise(range_change=median(range_change), na.rm=TRUE)
+
+jpeg("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.jpeg", height=2000, width=2000, res=300)
+par(mfcol=c(2,1), mar=c(4.1, 4, 2, 4))
+
+    #plot range loss
+    plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="Range loss (%)", xlab="", type="l", lwd=0.1, cex=0.5)
+    lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=4, col="red")
+
+    #plot range change
+    plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="Range change (%)", xlab="Threshold (%)", type="l", lwd=0.1, cex=0.5)
+    lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=4, col="red")
+dev.off()
+detach("package:dplyr", unload=TRUE)
+    #some function names are overlapped with raster and other packages
 
 
 
 if(FALSE){
-
-
-    threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/eso.tsv", sep="\t", header=TRUE)
-
-    #CHECK THAT THE SUITABLE AREA CURRENT IS LOWER IN EACH STEP, AND THE SAME FOR FUTURE suitaiblity inside and outisde
-    #you can have higher decreases of current suitable area than future suitable area as the threshold increase, leading to less range loss with a higher threshold, like threshold 66 vs 67 in albicaulis. This is ok.
-    #the important thing is that always the current suitability is lower than in the previous threshold, and the same for the future suitability 
-
-    library(dplyr)
-    mean_data <- group_by(threshold_results_df, selected_threshold) %>% summarise(range_loss = mean(range_loss, na.rm = TRUE))
-
-    pdf("./results/global_figures/final_global_figures/threshold_comparisons/eso.pdf")
-
-    plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, cex=0.5)
-    lines(x=mean_data$selected_threshold, y=mean_data$range_loss, lwd=2, col="red")    dev.off()
-
-
-
-
-
     ##do some operations with the rasters so we can save all of them in stacks
     #extend the extent of the predictions to the whole globe
     current_suit = extend(current_suit, environment_var)
