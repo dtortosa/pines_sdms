@@ -30,6 +30,10 @@
 #set wroking directory
 setwd("/home/dftortosa/diego_docs/science/phd/nicho_pinus")
 
+#make a folders
+system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons")
+system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks")
+
 #require packages
 require(raster)
 require(sf)
@@ -71,17 +75,6 @@ buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buf
 
 #resample environment_var
 environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
-
-
-##HERE OPEN STACKS TO SAVE RASTER TO COMBINE PLOTS
-#open stacks for saving binary raster with current and future suitability
-if(FALSE){ #Right now we are not interested in saving the rasters
-    current_suit_stack = stack()
-    projected_suit_inside_range_stack = stack()
-    projected_suit_stack = stack()
-    sum_distributions = stack()
-    raster_range_calc_stack = stack()
-}
 
 #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Because of this, I have carefully masked and cropped all the predictions (current, future)
 
@@ -172,6 +165,10 @@ master_processor=function(species){
     #open data frame to save metrics of suitability change
     suitability_changes = data.frame(species=NA, selected_threshold=NA, current_suitable_area=NA, future_suitable_area_inside_current_range=NA, future_suitable_area_elsewhere=NA, range_change=NA, range_loss=NA)
 
+    #open stacks for saving binary raster with current and future suitability
+    selected_current_suit_stack = stack()
+    selected_projected_suit_stack = stack()
+
     #for each threshold
     #selected_threshold=50
     for(selected_threshold in seq(0,100,1)){
@@ -209,7 +206,17 @@ master_processor=function(species){
 
         #save metrics of suitability changes
         suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, selected_threshold, current_suitable_area, future_suitable_area_inside_current_range, future_suitable_area_elsewhere, range_change, range_loss))
+
+        #save suitability maps
+        selected_current_suit_stack = stack(selected_current_suit_stack, selected_current_suit)
+        selected_projected_suit_stack = stack(selected_projected_suit_stack, selected_projected_suit)
     }
+
+    #save the stacks
+    writeRaster(selected_current_suit_stack, paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+    writeRaster(selected_projected_suit_stack, paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        #https://stackoverflow.com/questions/42041695/writeraster-output-file-size
+        #CHECK COMPRESSION
 
     #remove the first row with all NAs
     suitability_changes=suitability_changes[-1,]
@@ -251,7 +258,7 @@ clust <- makeCluster(25)
 registerDoParallel(clust)
 
 #run the function in parallel
-threshold_results_df = foreach(i=epithet_species_list, .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
+threshold_results_df = foreach(i=epithet_species_list[1:25], .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
     master_processor(species=i)
 }
     #.combine: 
@@ -274,9 +281,6 @@ if(check_1 & check_2){
     stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATIONS ACROSS THREHOLDS, WE DO NOT HAVE ALL SPECIES OR THE EXPECTED NUMBER OF ROWS")
 }
 
-#make a folder to save the results
-system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons")
-
 #save the table
 write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
 #threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
@@ -297,20 +301,25 @@ mean_range_loss <- group_by(threshold_results_df, selected_threshold) %>%
 mean_range_change <- group_by(threshold_results_df, selected_threshold) %>% 
     summarise(range_change=median(range_change), na.rm=TRUE)
 
+#open the plot
 jpeg("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.jpeg", height=2000, width=2000, res=300)
-par(mfcol=c(2,1), mar=c(4.1, 4, 2, 4))
+par(mfcol=c(2,1), mar=c(4.1, 4, 1, 4))
 
-    #plot range loss
-    plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="Range loss (%)", xlab="", type="l", lwd=0.1, cex=0.5)
-    lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=4, col="red")
+#plot range loss
+plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="", xlab="", type="l", lwd=0.1, cex=0.5)
+title(ylab="Range loss (%)", line=2.5, cex.lab=1.2)
+lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=3, col="red")
 
-    #plot range change
-    plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="Range change (%)", xlab="Threshold (%)", type="l", lwd=0.1, cex=0.5)
-    lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=4, col="red")
+#plot range change
+plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="", xlab="", type="l", lwd=0.1, cex=0.5)
+title(xlab="Threshold (%)", ylab="Range change (%)", line=2.5, cex.lab=1.2)
+lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=3, col="red")
 dev.off()
 detach("package:dplyr", unload=TRUE)
     #some function names are overlapped with raster and other packages
 
+
+###COMBINE THE RASTER OF EACH THRESHOLD TO CALCULATE DIFFERENCE IN PINE RICHNESS BETTEN CURRENT AND FUTURE IN EACH LEVEL
 
 
 if(FALSE){
