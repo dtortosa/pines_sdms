@@ -32,7 +32,10 @@ setwd("/home/dftortosa/diego_docs/science/phd/nicho_pinus")
 
 #make a folders
 system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons")
+system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss")
+system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change")
 system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks")
+system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc")
 
 #require packages
 require(raster)
@@ -85,6 +88,11 @@ environment_var_low_res = resample(environment_var, buffer_albicaulis, method="b
 ##### DEFINE FUNCTION #####
 ###########################
 
+#set the thresholds and species to be tested
+thresholds_to_test = seq(0,100,1)
+species_to_test = epithet_species_list[1:length(epithet_species_list)]
+
+#write the function
 #species="albicaulis"
 master_processor=function(species){
 
@@ -116,7 +124,7 @@ master_processor=function(species){
     environment_var_low_res_cropped = crop(environment_var_low_res, polygon_range_calc)
     environment_var_low_res_cropped = mask(environment_var_low_res_cropped, polygon_range_calc)
 
-    #we want to save raster_range_calc for all species in a stack to have the area terrestrial area considered in the range calculations
+    #we want to save raster_range_calc for all species in a stack to have the area terrestrial area considered in the range calculations so we can crop the predictions across the globe
     #crop current suitability to reduce map size
     raster_range_calc = crop(raster_range_calc, polygon_range_calc)
 
@@ -133,9 +141,7 @@ master_processor=function(species){
     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
 
     #save raster_range_calc
-    if(FALSE){ #Right now, we are not interested in saving rasters now
-        raster_range_calc_stack = stack(raster_range_calc_stack, raster_range_calc)
-    }
+    writeRaster(raster_range_calc, paste("./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc/raster_range_calc_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
     #load predicted suitability
     current_suit = raster(paste("results/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))
@@ -171,7 +177,7 @@ master_processor=function(species){
 
     #for each threshold
     #selected_threshold=50
-    for(selected_threshold in seq(0,100,1)){
+    for(selected_threshold in thresholds_to_test){
 
         ##obtain maps with zero and ones from suitability maps (1 means suitable) using the selected threshold
         #current suitability
@@ -208,8 +214,17 @@ master_processor=function(species){
         suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, selected_threshold, current_suitable_area, future_suitable_area_inside_current_range, future_suitable_area_elsewhere, range_change, range_loss))
 
         #save suitability maps
+        #first, update layer names
+        names(selected_current_suit)=paste("threshold_", selected_threshold, "_", species, sep="")
+        names(selected_projected_suit)=paste("threshold_", selected_threshold, "_", species, sep="")
+        #then save
         selected_current_suit_stack = stack(selected_current_suit_stack, selected_current_suit)
         selected_projected_suit_stack = stack(selected_projected_suit_stack, selected_projected_suit)
+    }
+
+    #check we have a layer per each threshold in both stacks
+    if((nlayers(selected_current_suit_stack) != length(thresholds_to_test)) | (nlayers(selected_projected_suit_stack) != length(thresholds_to_test))){
+        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE PREDICTIONS ACROSS THRESHOLDS, WE DO NOT HAVE ALL THRESHOLDS FOR ", species, sep=""))
     }
 
     #save the stacks
@@ -218,8 +233,8 @@ master_processor=function(species){
         #https://stackoverflow.com/questions/42041695/writeraster-output-file-size
         #CHECK COMPRESSION
 
-    #remove the first row with all NAs
-    suitability_changes=suitability_changes[-1,]
+    #remove first row without NAs
+    suitability_changes = suitability_changes[-which(rowSums(is.na(suitability_changes)) == ncol(suitability_changes)),]
 
     #check that the suitable area is equal or lower always as the threshold increases. Note that we can have higher decreases of current suitable area than future suitable area as the threshold increases, leading to less range loss with a higher threshold, like threshold 66 vs 67 in albicaulis. This is ok. We calculate range loss as (current-future)/current. If the current area decreases more than the future, this means that the denominator is smaller while the numerator is larger, so the total is larger. This is an expected behaviour because we have proportionally higher future suitability respect to the current suitability, as current has decreased more.
     #the important thing here is that always the current suitability is lower than in the previous threshold, and the same for the future suitability. This is what we are going to check here.
@@ -238,6 +253,7 @@ master_processor=function(species){
         }
     }
 
+    #return only the table with range change and loss, the rest of results are saved as stacks
     return(suitability_changes)
 }
 
@@ -258,7 +274,7 @@ clust <- makeCluster(25)
 registerDoParallel(clust)
 
 #run the function in parallel
-threshold_results_df = foreach(i=epithet_species_list[1:25], .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
+threshold_results_df = foreach(i=species_to_test, .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
     master_processor(species=i)
 }
     #.combine: 
@@ -272,9 +288,9 @@ stopCluster(clust)
 print(threshold_results_df)
 
 #check we have all species and the correct number of rows
-check_1=nrow(threshold_results_df) == length(epithet_species_list)*101
+check_1=nrow(threshold_results_df) == length(species_to_test)*101
     #we have calculated range loss/change per each of the 112 species across 101 thresholds
-check_2=identical(unique(threshold_results_df$species), epithet_species_list)
+check_2=identical(unique(threshold_results_df$species), species_to_test)
 if(check_1 & check_2){
     print("GOOD TO GO! We have the correct number of rows")
 } else {
@@ -282,18 +298,17 @@ if(check_1 & check_2){
 }
 
 #save the table
-write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
+write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
 #threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
 
 
 
 
 
-###########################
-##### PROCESS RESULTS #####
-###########################
+########################################################
+##### PLOT RANGE CHANGE AND LOSS ACROSS THRESHOLDS #####
+########################################################
 
-##plot range loss and change across thresholds
 #calculate median of range change/loss per threshold
 library(dplyr)
 mean_range_loss <- group_by(threshold_results_df, selected_threshold) %>% 
@@ -302,16 +317,29 @@ mean_range_change <- group_by(threshold_results_df, selected_threshold) %>%
     summarise(range_change=median(range_change), na.rm=TRUE)
 
 #open the plot
-jpeg("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.jpeg", height=2000, width=2000, res=300)
+jpeg("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.jpeg", height=2000, width=2000, res=300)
 par(mfcol=c(2,1), mar=c(4.1, 4, 1, 4))
 
+
 #plot range loss
-plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="", xlab="", type="l", lwd=0.1, cex=0.5)
+plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="", xlab="", type="n", lwd=0.1, cex=0.5)
+for(species in unique(threshold_results_df$species)){
+    lines(
+        x=threshold_results_df[threshold_results_df$species==species,]$selected_threshold, 
+        y=threshold_results_df[threshold_results_df$species==species,]$range_loss, 
+        lwd=0.2, cex=0.5)
+}
 title(ylab="Range loss (%)", line=2.5, cex.lab=1.2)
 lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=3, col="red")
 
 #plot range change
-plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="", xlab="", type="l", lwd=0.1, cex=0.5)
+plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="", xlab="", type="n", lwd=0.1, cex=0.5)
+for(species in unique(threshold_results_df$species)){
+    lines(
+        x=threshold_results_df[threshold_results_df$species==species,]$selected_threshold, 
+        y=threshold_results_df[threshold_results_df$species==species,]$range_change, 
+        lwd=0.2, cex=0.5)
+}
 title(xlab="Threshold (%)", ylab="Range change (%)", line=2.5, cex.lab=1.2)
 lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=3, col="red")
 dev.off()
@@ -319,207 +347,159 @@ detach("package:dplyr", unload=TRUE)
     #some function names are overlapped with raster and other packages
 
 
-###COMBINE THE RASTER OF EACH THRESHOLD TO CALCULATE DIFFERENCE IN PINE RICHNESS BETTEN CURRENT AND FUTURE IN EACH LEVEL
 
 
-if(FALSE){
-    ##do some operations with the rasters so we can save all of them in stacks
-    #extend the extent of the predictions to the whole globe
-    current_suit = extend(current_suit, environment_var)
-    projected_suit_inside_range = extend(projected_suit_inside_range, environment_var)
-    phylo_ensamble_inside_range_intersect_projected_suit_inside_range = extend(phylo_ensamble_inside_range_intersect_projected_suit_inside_range, environment_var)
-    projected_suit = extend(projected_suit, environment_var)
-    phylo_ensamble_intersect_projected_suit = extend(phylo_ensamble_intersect_projected_suit, environment_var)
-
-    #set NAs as zero to avoid propagation of NAs in the sum
-    current_suit[which(is.na(getValues(current_suit)))] <- 0      
-    projected_suit_inside_range[which(is.na(getValues(projected_suit_inside_range)))] <- 0      
-    phylo_ensamble_inside_range_intersect_projected_suit_inside_range[which(is.na(getValues(phylo_ensamble_inside_range_intersect_projected_suit_inside_range)))] <- 0      
-    projected_suit[which(is.na(getValues(projected_suit)))] <- 0      
-    phylo_ensamble_intersect_projected_suit[which(is.na(getValues(phylo_ensamble_intersect_projected_suit)))] <- 0      
-
-    #save rasters
-    if(FALSE){ #Right now we are not interested in saving the rasters
-        current_suit_stack = stack(current_suit_stack, current_suit)
-        projected_suit_inside_range_stack = stack(projected_suit_inside_range_stack, projected_suit_inside_range)
-        phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack = stack(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack, phylo_ensamble_inside_range_intersect_projected_suit_inside_range)
-        projected_suit_stack = stack(projected_suit_stack, projected_suit)
-        phylo_ensamble_intersect_projected_suit_stack = stack(phylo_ensamble_intersect_projected_suit_stack, phylo_ensamble_intersect_projected_suit)
-    }
+#######################################################################
+##### CALCULATE THE DIFFERENCE IN PINE RICHNESS IN EACH THRESHOLD #####
+#######################################################################
 
 
-    #remove first row without NAs
-    suitability_changes = suitability_changes[-which(rowSums(is.na(suitability_changes)) == ncol(suitability_changes)),]
+##obtain a polygon with the combined area used to male calculations in all pine species
+#load the polygons used for calculations of changes of suitability (calc_ranges) in all species
+raster_range_calc_stack = stack(list.files("./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc/", full.names=TRUE, pattern=".grd"))
 
-    #check all species are included in the table
-    nrow(suitability_changes) == length(epithet_species_list)
-
-    #save the table
-    write.table(suitability_changes, "results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", row.names=FALSE, col.names=TRUE)
-        #suitability_changes = read.table("results/global_figures/initial_global_figures/suitability_changes_phylo_non_scaled_v1.csv", sep=",", header=TRUE)
-
-    #check all species are included in the stacks
-    if(FALSE){
-        nlayers(current_suit_stack) == 112
-        nlayers(projected_suit_inside_range_stack) == 112
-        nlayers(phylo_ensamble_inside_range_intersect_projected_suit_inside_range_stack) == 112
-        nlayers(projected_suit_stack) == 112
-        nlayers(phylo_ensamble_intersect_projected_suit_stack) == 112
-        nlayers(raster_range_calc_stack)
-        nlayers(sum_distributions)
-    }
-
-    #sum predictions under current and future conditions
-    if(FALSE){ #Right now we are not interested in saving the rasters
-        current_suit_stack_sum = calc(current_suit_stack, function(x) (sum(x)))
-        projected_suit_stack_sum = calc(projected_suit_stack, function(x) (sum(x)))
-        projected_suit_phylo_stack_sum = calc(phylo_ensamble_intersect_projected_suit_stack, function(x) (sum(x)))
-        sum_distributions_sum = calc(sum_distributions, function(x) (sum(x)))
-        raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
-    }
-
-    #save the rasters
-    if(FALSE){ #Right now we are not interested in saving the rasters
-        #writeRaster(current_suit_stack_sum, "results/global_figures/initial_global_figures/current_suit_stack_sum.asc", overwrite=TRUE)
-        #writeRaster(projected_suit_stack_sum, "results/global_figures/initial_global_figures/projected_suit_stack_sum.asc", overwrite=TRUE)
-        writeRaster(projected_suit_phylo_stack_sum, "results/global_figures/initial_global_figures/projected_suit_phylo_nonscaled_stack_sum.asc", overwrite=TRUE)
-        #writeRaster(sum_distributions_sum, "results/global_figures/initial_global_figures/sum_distributions_sum.asc", overwrite=TRUE)
-        #writeRaster(raster_range_calc_stack_sum, "results/global_figures/initial_global_figures/raster_range_calc_stack_sum.asc", overwrite=TRUE)
-    }
-
-
-    ##Calculate the differences between phylo - no phylo
-    differ_percent = data.frame(selected_species=NA, range_loss_no_phylo=NA, range_loss_phylo=NA, differ_range_loss=NA, range_change_no_phylo=NA, range_change_phylo=NA, differ_range_change=NA)
-    for(i in 1:length(epithet_species_list)){
-
-        #selected species
-        selected_species = epithet_species_list[i]
-
-        #select the [i] row
-        selected_row = suitability_changes[which(suitability_changes$species==selected_species),]
-
-        #extract percentage
-        range_loss_no_phylo = selected_row$range_loss_no_phylo
-        range_loss_phylo = selected_row$range_loss_phylo   
-        range_change_no_phylo = selected_row$range_change_no_phylo
-        range_change_phylo = selected_row$range_change_phylo  
-
-        #calculate absolute difference
-        differ_range_loss = abs(range_loss_phylo-range_loss_no_phylo)
-        differ_range_change = abs(range_change_phylo-range_change_no_phylo)
-
-        #save it
-        differ_percent = rbind.data.frame( differ_percent, cbind.data.frame(selected_species, range_loss_no_phylo, range_loss_phylo, differ_range_loss, range_change_no_phylo, range_change_phylo, differ_range_change))
-    }
-    differ_percent = differ_percent[-which(rowSums(is.na(differ_percent)) == ncol(differ_percent)),]
-
-    #check all species are included in the table
-    nrow(differ_percent) == length(epithet_species_list)
-
-    #calculate median and the interquartile range
-    median_values = cbind.data.frame("global median", rbind.data.frame(apply(differ_percent[,-1], 2, median)))
-    first_quartile_values = cbind.data.frame("global first quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.25)))
-    third_quartile_values = cbind.data.frame("global third quartile", rbind.data.frame(apply(differ_percent[,-1], 2, quantile, 0.75)))
-    interquartile_range = cbind.data.frame("global interquartile range", third_quartile_values[-1]-first_quartile_values[-1]) #we have to add [-1] to avoid selecting the first column with the name
-    #check
-    interquartile_range[,-1] == third_quartile_values[-1] - first_quartile_values[-1]
-    #add column names
-    names(median_values) <- c("selected_species", colnames(differ_percent[,-1]))
-    names(first_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
-    names(third_quartile_values) <- c("selected_species", colnames(differ_percent[,-1]))
-    names(interquartile_range) <- c("selected_species", colnames(differ_percent[,-1]))
-        #It makes sense to use the mean and the standard deviation as measures of center and spread only for distributions that are reasonably symmetric with a central peak. When outliers are present, the mean and standard deviation are not a good choice (unless you want that these outliers influence the summary statistic). An outlier can decrease/increase the mean so that the mean is too low or too high to be representative of whole sample The outlier can also decrease/increase the standard deviation, which gives the impression of a wide variability in the variable This makes sense because the standard deviation measures the average deviation of the data from the mean. So a point that has a large deviation from the mean will increase the average of the deviations. This is the case for several of the variables presented in this table (see annotated plot line). Therefore, we are going to use the median and the interquartile range.
-            #par(mfcol=c(3,2)); for(i in 2:ncol(differ_percent)){plot(differ_percent[,i])}
-            #Link very useful and simple: https://courses.lumenlearning.com/wmopen-concepts-statistics/chapter/standard-deviation-4-of-4/
-        # I guess it does not make sense to use median +- IQR because the distance between the median and the second quartile could be different from the distance to the third quartile. 
-            #For example, consider the following sequence: c(1,2,3,4,5,6,7,8,9,9,9,10). The second quartile would be 3.750, the median would be 6.500, and the third quartile would be 9.000. 9.000-6.500=2.5, while 6.500-3.750=2.75. Therefore, the median is closer to the second quartile.
-
-    #bind to the data.frame
-    differ_percent = rbind.data.frame(median_values, first_quartile_values, third_quartile_values, interquartile_range, differ_percent)
-    str(differ_percent)
-
-    #save it
-    write.table(differ_percent, "results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", sep=",", col.names = TRUE, row.names = FALSE)
-        #differ_percent = read.table("results/global_figures/final_global_figures/differ_phylo_inside_nonscaled_v1.csv", header=TRUE, sep=",")
-
-
-
-    ##############################################
-    ##### COMPARE PHYLO SCALE AND NON-SCALED #####
-    ##############################################
-
-    #copy differ_percent as phylo_non_scaled to avoid confusion 
-    phylo_nonscaled = differ_percent
-    #remove rows of summary metrics (median, IQR...)
-    phylo_nonscaled = phylo_nonscaled[which(!phylo_nonscaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
-
-    #load results phylo scaled
-    phylo_scaled = read.table("results/global_figures/final_global_figures/differ_phylo_inside_v3.csv", header=TRUE, sep=",")
-    #remove rows of summary metrics (median, IQR...)
-    phylo_scaled = phylo_scaled[which(!phylo_scaled$selected_species %in% c("global median", "global first quartile", "global third quartile", "global interquartile range")),]
-
-    #merge both dataframes
-    phylo_scaled_nonscaled = merge(x=phylo_nonscaled, y=phylo_scaled, by="selected_species", suffixes = c("_p_nonscaled", "_p_scaled"), all.x = TRUE, all.y = TRUE)
-        #suffixes: a character vector of length 2 specifying the suffixes to be used for making unique the names of columns in the result which are not used for merging (appearing in ‘by’ etc).
-        #all.x: logical; if ‘TRUE’, then extra rows will be added to the output, one for each row in ‘x’ that has no matching row in ‘y’.  These rows will have ‘NA’s in those columns that are usually filled with values from ‘y’.  The default is ‘FALSE’, so that only rows with data from both ‘x’ and ‘y’ are included in the output.
-        #all.y: logical; analogous to ‘all.x’.
-
-
-    ##plot range loss phylo scaled vs non-scaled
-    #open the pdf
-    pdf("results/global_figures/final_global_figures/phylo_scaled_vs_non_scaled.pdf", height = 6, width = 12)
-    par(mfrow=c(1,2),  mar=c(6.5, 4, 2, 2) +0.1)
-
-    #make the plot
-    plot(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, type="p", xlab="Range loss - Phylo non-scaled", ylab="Range loss - Phylo scaled", cex.lab=1.5)
-
-    #make the correlation
-    tests_rl = cor.test(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled, phylo_scaled_nonscaled$range_loss_phylo_p_scaled, method="spearman")
-
-    #extract and plot the results of the correlation
-    if(tests_rl$p.value < 2.2e-16){
-        tests_rl_p = bquote(italic(p.value) < .(format(2.2e-16)))
-    }else{
-        tests_rl_p = bquote(italic(p.value) == .(format(tests_rl$p.value, digits = 3)))
-    }
-    text(x=20, y=60, labels = tests_rl_p, cex=1.3)
-    tests_rl_s = bquote(italic(S) == .(format(tests_rl$statistic, digits = 3)))
-    text(x=20, y=55, labels = tests_rl_s, cex=1.3)
-    tests_rl_rho = bquote(italic(rho) == .(format(tests_rl$estimate, digits = 3)))
-    text(x=20, y=50, labels = tests_rl_rho, cex=1.3)
-
-
-    ##plot range change phylo scaled vs. non-scaled
-    #make the plot
-    plot(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, type="p", xlab="Range change - Phylo non-scaled", ylab="Range change - Phylo scaled", cex.lab=1.5)
-
-    #make the correlation
-    tests_rg = cor.test(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled, phylo_scaled_nonscaled$range_change_phylo_p_scaled, method="spearman")
-
-    #extract and plot the results of the correlation
-    if(tests_rg$p.value < 2.2e-16){
-        tests_rg_p = bquote(italic(p.value) < .(format(2.2e-16)))
-    }else{
-        tests_rg_p = bquote(italic(p.value) == .(format(tests_rg$p.value, digits = 3)))
-    }
-    text(x=-35, y=47, labels = tests_rg_p, cex=1.3)
-    tests_rg_s = bquote(italic(S) == .(format(tests_rg$statistic, digits = 3)))
-    text(x=-35, y=37, labels = tests_rg_s, cex=1.3)
-    tests_rg_rho = bquote(italic(rho) == .(format(tests_rg$estimate, digits = 3)))
-    text(x=-35, y=27, labels = tests_rg_rho, cex=1.3)
-
-    #add the title plot
-    #mtext("Online supplementary figure ...", side=1, font=2, cex=2, adj=0.015, padj=1.5, outer=TRUE, line=-3)
-
-    #close the pdf
-    dev.off()
-
-
-    ## see the data reordered based on the difference between phylo scaled and non-scaled
-    #range loss
-    phylo_scaled_nonscaled[order(abs(phylo_scaled_nonscaled$range_loss_phylo_p_nonscaled - phylo_scaled_nonscaled$range_loss_phylo_p_scaled), decreasing = TRUE), c("selected_species", "range_loss_phylo_p_nonscaled", "range_loss_phylo_p_scaled")]
-    #range change
-    phylo_scaled_nonscaled[order(abs(phylo_scaled_nonscaled$range_change_phylo_p_nonscaled - phylo_scaled_nonscaled$range_change_phylo_p_scaled), decreasing = TRUE), c("selected_species", "range_change_phylo_p_nonscaled", "range_change_phylo_p_scaled")]
-
-    #Only a few species show some differences between scaled and non-scaled. Given this and the great correlation between the two approaches across the whole genus, it seems that the scaling is not influencing results at the scale of the whole genus.
+#check we have all species
+if(nlayers(raster_range_calc_stack) != length(species_to_test)){
+    stop("ERROR! FALSE! WE DO NOT HAVE ALL SPECIES IN raster_range_calc_stack")
 }
+
+#sum the calculation area of all species
+raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+
+#convert raster_range_calc_stack_sum to zero-one
+raster_range_calc_stack_sum[which(getValues(raster_range_calc_stack_sum) > 0)] <- 1
+    #now every cell being considered in the calculation of at least 1 species will be 1
+
+#convert to polygon
+polygon_range_calc_stack_sum = rasterToPolygons(raster_range_calc_stack_sum, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
+    #use that polygon for masking predictions rasters and remove areas outside the buffers calc ranges
+
+
+##define a function to calculate the difference in pine richness between current and future predictions for a given threshold
+#n_layer=50
+#we use the number of the layer instead of the name of the threshold. Threshold 0 is layer number 1. Threshold 100 is layer number 101. We can extract layer 1 from a stack, but not number 0.
+stack_pred_threshold = function(n_layer){
+    
+    #open stacks to save the pine richness of each species for the same layer (threshold) across the different threshold calculations
+    current_suit_stack=stack()
+    future_suit_stack=stack()
+
+    #species=species_to_test[1]
+    for(species in species_to_test){
+
+        #load the stack with current and future predictions for the selected species, which include the different thresholds
+        stack_current_suit_species = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, ".grd", sep=""))
+        stack_future_suit_species = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, ".grd", sep=""))
+
+        #extract the selected_layer
+        current_suit_species_threhold = stack_current_suit_species[[which(names(stack_current_suit_species)==paste("threshold_", n_layer-1, "_", species, sep=""))]]
+        future_suit_species_threhold = stack_future_suit_species[[which(names(stack_future_suit_species)==paste("threshold_", n_layer-1, "_", species, sep=""))]]
+
+        #extend the extent of the predictions to the whole globe
+        current_suit_species_threhold = extend(current_suit_species_threhold, environment_var)
+        future_suit_species_threhold = extend(future_suit_species_threhold, environment_var)
+
+        #set NAs as zero to avoid propagation of NAs in the sum
+        current_suit_species_threhold[which(is.na(getValues(current_suit_species_threhold)))] <- 0      
+        future_suit_species_threhold[which(is.na(getValues(future_suit_species_threhold)))] <- 0  
+
+        #remove the areas outside the global distribution of pines
+        current_suit_species_threhold = mask(current_suit_species_threhold, polygon_range_calc_stack_sum)
+        future_suit_species_threhold = mask(future_suit_species_threhold, polygon_range_calc_stack_sum)
+
+        #save the raster
+        current_suit_stack=stack(current_suit_stack, current_suit_species_threhold)
+        future_suit_stack=stack(future_suit_stack, future_suit_species_threhold)
+    }
+
+    #check we have a layer per each threshold in both stacks
+    if((nlayers(current_suit_stack) != length(species_to_test)) | (nlayers(future_suit_stack) != length(species_to_test))){
+        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING PINE RICHNESS ACROSS THRESHOLDS, WE DO NOT HAVE ALL SPECIES FOR THRESHOLD ", n_layer-1, sep=""))
+    }
+
+    #sum the presence of all pines into one single raster for current and future conditions, respectively
+    current_suit_stack_sum = sum(current_suit_stack)
+    future_suit_stack_sum = sum(future_suit_stack)
+    
+    #calculate the difference in pine richness between current and future conditions for the selected threshold
+    diff_suit = current_suit_stack_sum - future_suit_stack_sum
+    return(diff_suit)    
+}
+#stack_pred_threshold(1)
+
+##parallelize the function
+#load packages
+require(foreach)
+require(doParallel)
+
+#set up cluster
+clust <- makeCluster(10)
+    #only 10 to avoid memory explosion
+registerDoParallel(clust)
+
+#run the function in parallel
+diff_suit_stack = foreach(i=thresholds_to_test+1, .packages=c("raster", "sf"), .combine="stack") %dopar% { 
+    stack_pred_threshold(n_layer=i)
+}
+    #thresholds_to_test+1 is the number of layers. Threshold 0 is layer 1, threshold 1 is layer 2, and so on...
+    #the output is a raster, so use stack to save the different raster into a stack
+
+#stop the cluster 
+stopCluster(clust)
+
+#check
+if((class(diff_suit_stack)[1] != "RasterStack") | (nlayer(diff_suit_stack) != length(thresholds_to_test))){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE DIFFERENCE IN PINE RICHNESS ACROSS THRESHOLDS")
+}
+
+
+##calculate the percentage of thresholds for which a cell have less or more pine species
+#copy the stack with the difference
+diff_suit_stack_positive=diff_suit_stack
+diff_suit_stack_negative=diff_suit_stack
+
+#in each layer, convert to zero those cases that have negative or positive change in richness for the positive and negative rasters, respectively
+for(layer in 1:nlayers(diff_suit_stack)){
+    diff_suit_stack_positive[[layer]][which(getValues(diff_suit_stack_positive[[layer]])<0)] <- 0
+    diff_suit_stack_positive[[layer]][which(getValues(diff_suit_stack_positive[[layer]])>0)] <- 1
+    diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])>0)] <- 0
+    diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])<0)] <- 1
+}
+
+#calculate the proportion of thresholds that have positive and negative change in pine richness, respectively
+positive_pine_richness_across_thresholds = (sum(diff_suit_stack_positive)/nlayers(diff_suit_stack_positive))*100
+negative_pine_richness_across_thresholds = (sum(diff_suit_stack_negative)/nlayers(diff_suit_stack_negative))*100
+
+#save them
+writeRaster(positive_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/positive_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+writeRaster(negative_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/negative_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+
+
+##make two plots with percentage of thresholds gaining or losing species 
+#set extent of the raster to be plotted
+plot_extent = c(-180,180,-10,90) #if you change the extent of the plot, some sea border could change (only difference of 1 cell). For example, when you plot the whole globe, save the plot as pdf and then zoom to the Canary Islands, the shape of the island is not very accurate. If you crop the maps to P. canariensis buffer, then the shape of the islands in the pdf is more similar to the reality.
+
+##define the color palette
+require(RColorBrewer)
+#We selected from Colorbrewer a single hue pallete with green. As we are going to plot only one variable in each plot.
+green_palette <-brewer.pal(9,"Greens")
+    #Names taken from "http://colorbrewer2.org/#type=sequential&scheme=Greens&n=9"
+    #All works for anomalous trychromacy and dychromacy ("http://www.color-blindness.com/coblis-color-blindness-simulator/")
+#these palletes are used in colorRampPalette to create a function that can create a great number of colors 
+colfunc_green <- colorRampPalette(green_palette)
+
+
+##open the plot
+jpeg("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/change_pine_richness.jpeg", height=2000, width=2000, res=300)
+par(mfcol=c(2,1), mai=c(0,0.4,0,0.5), oma=c(0,0,2,1))
+
+#upper plot
+plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
+plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.4)) 
+    #colors of colorbrewer2 can be seen at "http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=3"
+    #breaks indicate the number of partitions between colors, whilst "at" indicate the numbers in the legend. The number of colors have to be EQUAL to the number o breaks. Breaks should encompass the RANGE of values of the raster
+
+#lower plot
+plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
+plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.4))
+dev.off()
