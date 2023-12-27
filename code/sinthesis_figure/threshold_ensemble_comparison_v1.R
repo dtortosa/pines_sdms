@@ -105,17 +105,12 @@ master_processor=function(species){
     #convert NAs into 0 to avoid problems in the sum
     ocurrences_buffer[which(is.na(getValues(ocurrences_buffer)))] <- 0
 
-    #save it
-    if(FALSE){ #Right now, we are not interesting in saving. 
-        sum_distributions = stack(sum_distributions, ocurrences_buffer)
-    }
-
     #load the polygon used for calculations of changes of suitability (calc_ranges)
     if(!species=="pumila"){
         raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_range_calc_buffer.asc", sep=""))
     } else {
         raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_buffer_range_calc.asc", sep=""))        
-    }                
+    }             
     polygon_range_calc = rasterToPolygons(raster_range_calc, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
 
     #crop and mask clay (this raster will be used to remove sea areas from polygon_range_calc)
@@ -521,4 +516,7 @@ dev.off()
 print("## FINISH ##")
 
 #next steps
+#check slurm in UGR page
+    #maybe use job generator
+    #https://supercomputacion.ugr.es/informacion/envio-trabajos/
 ##QUICK CHECL IF WE ARE MISSING SOMETHING FROM FINAL GLOBAL AND SINTENTISS FIGURE, ALSO RAFA PRO?
