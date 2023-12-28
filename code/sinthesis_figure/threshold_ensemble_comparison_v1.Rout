@@ -1,112 +1,318 @@
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198111 10.6
-Vcells 245982  1.9    8388608 64.0  1016781  7.8
-Loading required package: colorout
+
+R version 4.3.2 (2023-10-31) -- "Eye Holes"
+Copyright (C) 2023 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #!/usr/bin/env Rscript
+> 
+> #This is done to have the possibility to run this script as an executable: 'chmod +x myscript.R' and then ' ./myscript.R'. If you run the script as 'R CMD BATCH myscript.R', i THINK this is not used, because it is annotated. 
+>     #https://www.jonzelner.net/statistics/make/docker/reproducibility/2016/05/31/script-is-a-program/
+> 
+> #In case you run this script as an executable, you can save the output without warnings "./myscript.R > myscript.Rout" or with errors "./myscript.R &> myscript.Rout"
+>     #https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
+> 
+> 
+> 
+> #########################################################
+> ####### COMPARISON OF SEVERAL ENSEMBLE THRESHOLDS ####### #########################################################
+> 
+> #This script compares the results of considering different ensemble thresholds.
+> 
+> 
+> 
+> ###################################################
+> ##### DIFFERENCES RESPECT TO PREVIOUS VERSION #####
+> ###################################################
+> 
+> #Respect to version 1:
+> 
+> 
+> 
+> ########################
+> ##### BEGIN SCRIPT #####
+> ########################
+> 
+> #set wroking directory
+> #setwd("/home/dftortosa/diego_docs/science/phd/nicho_pinus")
+> 
+> #make a folders
+> system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons")
+> system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss")
+> system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change")
+> system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks")
+> system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc")
+> 
+> #require packages
+> require(raster)
 Loading required package: raster
 Loading required package: sp
+> require(sf)
 Loading required package: sf
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+> 
+> #load species names
+> list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
+> 
+> #extract epithet from species list
+> epithet_species_list = NULL
+> for(i in 1:nrow(list_species)){
++ 
++     #selected species
++     selected_species = as.vector(list_species[i,])
++ 
++     #extract epithet
++     epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
++ }
+> #check there is no NA
+> summary(!is.na(epithet_species_list))
    Mode    TRUE 
 logical     114 
+> #check
+> if(FALSE){
++     require(tidyverse)
++     paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
++ }#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
+> 
+> #remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+> epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+> #check these species are not present
+> !c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
 [1] TRUE TRUE TRUE
+> 
+> #load environment variables for using them as a background
+> clay = raster("datos/finals/clay.asc")
+> bio1 = raster("datos/finals/bio1.asc")
+> environment_var = clay*bio1
+> environment_var[which(getValues(environment_var) >= min(getValues(environment_var), na.rm = TRUE))] <- 0 #set all continent areas as 0. These are areas with data, that is not NA. All continent areas will be zero, while the rest would be zero.
+> 
+> #load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
+> buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
+> 
+> #resample environment_var
+> environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
+> 
+> #It's key that you remove all areas outside the range_calc_buffer and the water bodies for ALL rasters, because these areas would enter into the calculations. Because of this, I have carefully masked and cropped all the predictions (current, future)
+> 
+> 
+> 
+> 
+> ###########################
+> ##### DEFINE FUNCTION #####
+> ###########################
+> 
+> #set the thresholds and species to be tested
+> thresholds_to_test = seq(0,100,1)
+> species_to_test = epithet_species_list[1:length(epithet_species_list)]
+> 
+> #write the function
+> #species="albicaulis"
+> master_processor=function(species){
++ 
++     #load distribution buffer
++     ocurrences_buffer = raster(paste("results/ocurrences/", species, "_distribution_buffer", ".asc", sep=""))
++ 
++     #drop sea areas inside the ocurrences_buffer
++     ocurrences_buffer = mask(ocurrences_buffer, environment_var_low_res, inverse=FALSE)     
++ 
++     #convert NAs into 0 to avoid problems in the sum
++     ocurrences_buffer[which(is.na(getValues(ocurrences_buffer)))] <- 0
++ 
++     #load the polygon used for calculations of changes of suitability (calc_ranges)
++     if(!species=="pumila"){
++         raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_range_calc_buffer.asc", sep=""))
++     } else {
++         raster_range_calc = raster(paste("results/global_figures/buffers_calc_ranges/", species, "_buffer_range_calc.asc", sep=""))        
++     }             
++     polygon_range_calc = rasterToPolygons(raster_range_calc, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
++ 
++     #crop and mask clay (this raster will be used to remove sea areas from polygon_range_calc)
++     environment_var_cropped = crop(environment_var, polygon_range_calc)
++     environment_var_cropped = mask(environment_var_cropped, polygon_range_calc)
++     environment_var_low_res_cropped = crop(environment_var_low_res, polygon_range_calc)
++     environment_var_low_res_cropped = mask(environment_var_low_res_cropped, polygon_range_calc)
++ 
++     #we want to save raster_range_calc for all species in a stack to have the area terrestrial area considered in the range calculations so we can crop the predictions across the globe
++     #crop current suitability to reduce map size
++     raster_range_calc = crop(raster_range_calc, polygon_range_calc)
++ 
++     #mask current suitability to remove all areas outside the buffer calc range
++     raster_range_calc = mask(raster_range_calc, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     raster_range_calc = mask(raster_range_calc, environment_var_low_res_cropped)
++ 
++     #extend the raster
++     raster_range_calc = extend(raster_range_calc, environment_var_low_res)
++ 
++     #convert NAs into 0 to avoid problems in the sum
++     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
++ 
++     #save raster_range_calc
++     writeRaster(raster_range_calc, paste("./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc/raster_range_calc_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
++ 
++     #load predicted suitability
++     current_suit = raster(paste("results/ensamble_predictions_bin/ensamble_predictions_bin_", species, ".tif", sep=""))
++ 
++     #crop current suitability to reduce map size
++     current_suit = crop(current_suit, polygon_range_calc)
++ 
++     #mask current suitability to remove all areas outside the buffer calc range
++     current_suit = mask(current_suit, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     current_suit = mask(current_suit, environment_var_cropped)
++ 
++     #load projected suitability
++     projected_suit = raster(paste("results/ensamble_projections_bin/ensamble_projections_bin_", species, ".tif", sep=""))
++ 
++     #crop current suitability to reduce map size
++     projected_suit = crop(projected_suit, polygon_range_calc)
++     
++     #mask current suitability to remove all areas outside the buffer calc range
++     projected_suit = mask(projected_suit, polygon_range_calc)
++ 
++     #mask with clay to remove water bodies
++     projected_suit = mask(projected_suit, environment_var_cropped)
++         #in the case of pumila, masking with the polygon_range_calc buffer leaves the sea of japan with zero instead of NA. This is caused when removing sea areas from the raster of that buffer, the two extremes of the Japan's sea almost touch and the area inside is included. This is not a problem because after that, we mask with the environmnetal varaible (bio1 and clay), so sea areas are removed. In species with several polygons of distribution is not a problem because: 1) The calc_range_buffer is ver big, so in almost all cases all polygons are included within it. If sea areas inside of them they will be removedd with environment_var. 
++ 
++     #open data frame to save metrics of suitability change
++     suitability_changes = data.frame(species=NA, selected_threshold=NA, current_suitable_area=NA, future_suitable_area_inside_current_range=NA, future_suitable_area_elsewhere=NA, range_change=NA, range_loss=NA)
++ 
++     #open stacks for saving binary raster with current and future suitability
++     selected_current_suit_stack = stack()
++     selected_projected_suit_stack = stack()
++ 
++     #for each threshold
++     #selected_threshold=50
++     for(selected_threshold in thresholds_to_test){
++ 
++         ##obtain maps with zero and ones from suitability maps (1 means suitable) using the selected threshold
++         #current suitability
++         selected_current_suit = current_suit
++         selected_current_suit[which(getValues(selected_current_suit) < selected_threshold)] <- 0 #set as zero those areas with suitability lower than 75
++         selected_current_suit[which(getValues(selected_current_suit) > 0)] <- 1 #set as 1 all areas with suitability higher than zero (i.e. all with suit equal or higher than k)
++ 
++         #future suitability
++         selected_projected_suit = projected_suit
++         selected_projected_suit[which(getValues(selected_projected_suit) < selected_threshold)] <- 0 #set as zero those areas with suitability lower than 75
++         selected_projected_suit[which(getValues(selected_projected_suit) > 0)] <- 1 #set as 1 all areas with suitability higher than zero (i.e. all with suit equal or higher than k)
++ 
++         #extract suitability under future conditions from areas that are currently suitables
++         projected_suit_inside_range = selected_projected_suit
++         projected_suit_inside_range[which(!getValues(selected_current_suit)==1)] <- 0
++ 
++         #extract size of area suitable
++         current_suitable_area = length(which(getValues(selected_current_suit)==1))
++         future_suitable_area_inside_current_range = length(which(getValues(projected_suit_inside_range)==1))
++         future_suitable_area_elsewhere = length(which(getValues(selected_projected_suit)==1))
++ 
++         #check that suitability outside current range and under future conditons is at least equal to the suitability inside areas that are currently suitable
++         if(future_suitable_area_elsewhere < future_suitable_area_inside_current_range){
++             stop("ERROR! FALSE! PROBLEM WITH CALCULATION SUITABLE ARE IN FUTURE")
++         }
++ 
++         #calculate range loss as (current suitable area - nº cells of that area that remain suitable ) / current suitable area, then multiplied by 100
++         range_loss = ((current_suitable_area - future_suitable_area_inside_current_range) / current_suitable_area ) * 100
++ 
++         #calculate range change as (nº cells of that area that are suitable across the whole calc_range_buffer - current suitable areas) / current suitable area, then multiplied by 100. Here we consider future suitability of both areas that are suitable or unsuitable currently
++         range_change = ((future_suitable_area_elsewhere - current_suitable_area) / current_suitable_area ) * 100
++ 
++         #save metrics of suitability changes
++         suitability_changes = rbind.data.frame(suitability_changes, cbind.data.frame(species, selected_threshold, current_suitable_area, future_suitable_area_inside_current_range, future_suitable_area_elsewhere, range_change, range_loss))
++ 
++         #save suitability maps
++         #first, update layer names
++         names(selected_current_suit)=paste("threshold_", selected_threshold, "_", species, sep="")
++         names(selected_projected_suit)=paste("threshold_", selected_threshold, "_", species, sep="")
++         #then save
++         selected_current_suit_stack = stack(selected_current_suit_stack, selected_current_suit)
++         selected_projected_suit_stack = stack(selected_projected_suit_stack, selected_projected_suit)
++     }
++ 
++     #check we have a layer per each threshold in both stacks
++     if((nlayers(selected_current_suit_stack) != length(thresholds_to_test)) | (nlayers(selected_projected_suit_stack) != length(thresholds_to_test))){
++         stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE PREDICTIONS ACROSS THRESHOLDS, WE DO NOT HAVE ALL THRESHOLDS FOR ", species, sep=""))
++     }
++ 
++     #save the stacks
++     writeRaster(selected_current_suit_stack, paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
++     writeRaster(selected_projected_suit_stack, paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
++         #https://stackoverflow.com/questions/42041695/writeraster-output-file-size
++         #CHECK COMPRESSION
++ 
++     #remove first row without NAs
++     suitability_changes = suitability_changes[-which(rowSums(is.na(suitability_changes)) == ncol(suitability_changes)),]
++ 
++     #check that the suitable area is equal or lower always as the threshold increases. Note that we can have higher decreases of current suitable area than future suitable area as the threshold increases, leading to less range loss with a higher threshold, like threshold 66 vs 67 in albicaulis. This is ok. We calculate range loss as (current-future)/current. If the current area decreases more than the future, this means that the denominator is smaller while the numerator is larger, so the total is larger. This is an expected behaviour because we have proportionally higher future suitability respect to the current suitability, as current has decreased more.
++     #the important thing here is that always the current suitability is lower than in the previous threshold, and the same for the future suitability. This is what we are going to check here.
++     #suit_var="current_suitable_area"
++     for(suit_var in c("current_suitable_area", "future_suitable_area_inside_current_range", "future_suitable_area_elsewhere")){
++ 
++         #select the column corresponding with the selected variable 
++         selected_variable=suitability_changes[,which(colnames(suitability_changes)==suit_var)]
++         
++         #sort the variable from higher to lower
++         selected_variable_sorted=sort(selected_variable, decreasing=TRUE)
++ 
++         #check whether the variable is the same after sorting
++         if(identical(selected_variable_sorted, selected_variable) == FALSE){
++             stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE SIZE OF SUITABLE AREA")
++         }
++     }
++ 
++     #return only the table with range change and loss, the rest of results are saved as stacks
++     return(suitability_changes)
++ }
+> 
+> #run it for just one species
+> #master_processor(species="albicaulis")
+> 
+> 
+> 
+> 
+> #######################
+> ##### PARALLELIZE #####
+> #######################
+> require(foreach)
 Loading required package: foreach
+> require(doParallel) #for parallel
 Loading required package: doParallel
 Loading required package: iterators
 Loading required package: parallel
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608       64.0   used  1016790 (Mb)  7.8 gc trigger
- (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-[1]Loading required package: colorout
- FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-starting worker pid=61544 on localhost:11713 at 14:14:14.110
-starting worker pid=61543 on localhost:11713 at 14:14:14.114
-starting worker pid=61547 on localhost:11713 at 14:14:14.120
-starting worker pid=61549 on localhost:11713 at 14:14:14.121
-starting worker pid=61546 on localhost:11713 at 14:14:14.126
-starting worker pid=61550 on localhost:11713 at 14:14:14.128
-starting worker pid=61548 on localhost:11713 at 14:14:14.131
-starting worker pid=61542 on localhost:11713 at 14:14:14.134
-starting worker pid=61545 on localhost:11713 at 14:14:14.142
-starting worker pid=61541 on localhost:11713 at 14:14:14.144
+> 
+> #set up cluster
+> clust <- makeCluster(10, outfile="")
+starting worker pid=2787048 on localhost:11002 at 05:40:28.655
+starting worker pid=2787054 on localhost:11002 at 05:40:28.655
+starting worker pid=2787049 on localhost:11002 at 05:40:28.655
+starting worker pid=2787052 on localhost:11002 at 05:40:28.655
+starting worker pid=2787050 on localhost:11002 at 05:40:28.655
+starting worker pid=2787053 on localhost:11002 at 05:40:28.656
+starting worker pid=2787046 on localhost:11002 at 05:40:28.656
+starting worker pid=2787051 on localhost:11002 at 05:40:28.656
+starting worker pid=2787047 on localhost:11002 at 05:40:28.656
+starting worker pid=2787055 on localhost:11002 at 05:40:28.656
+>     #only 15 to avoid memory explosion
+>     #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
+>         #https://stackoverflow.com/a/24352032
+> registerDoParallel(clust)
+> 
+> #run the function in parallel
+> threshold_results_df = foreach(i=species_to_test, .packages=c("raster", "sf"), .combine="rbind.data.frame") %dopar% { 
++     master_processor(species=i)
++ }
 Loading required package: sp
 Loading required package: sp
 Loading required package: sp
@@ -117,126 +323,13 @@ Loading required package: sp
 Loading required package: sp
 Loading required package: sp
 Loading required package: sp
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-     species selected_threshold current_suitable_area
-2 albicaulis                  0                 54636
-3 albicaulis                  1                 54636
-4 albicaulis                  2                 54636
-5 albicaulis                  3                 53648
-6 albicaulis                  4                 53648
-7 albicaulis                  5                 53648
-  future_suitable_area_inside_current_range future_suitable_area_elsewhere
-2                                     52471                          62163
-3                                     50341                          57830
-4                                     49214                          56092
-5                                     48035                          54900
-6                                     47356                          53973
-7                                     46822                          53243
-   range_change   range_loss
-2 13.7766307929  3.962588769
-3  5.8459623691  7.861117212
-4  2.6649095834  9.923859726
-5  2.3337309872 10.462645392
-6  0.6058007754 11.728303012
-7 -0.7549209663 12.723680286
-   species          selected_threshold current_suitable_area
- Length:11312       Min.   :  0        Min.   :   132.0     
- Class :character   1st Qu.: 25        1st Qu.:  8672.0     
- Mode  :character   Median : 50        Median : 18418.0     
-                    Mean   : 50        Mean   : 30883.1     
-                    3rd Qu.: 75        3rd Qu.: 32851.0     
-                    Max.   :100        Max.   :490275.0     
- future_suitable_area_inside_current_range future_suitable_area_elsewhere
- Min.   :     0.00                         Min.   :     0.00             
- 1st Qu.:  6575.75                         1st Qu.:  7075.75             
- Median : 16020.00                         Median : 16963.50             
- Mean   : 26398.11                         Mean   : 30008.01             
- 3rd Qu.: 29402.25                         3rd Qu.: 32773.00             
- Max.   :480865.00                         Max.   :575529.00             
-  range_change           range_loss        
- Min.   :-100.000000   Min.   :  0.000000  
- 1st Qu.: -14.668479   1st Qu.:  3.967066  
- Median :  -2.637428   Median :  8.755166  
- Mean   :  -7.332519   Mean   : 15.585515  
- 3rd Qu.:   3.464065   3rd Qu.: 20.474907  
- Max.   : 116.883895   Max.   :100.000000  
-[1] "GOOD TO GO! We have the correct number of rows"
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:raster’:
-
-    intersect, select, union
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-null device 
-          1 
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells[1] 245982 FALSE  1.9
-    8388608 64.0Warning message:
-  1016790  7.8
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198157 10.6
-Vcells 245982  1.9    8388608 64.0  1016790  7.8
-Loading required package: colorout
-starting worker pid=62760 on localhost:11713 at 14:24:30.230
-starting worker pid=62762 on localhost:11713 at 14:24:30.230
-starting worker pid=62763 on localhost:11713 at 14:24:30.237
-starting worker pid=62761 on localhost:11713 at 14:24:30.239
-Loading required package: sp
-Loading required package: sp
-Loading required package: sp
-Loading required package: sp
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Error in unserialize(socklist[[n]]) : error reading from connection
-Calls: %dopar% ... recvOneData -> recvOneData.SOCKcluster -> unserialize
-Execution halted
-Error in serialize(data, node$con) : ignoring SIGPIPE signal
-Calls: <Anonymous> ... doTryCatch -> sendData -> sendData.SOCKnode -> serialize
-Execution halted
-Error in serialize(data, node$con) : ignoring SIGPIPE signal
-Calls: <Anonymous> ... doTryCatch -> sendData -> sendData.SOCKnode -> serialize
-Execution halted
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE

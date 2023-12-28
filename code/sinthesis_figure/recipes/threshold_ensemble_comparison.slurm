@@ -3,23 +3,23 @@
 # --------------------------------------------------------------
 ### PART 1: Requests resources to run your job.
 # --------------------------------------------------------------
+###info about slurm commands: https://slurm.schedmd.com/pdfs/summary.pdf
 ### Optional. Set the job name
 #SBATCH --job-name=threshold_ensemble_comparison
 ### Optional. Set the output filename.
 ### SLURM reads %x as the job name and %j as the job ID
 #SBATCH --output=%x-%j.out
-### REQUIRED. Specify the PI group for this job
-### SBATCH --account=denard
+#SBATCH --error=%x-%j.err
 ### Optional. Request email when job begins and ends
 ### SBATCH --mail-type=ALL
 ### Optional. Specify email address to use for notification
 ### SBATCH --mail-user=dftortosa@email.arizona.edu
 ### REQUIRED. Set the partition for your job.
 #SBATCH --partition=albaicin
-### OPTIONAL. Select the cores bought by David.
-### SBATCH --qos=user_qos_denard
-### REQUIRED. Set the number of cores that will be used for this job.
-#SBATCH --ntasks=10
+### REQUIRED. Set the number of cores and nodes that will be used for this job. It seems that each node has 56 cores, so you have to adjust accordingly
+#SBATCH --nodes=1
+#SBATCH --ntasks=20
+#SBATCH --ntasks-per-node=20
 ### OPTIONAL. You can set the number of cores per task. This can be useful for scripts in which inside the parallelized process there are other subprocesses. For example, you run 22 independent processes for each chromosome and then you also parallelize the calculations inside each chromosome (https://stackoverflow.com/a/51141287)
 #SBATCH --cpus-per-task=1
 ### REQUIRED. Set the memory required for this job. I will set 40GC per each of the 100 cores=4000GB; https://public.confluence.arizona.edu/display/UAHPC/Allocation+and+Limits
@@ -39,5 +39,6 @@
 module load singularity
 ### change to your script’s directory
 cd /home/UGR002/dsalazar/phd/nicho_pinus
+	#/home is the stable directory, while scratch is where results of analyses can be stored temporary, as stuff gets removed after 20 days
 ### Run your work
 singularity run ubuntu_20_04_threshold_ensemble_comparison.sif
