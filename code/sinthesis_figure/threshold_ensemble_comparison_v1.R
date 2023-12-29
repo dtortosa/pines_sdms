@@ -425,7 +425,6 @@ stack_pred_threshold = function(n_layer){
             (names(current_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep="")) |
             (names(future_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep=""))){
             stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE SELECTION OF THE SPECIFIC LAYER FOR THRESHOLD ", n_layer-1, " in ", species, sep=""))
-
         }
 
         #extend the extent of the predictions to the whole globe

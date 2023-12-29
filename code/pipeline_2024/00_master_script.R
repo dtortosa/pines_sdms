@@ -40,4 +40,4 @@ master_pipeline=function(species, exsitu, moisture, phylo){
 }
 
 
-master_pipeline(species="radiata", exsitu="yes", moisture="yes", phylo="yes")
+master_pipeline(species="halepensis", exsitu="yes", moisture="yes", phylo="yes")
