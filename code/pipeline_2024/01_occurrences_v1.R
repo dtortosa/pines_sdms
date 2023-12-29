@@ -39,7 +39,7 @@ exsitu=args[2]
 
 
 ##create folders
-system(paste("mkdir -p ./results/pipeline_2024/", species, "/occurrences", sep=""))
+system(paste("mkdir -p ./results/pipeline_2024/", species, "/01_occurrences", sep=""))
 
 #
 if(FALSE){
@@ -99,9 +99,12 @@ if(FALSE){
     #set the seed to have reproducible results
     set.seed(5683)
 
-
     #Cargamos area distribucion
-    distribution = raster(paste("/home/dftortosa/diego_docs/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p", paste(species, "01.img", sep="_") ,sep="_")) #select the path of the distribution file of the corresponding species
+    distribution = raster(paste("./datos/MAPS/p_", species, "_01.img", sep="")) #select the path of the distribution file of the corresponding species
+        #new notes
+            #the original path was "paste("/home/dftortosa/diego_docs/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS/p", paste(species, "01.img", sep="_") ,sep="_")"
+            #we have moved the data to nicho_pinus
+                #cp -r /home/dftortosa/diego_docs/science/phd/dispersal_heterogeneity/datos/DATOS/MAPS /home/dftortosa/diego_docs/science/phd/nicho_pinus/datos/
 
     #create a polygon of the dsitribution
     polygon = rasterToPolygons(distribution, fun=function(x){x==1}) #convertimos en poligono the raster using the cell with values=1
@@ -132,17 +135,20 @@ if(FALSE){
     raster_buffer[!is.na(raster_buffer)] <- 1 #give value of 1 to all cells without NA, in this way include cell of distribution raster with 1 and cell outside the distribution raster but inside the raster buffer (with 0).  
 
     #compare with the original buffer created using rgeos in 2016
-    original_raster_buffer = raster(paste("results/ocurrences/", species, "_distribution_buffer", ".asc", sep=""))
+    original_raster_buffer = raster(paste("./results/ocurrences/", species, "_distribution_buffer", ".asc", sep=""))
     compareRaster(original_raster_buffer, raster_buffer, extent=TRUE, rowcol=TRUE, crs=TRUE, res=TRUE, orig=TRUE, rotation=TRUE, values=TRUE, tolerance=1e-9, stopiffalse=TRUE, showwarning=FALSE)
         #we check that everything is the same
         #tolerance goes from 0 to 0.5, being the default in raster (rasterOptions()) equal to 0.1. Therefore, we are using a very low tolerance by setting it at 1e-9.
         #stopiffalse=TRUE to stop the script in case they are not the same
 
+    #save raster of distribution buffer
+    writeRaster(raster_buffer, paste("./results/pipeline_2024/", species, "/01_occurrences/ocurrences_", species, "_distribution_buffer.asc", sep=""), format="ascii", overwrite=TRUE)
+
     #create the new polygon without sea areas
     polygon_buffer = rasterToPolygons(raster_buffer, fun=function(x){x==1})
 
-    #save raster of distribution buffer
-    writeRaster(raster_buffer, paste("./results/pipeline_2024/", species, "/occurrences/ocurrences_", species, "_distribution_buffer.asc", sep=""), format="ascii", overwrite=TRUE)
+
+    ##por aquii
 
 
 
