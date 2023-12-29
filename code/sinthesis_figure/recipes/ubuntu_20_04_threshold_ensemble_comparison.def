@@ -157,7 +157,7 @@ From: ubuntu:20.04 #When using the library bootstrap agent, the From keyword bec
 		require(SystWrapper)
 		
 		#For this script we want to see more than 8 digits in the terminal. 8 is the default, so for example, if you make the following division: (45959538+45965751)/2. You will get 45962644, instead of 45962644.5, which is the correct solution. This is caused becasue 45962644.5 has more than 8 numbers, so the last one it is not shown. This does not mean that the calculation is wrong, the correct calculus is made (you can check it with print(x, digits=8 or 9)), but you don´t see the complete solution in the terminal. Because of this, for this work with long numbers (genetic coordinates) we will set the a higher number of digits that are shown
-		options(digits = 10)' > .Rprofile
+		options(digits = 10)' > /opt/.Rprofile
 		#https://www.cyberciti.biz/faq/linux-append-text-to-end-of-file/
 
 	#unset the non-interactive option used to avoid problems with TZ
@@ -190,7 +190,7 @@ From: ubuntu:20.04 #When using the library bootstrap agent, the From keyword bec
 
 	export TZ=UTC #set the time to UTC. First, UTC avoid problems if you are working with people/clusters at different time zones. In addition, seeting the time avoids problems with some packages trying to change it (https://stackoverflow.com/questions/25646420/why-should-i-use-utc; http://yellerapp.com/posts/2015-01-12-the-worst-server-setup-you-can-make.html).
 
-	export R_PROFILE=/.Rprofile #indicate where the Rprofile is located. We just created it in the general folder, the parent folder of /opt
+	export R_PROFILE=/opt/.Rprofile #indicate where the Rprofile is located. We just created it in /opt
 
 
 

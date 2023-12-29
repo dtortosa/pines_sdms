@@ -415,13 +415,18 @@ stack_pred_threshold = function(n_layer){
     #species=species_to_test[1]
     for(species in species_to_test){
 
-        #load the stack with current and future predictions for the selected species, which include the different thresholds
-        stack_current_suit_species = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, ".grd", sep=""))
-        stack_future_suit_species = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, ".grd", sep=""))
+        #load the specific layer within the current and future predictions for the selected species, which includes the different thresholds
+        #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
+        current_suit_species_threhold = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, ".grd", sep=""), bands=n_layer)[[1]]
+        future_suit_species_threhold = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, ".grd", sep=""), bands=n_layer)[[1]]
 
-        #extract the selected_layer
-        current_suit_species_threhold = stack_current_suit_species[[which(names(stack_current_suit_species)==paste("threshold_", n_layer-1, "_", species, sep=""))]]
-        future_suit_species_threhold = stack_future_suit_species[[which(names(stack_future_suit_species)==paste("threshold_", n_layer-1, "_", species, sep=""))]]
+        #check we have selected the correct layer name
+        if(
+            (names(current_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep="")) |
+            (names(future_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep=""))){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE SELECTION OF THE SPECIFIC LAYER FOR THRESHOLD ", n_layer-1, " in ", species, sep=""))
+
+        }
 
         #extend the extent of the predictions to the whole globe
         current_suit_species_threhold = extend(current_suit_species_threhold, environment_var)
