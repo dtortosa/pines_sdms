@@ -1,10 +1,31 @@
-#SEWAL. Code for modelling and project into the future. It is prepared for run in sewall.  
+#!/usr/bin/env Rscript
 
-###################################
-#ESTABLECE EL DIRECTORIO DE TRABAJO
-###################################
-#DIRECTORIO DE TRABAJO
-setwd("/Users/dsalazar/nicho_pinus/")
+#This is done to have the possibility to run this script as an executable: 'chmod +x myscript.R' and then ' ./myscript.R'. If you run the script as 'R CMD BATCH myscript.R', i THINK this is not used, because it is annotated. 
+    #https://www.jonzelner.net/statistics/make/docker/reproducibility/2016/05/31/script-is-a-program/
+
+#In case you run this script as an executable, you can save the output without warnings "./myscript.R > myscript.Rout" or with errors "./myscript.R &> myscript.Rout"
+    #https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
+
+
+
+#########################################################
+####### COMPARE CURRENT EXSITU PREDICTIONS WITH AND WITHOUT PHYLO ####### #########################################################
+
+#This script compares the results of predicting current suitability under current conditions outside the natural distribution of the pines.
+
+
+
+###################################################
+##### DIFFERENCES RESPECT TO PREVIOUS VERSION #####
+###################################################
+
+#Respect to version 1:
+
+
+
+########################
+##### BEGIN SCRIPT #####
+########################
 
 
 ####################################################

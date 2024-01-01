@@ -435,10 +435,6 @@ stack_pred_threshold = function(n_layer){
         current_suit_species_threhold[which(is.na(getValues(current_suit_species_threhold)))] <- 0      
         future_suit_species_threhold[which(is.na(getValues(future_suit_species_threhold)))] <- 0  
 
-        #remove the areas outside the global distribution of pines
-        current_suit_species_threhold = mask(current_suit_species_threhold, polygon_range_calc_stack_sum)
-        future_suit_species_threhold = mask(future_suit_species_threhold, polygon_range_calc_stack_sum)
-
         #save the raster
         current_suit_stack=stack(current_suit_stack, current_suit_species_threhold)
         future_suit_stack=stack(future_suit_stack, future_suit_species_threhold)
@@ -470,7 +466,7 @@ stack_pred_threshold = function(n_layer){
     print(paste("ENDING THRESHOLD ", n_layer-1, sep=""))
     return(diff_suit)
 }
-#stack_pred_threshold(1)
+#diff_suit_stack=stack(stack_pred_threshold(26), stack_pred_threshold(50), stack_pred_threshold(76))
 
 ##parallelize the function
 #load packages
@@ -506,6 +502,9 @@ if(
     stop("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE DIFFERENCE IN PINE RICHNESS ACROSS THRESHOLDS")
 }
 
+#save the stack with the difference in richness across thresholds
+writeRaster(diff_suit_stack, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack", options="COMPRESS=LZW", overwrite=TRUE)
+
 
 ##calculate the percentage of thresholds for which a cell have less or more pine species
 #copy the stack with the difference
@@ -526,9 +525,19 @@ for(layer in 1:nlayers(diff_suit_stack)){
 positive_pine_richness_across_thresholds = (sum(diff_suit_stack_positive)/nlayers(diff_suit_stack_positive))*100
 negative_pine_richness_across_thresholds = (sum(diff_suit_stack_negative)/nlayers(diff_suit_stack_negative))*100
 
+#remove water bodies
+positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, environment_var)
+negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, environment_var)
+
+#remove the areas outside the global distribution of pines
+positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
+negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
+
 #save them
 writeRaster(positive_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/positive_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+    #positive_pine_richness_across_thresholds=raster("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/positive_pine_richness_across_thresholds.grd")
 writeRaster(negative_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/negative_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+    #negative_pine_richness_across_thresholds=raster("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/negative_pine_richness_across_thresholds.grd")
 
 
 ##make two plots with percentage of thresholds gaining or losing species 
@@ -546,18 +555,18 @@ colfunc_green <- colorRampPalette(green_palette)
 
 
 ##open the plot
-jpeg("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/change_pine_richness.jpeg", height=2000, width=2000, res=300)
+cairo_pdf("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/change_pine_richness.pdf", width=12, height=12)
 par(mfcol=c(2,1), mai=c(0,0.4,0,0.5), oma=c(0,0,2,1))
 
 #upper plot
 plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.2)) 
+plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
     #colors of colorbrewer2 can be seen at "http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=3"
     #breaks indicate the number of partitions between colors, whilst "at" indicate the numbers in the legend. The number of colors have to be EQUAL to the number o breaks. Breaks should encompass the RANGE of values of the raster
 
 #lower plot
 plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.2))
+plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
 dev.off()
 
 
@@ -569,3 +578,9 @@ dev.off()
 
 #finish the script
 print("## FINISH ##")
+
+
+#why with the three first species, some areas non-suitable for 50 are suitable 75% threshold?
+    #plot(diff_suit_stack_positive[[3]]-diff_suit_stack_positive[[2]])
+#check changes in def file
+#check only the changes you did for the last figure

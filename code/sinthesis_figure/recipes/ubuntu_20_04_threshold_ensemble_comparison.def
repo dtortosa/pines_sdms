@@ -127,13 +127,22 @@ From: ubuntu:20.04 #When using the library bootstrap agent, the From keyword bec
 	#install curl packages to avoid problems with R package compilation
 	apt-get -y install libcurl4-gnutls-dev libxml2-dev libssl-dev
 
+	#install R packages
+	Rscript -e 'install.packages("terra", repos="https://cloud.r-project.org", dep=T)'
+	Rscript -e 'install.packages("raster", repos="https://cloud.r-project.org", dep=T)'
+	Rscript -e 'install.packages("sf", repos="https://cloud.r-project.org", dep=T)'
+	Rscript -e 'install.packages("R.utils", repos="https://cloud.r-project.org", dep=T)' 
+	Rscript -e 'install.packages("foreach", repos="https://cloud.r-project.org", dep=T)' 
+	Rscript -e 'install.packages("doParallel", repos="https://cloud.r-project.org", dep=T)'
+	Rscript -e 'install.packages("RColorBrewer", repos="https://cloud.r-project.org", dep=T)'
+	#Rscript -e 'install.packages("devtools", repos="https://cloud.r-project.org", dep=T)' 
+	#Rscript -e 'devtools::install_github("jalvesaq/colorout")' 
+	#Rscript -e 'devtools::install_github("DanielRivasMD/SistWrapper")'
+
 	#create the .Rprofile
 	echo '
 		#specify folder with packages
-		.First <- function(){
-    		.libPaths = .libPaths("/usr/local/lib/R/site-library")
-		}
-			#we need to modify .libPaths() function in order to force that our selected folder is the first one, because if you run the container in your laptop, my library in /home will go first.
+    	.libPaths("/usr/local/lib/R/site-library")
 
 		#we avoid loading the previous workspace by removing the rdata file of the last session
 		file.remove(".RData") #if no R data is present, a warning will be produced.
@@ -153,12 +162,8 @@ From: ubuntu:20.04 #When using the library bootstrap agent, the From keyword bec
 		#For this script we want to see more than 8 digits in the terminal. 8 is the default, so for example, if you make the following division: (45959538+45965751)/2. You will get 45962644, instead of 45962644.5, which is the correct solution. This is caused becasue 45962644.5 has more than 8 numbers, so the last one it is not shown. This does not mean that the calculation is wrong, the correct calculus is made (you can check it with print(x, digits=8 or 9)), but you don´t see the complete solution in the terminal. Because of this, for this work with long numbers (genetic coordinates) we will set the a higher number of digits that are shown
 		options(digits = 10)' > /opt/.Rprofile
 		#https://www.cyberciti.biz/faq/linux-append-text-to-end-of-file/
-
-	#install R packages
-	Rscript -e 'install.packages("RColorBrewer", repos="https://cloud.r-project.org", dep=T)'
-	#Rscript -e 'install.packages("devtools", repos="https://cloud.r-project.org", dep=T)' 
-	#Rscript -e 'devtools::install_github("jalvesaq/colorout")' 
-	#Rscript -e 'devtools::install_github("DanielRivasMD/SistWrapper")'
+		#if you want more option to easily customize your R profile, check this link out:
+			#https://www.r-bloggers.com/2020/01/customising-your-rprofile/
 
 	#unset the non-interactive option used to avoid problems with TZ
 	unset DEBIAN_FRONTEND
@@ -190,9 +195,10 @@ From: ubuntu:20.04 #When using the library bootstrap agent, the From keyword bec
 
 	export TZ=UTC #set the time to UTC. First, UTC avoid problems if you are working with people/clusters at different time zones. In addition, seeting the time avoids problems with some packages trying to change it (https://stackoverflow.com/questions/25646420/why-should-i-use-utc; http://yellerapp.com/posts/2015-01-12-the-worst-server-setup-you-can-make.html).
 
-	export R_PROFILE=/opt/.Rprofile #indicate where the Rprofile is located. We just created it in /opt
+	export R_LIBS_USER=/usr/local/lib/R/site-library #indicate the place where packages should be installed. The custom R profile will point to that folder, so when opening R, it will look for packages there.
 
-	export R_LIBS_USER=/usr/local/lib/R/site-library #indicate again the place where you want to install R packages
+	export R_PROFILE_USER=/opt/.Rprofile #indicate where the Rprofile is located. We just created it in /opt.
+
 
 
 
