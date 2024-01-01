@@ -15,6 +15,18 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
+[1] TRUE
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 126729  6.8     350000 18.7   195675 10.5
+Vcells 249646  2.0    8388608 64.0  1022685  7.9
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
 > #!/usr/bin/env Rscript
 > 
 > #This is done to have the possibility to run this script as an executable: 'chmod +x myscript.R' and then ' ./myscript.R'. If you run the script as 'R CMD BATCH myscript.R', i THINK this is not used, because it is annotated. 
@@ -54,13 +66,20 @@ Type 'q()' to quit R.
 > system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks")
 > system("mkdir -p ./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc")
 > 
+> #pre-defined functions
+> plot_sin=function(input){
++     jpeg("./singularity_plot.jpeg", height=2000, width=2000, res=300)
++     plot(input)
++     dev.off()
++ }
+> 
 > #require packages
 > require(raster)
 Loading required package: raster
 Loading required package: sp
 > require(sf)
 Loading required package: sf
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 > 
 > #load species names
 > list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
@@ -159,7 +178,7 @@ logical     114
 +     #convert NAs into 0 to avoid problems in the sum
 +     raster_range_calc[which(is.na(getValues(raster_range_calc)))] <- 0
 + 
-+     #save raster_range_calc
++     #save raster_range_calc. This will be used to create a polygon with the whole distribution of all pines globally
 +     writeRaster(raster_range_calc, paste("./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc/raster_range_calc_", species, sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 + 
 +     #load predicted suitability
@@ -218,13 +237,18 @@ logical     114
 +         future_suitable_area_inside_current_range = length(which(getValues(projected_suit_inside_range)==1))
 +         future_suitable_area_elsewhere = length(which(getValues(selected_projected_suit)==1))
 + 
++         #we should have the same cells with 1 in projected_suit_inside_range and selected_current_suit
++         if(sum(!which(getValues(projected_suit_inside_range)==1) %in% which(getValues(selected_current_suit)==1)) > 0){
++             stop("ERROR! PROBLEM! WE HAVE A PROBLEM WHEN CALCULATING THE FUTURE SUITABLE AREAS IN CURRENT SUITABLE REGIONS")
++         }
++ 
 +         #check that suitability outside current range and under future conditons is at least equal to the suitability inside areas that are currently suitable
-+         if(future_suitable_area_elsewhere < future_suitable_area_inside_current_range){
++         if((future_suitable_area_elsewhere < future_suitable_area_inside_current_range) | (future_suitable_area_inside_current_range > current_suitable_area)){
 +             stop("ERROR! FALSE! PROBLEM WITH CALCULATION SUITABLE ARE IN FUTURE")
 +         }
 + 
 +         #calculate range loss as (current suitable area - nº cells of that area that remain suitable ) / current suitable area, then multiplied by 100
-+         range_loss = ((current_suitable_area - future_suitable_area_inside_current_range) / current_suitable_area ) * 100
++         range_loss = ((current_suitable_area - future_suitable_area_inside_current_range) / current_suitable_area) * 100
 + 
 +         #calculate range change as (nº cells of that area that are suitable across the whole calc_range_buffer - current suitable areas) / current suitable area, then multiplied by 100. Here we consider future suitability of both areas that are suitable or unsuitable currently
 +         range_change = ((future_suitable_area_elsewhere - current_suitable_area) / current_suitable_area ) * 100
@@ -239,6 +263,13 @@ logical     114
 +         #then save
 +         selected_current_suit_stack = stack(selected_current_suit_stack, selected_current_suit)
 +         selected_projected_suit_stack = stack(selected_projected_suit_stack, selected_projected_suit)
++     }
++ 
++     #check we have the correct layer names
++     if(
++         (!identical(names(selected_current_suit_stack), paste("threshold_", thresholds_to_test, "_", species, sep=""))) | 
++         (!identical(names(selected_projected_suit_stack), paste("threshold_", thresholds_to_test, "_", species, sep="")))){
++         stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE PREDICTIONS ACROSS THRESHOLDS, WE DO NOT HAVE ALL THE CORRECT LAYER NAMES FOR ", species, sep="")) 
 +     }
 + 
 +     #check we have a layer per each threshold in both stacks
@@ -293,18 +324,328 @@ Loading required package: iterators
 Loading required package: parallel
 > 
 > #set up cluster
-> clust <- makeCluster(10, outfile="")
-starting worker pid=2787048 on localhost:11002 at 05:40:28.655
-starting worker pid=2787054 on localhost:11002 at 05:40:28.655
-starting worker pid=2787049 on localhost:11002 at 05:40:28.655
-starting worker pid=2787052 on localhost:11002 at 05:40:28.655
-starting worker pid=2787050 on localhost:11002 at 05:40:28.655
-starting worker pid=2787053 on localhost:11002 at 05:40:28.656
-starting worker pid=2787046 on localhost:11002 at 05:40:28.656
-starting worker pid=2787051 on localhost:11002 at 05:40:28.656
-starting worker pid=2787047 on localhost:11002 at 05:40:28.656
-starting worker pid=2787055 on localhost:11002 at 05:40:28.656
->     #only 15 to avoid memory explosion
+> clust <- makeCluster(20, outfile="")
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1][1][1][1] FALSE FALSE FALSE
+
+
+ FALSEWarning message:
+Warning message:
+
+Warning message:
+Warning message:
+In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :
+ 
+ In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+
+  cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+[1][1] FALSE
+Warning message:
+ FALSE
+Warning message:
+In file.remove(".RData") :
+ [1] cannot remove file '.RData', reason 'No such file or directory'
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+ FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1][1] FALSE FALSE
+
+Warning message:
+Warning message:
+In file.remove(".RData") :In file.remove(".RData") :
+ 
+  cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+[1]In file.remove(".RData") : FALSE
+ 
+ cannot remove file '.RData', reason 'No such file or directory'
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9           350000   used 18.7 (Mb)   196907 gc trigger 10.6 (Mb)
+Vcells max used 251229 (Mb)  2.0
+Ncells    8388608 64.0  1031475 127709  7.9  6.9
+     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+               used   used (Mb) (Mb) gc trigger gc trigger (Mb) (Mb) max used max used (Mb) (Mb)
+Ncells
+Ncells 127709 127709  6.9  6.9     350000     350000 18.7 18.7   196907   196907 10.6 10.6
+Vcells
+Vcells 251229 251229  2.0  2.0    8388608    8388608 64.0 64.0  1031475  1031475  7.9  7.9
+
+         used       (Mb)   used gc trigger (Mb) (Mb) gc trigger max used (Mb) (Mb) max used
+Ncells (Mb)
+Ncells 127709  6.9 127709     350000  6.9       18.7     350000   used 18.7   196907 (Mb) 10.6   196907 gc trigger 10.6
+Vcells (Mb) 251229
+Vcells max used  2.0 251229 (Mb)    8388608  2.0
+Ncells    8388608 64.0 64.0  1031475  1031475 127709  7.9  7.9  6.9
+
+     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: colorout
+Loading required package: colorout
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229        2.0   used    8388608 (Mb) 64.0 gc trigger  1031475 (Mb)  7.9 max used
+ (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+Loading required package: SystWrapper
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+      Warning message:
+   used (Mb) gc trigger (Mb) max used (Mb)
+NcellsIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : 127709
+   6.9 there is no package called 'colorout'
+     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: SystWrapper
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+Loading required package: SystWrapper
+Loading required package: colorout
+      In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :   used
+ 
+ 
+ 
+ 
+ Warning message:
+ (Mb) there is no package called 'SystWrapper'
+Loading required package: colorout
+ there is no package called 'colorout'
+ there is no package called 'SystWrapper'
+ there is no package called 'colorout'
+ there is no package called 'colorout'
+ gc triggerWarning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
+  max used there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
+ 
+Ncells there is no package called 'SystWrapper'
+ 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+Loading required package: SystWrapper
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+      In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+Warning message:
+   used
+  (Mb) there is no package called 'SystWrapper'
+ gc triggerIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
+ 
+  there is no package called 'SystWrapper'
+ max used there is no package called 'SystWrapper'
+ (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: colorout
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+VcellsLoading required package: colorout
+ 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: colorout
+      Loading required package: SystWrapper
+   used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608Loading required package: SystWrapper
+ 64.0  1031475  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+VcellsLoading required package: colorout
+ 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+Loading required package: colorout
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: colorout
+
+  there is no package called 'colorout'
+Loading required package: colorout
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: colorout
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: SystWrapper
+Loading required package: colorout
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+starting worker pid=1642437 on localhost:11868 at 10:31:29.246
+starting worker pid=1642445 on localhost:11868 at 10:31:29.248
+starting worker pid=1642446 on localhost:11868 at 10:31:29.249
+starting worker pid=1642432 on localhost:11868 at 10:31:29.249
+starting worker pid=1642441 on localhost:11868 at 10:31:29.249
+starting worker pid=1642438 on localhost:11868 at 10:31:29.249
+starting worker pid=1642443 on localhost:11868 at 10:31:29.249
+starting worker pid=1642435 on localhost:11868 at 10:31:29.250
+starting worker pid=1642430 on localhost:11868 at 10:31:29.250
+starting worker pid=1642429 on localhost:11868 at 10:31:29.252
+starting worker pid=1642442 on localhost:11868 at 10:31:29.252
+starting worker pid=1642439 on localhost:11868 at 10:31:29.253
+starting worker pid=1642431 on localhost:11868 at 10:31:29.253
+starting worker pid=1642433 on localhost:11868 at 10:31:29.253
+starting worker pid=1642436 on localhost:11868 at 10:31:29.253
+starting worker pid=1642440 on localhost:11868 at 10:31:29.253
+starting worker pid=1642444 on localhost:11868 at 10:31:29.254
+starting worker pid=1642434 on localhost:11868 at 10:31:29.254
+starting worker pid=1642428 on localhost:11868 at 10:31:29.254
+starting worker pid=1642427 on localhost:11868 at 10:31:29.265
+>     #only 20 to avoid memory explosion
 >     #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
 >         #https://stackoverflow.com/a/24352032
 > registerDoParallel(clust)
@@ -323,13 +664,701 @@ Loading required package: sp
 Loading required package: sp
 Loading required package: sp
 Loading required package: sp
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+>     #.combine: 
+>         #function that is used to process the tasks results as they generated.  This can be specified as either a function or a non-empty character string naming the function. Specifying 'c' is useful for concatenating the results into a vector, for example.  The values 'cbind' and 'rbind' can combine vectors into a matrix.
+>         #we use rbind.data.frame to combine each vector as a row in a data.frame
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> #see the results
+> print(head(threshold_results_df))
+     species selected_threshold current_suitable_area
+2 albicaulis                  0                 54636
+3 albicaulis                  1                 54636
+4 albicaulis                  2                 54636
+5 albicaulis                  3                 53648
+6 albicaulis                  4                 53648
+7 albicaulis                  5                 53648
+  future_suitable_area_inside_current_range future_suitable_area_elsewhere
+2                                     52471                          62163
+3                                     50341                          57830
+4                                     49214                          56092
+5                                     48035                          54900
+6                                     47356                          53973
+7                                     46822                          53243
+   range_change   range_loss
+2 13.7766307929  3.962588769
+3  5.8459623691  7.861117212
+4  2.6649095834  9.923859726
+5  2.3337309872 10.462645392
+6  0.6058007754 11.728303012
+7 -0.7549209663 12.723680286
+> print(summary(threshold_results_df))
+   species          selected_threshold current_suitable_area
+ Length:11312       Min.   :  0        Min.   :   132.0     
+ Class :character   1st Qu.: 25        1st Qu.:  8672.0     
+ Mode  :character   Median : 50        Median : 18418.0     
+                    Mean   : 50        Mean   : 30883.1     
+                    3rd Qu.: 75        3rd Qu.: 32851.0     
+                    Max.   :100        Max.   :490275.0     
+ future_suitable_area_inside_current_range future_suitable_area_elsewhere
+ Min.   :     0.00                         Min.   :     0.00             
+ 1st Qu.:  6575.75                         1st Qu.:  7075.75             
+ Median : 16020.00                         Median : 16963.50             
+ Mean   : 26398.11                         Mean   : 30008.01             
+ 3rd Qu.: 29402.25                         3rd Qu.: 32773.00             
+ Max.   :480865.00                         Max.   :575529.00             
+  range_change           range_loss        
+ Min.   :-100.000000   Min.   :  0.000000  
+ 1st Qu.: -14.668479   1st Qu.:  3.967066  
+ Median :  -2.637428   Median :  8.755166  
+ Mean   :  -7.332519   Mean   : 15.585515  
+ 3rd Qu.:   3.464065   3rd Qu.: 20.474907  
+ Max.   : 116.883895   Max.   :100.000000  
+> 
+> #check we do not have NANs
+> if(!identical(na.omit(threshold_results_df), threshold_results_df)){
++     stop("ERROR! FALSE! WE HAVE NANS IN THE DATA FRAME WITH RANGE LOSS AND CHANGE ACROSS THRESHOLDS AND SPECIES")
++ }
+> 
+> #check we have all species and the correct number of rows
+> check_1=nrow(threshold_results_df) == length(species_to_test)*101
+>     #we have calculated range loss/change per each of the 112 species across 101 thresholds
+> check_2=identical(unique(threshold_results_df$species), species_to_test)
+> if(check_1 & check_2){
++     print("GOOD TO GO! We have the correct number of rows")
++ } else {
++     stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATIONS ACROSS THREHOLDS, WE DO NOT HAVE ALL SPECIES OR THE EXPECTED NUMBER OF ROWS")
++ }
+[1] "GOOD TO GO! We have the correct number of rows"
+> 
+> #save the table
+> write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
+> #threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
+> 
+> 
+> 
+> 
+> 
+> ########################################################
+> ##### PLOT RANGE CHANGE AND LOSS ACROSS THRESHOLDS #####
+> ########################################################
+> 
+> #calculate median of range change/loss per threshold
+> library(dplyr)
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:raster':
+
+    intersect, select, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+> mean_range_loss <- group_by(threshold_results_df, selected_threshold) %>% 
++     summarise(range_loss=median(range_loss), na.rm=TRUE)
+> mean_range_change <- group_by(threshold_results_df, selected_threshold) %>% 
++     summarise(range_change=median(range_change), na.rm=TRUE)
+> 
+> #open the plot
+> jpeg("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.jpeg", height=2000, width=2000, res=300)
+> par(mfcol=c(2,1), mar=c(4.1, 4, 1, 4))
+> 
+> 
+> #plot range loss against the threshold value for each species
+> plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_loss, ylab="", xlab="", type="n", lwd=0.1, cex=0.5)
+> #species="albicaulis"
+> for(species in unique(threshold_results_df$species)){
++     lines(
++         x=threshold_results_df[threshold_results_df$species==species,]$selected_threshold, 
++         y=threshold_results_df[threshold_results_df$species==species,]$range_loss, 
++         lwd=0.2, cex=0.5)
++ }
+> title(ylab="Range loss (%)", line=2.5, cex.lab=1.2)
+> lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=3, col="red")
+> 
+> #plot range change
+> plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="", xlab="", type="n", lwd=0.1, cex=0.5)
+> #species="albicaulis"
+> for(species in unique(threshold_results_df$species)){
++     lines(
++         x=threshold_results_df[threshold_results_df$species==species,]$selected_threshold, 
++         y=threshold_results_df[threshold_results_df$species==species,]$range_change, 
++         lwd=0.2, cex=0.5)
++ }
+> title(xlab="Threshold (%)", ylab="Range change (%)", line=2.5, cex.lab=1.2)
+> lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=3, col="red")
+> dev.off()
+null device 
+          1 
+> detach("package:dplyr", unload=TRUE)
+>     #some function names are overlapped with raster and other packages
+> 
+> 
+> 
+> 
+> #######################################################################
+> ##### CALCULATE THE DIFFERENCE IN PINE RICHNESS IN EACH THRESHOLD #####
+> #######################################################################
+> 
+> 
+> ##obtain a polygon with the combined area used to male calculations in all pine species
+> #load the polygons used for calculations of changes of suitability (calc_ranges) in all species
+> raster_range_calc_stack = stack(list.files("./results/global_figures/final_global_figures/threshold_comparisons/raster_range_calc", full.names=TRUE, pattern=".grd"))
+> 
+> #check we have all species
+> if(nlayers(raster_range_calc_stack) != length(species_to_test)){
++     stop("ERROR! FALSE! WE DO NOT HAVE ALL SPECIES IN raster_range_calc_stack")
++ }
+> 
+> #sum the calculation area of all species
+> raster_range_calc_stack_sum = calc(raster_range_calc_stack, function(x) (sum(x)))
+> 
+> #convert raster_range_calc_stack_sum to zero-one
+> raster_range_calc_stack_sum[which(getValues(raster_range_calc_stack_sum) > 0)] <- 1
+>     #now every cell being considered in the calculation of at least 1 species will be 1
+> 
+> #convert to polygon
+> polygon_range_calc_stack_sum = rasterToPolygons(raster_range_calc_stack_sum, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
+>     #use that polygon for masking predictions rasters and remove areas outside the buffers calc ranges
+> 
+> 
+> ##define a function to calculate the difference in pine richness between current and future predictions for a given threshold
+> #n_layer=50
+> #we use the number of the layer instead of the name of the threshold. Threshold 0 is layer number 1. Threshold 100 is layer number 101. We can extract layer 1 from a stack, but not number 0.
+> stack_pred_threshold = function(n_layer){
++     
++     #starting
++     print(paste("STARTING THRESHOLD ", n_layer-1, sep=""))
++ 
++     #open stacks to save the pine richness of each species for the same layer (threshold) across the different threshold calculations
++     current_suit_stack=stack()
++     future_suit_stack=stack()
++ 
++     #species=species_to_test[1]
++     for(species in species_to_test){
++ 
++         #load the specific layer within the current and future predictions for the selected species, which includes the different thresholds
++         #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
++         current_suit_species_threhold = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_current_suit_", species, ".grd", sep=""), bands=n_layer)[[1]]
++         future_suit_species_threhold = stack(paste("./results/global_figures/final_global_figures/threshold_comparisons/suitability_stacks/stack_future_suit_", species, ".grd", sep=""), bands=n_layer)[[1]]
++ 
++         #check we have selected the correct layer name
++         if(
++             (names(current_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep="")) |
++             (names(future_suit_species_threhold)!=paste("threshold_", n_layer-1, "_", species, sep=""))){
++             stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE SELECTION OF THE SPECIFIC LAYER FOR THRESHOLD ", n_layer-1, " in ", species, sep=""))
++         }
++ 
++         #extend the extent of the predictions to the whole globe
++         current_suit_species_threhold = extend(current_suit_species_threhold, environment_var)
++         future_suit_species_threhold = extend(future_suit_species_threhold, environment_var)
++ 
++         #set NAs as zero to avoid propagation of NAs in the sum
++         current_suit_species_threhold[which(is.na(getValues(current_suit_species_threhold)))] <- 0      
++         future_suit_species_threhold[which(is.na(getValues(future_suit_species_threhold)))] <- 0  
++ 
++         #save the raster
++         current_suit_stack=stack(current_suit_stack, current_suit_species_threhold)
++         future_suit_stack=stack(future_suit_stack, future_suit_species_threhold)
++     }
++ 
++     #check we have a layer per each threshold in both stacks
++     if((nlayers(current_suit_stack) != length(species_to_test)) | (nlayers(future_suit_stack) != length(species_to_test))){
++         stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING PINE RICHNESS ACROSS THRESHOLDS, WE DO NOT HAVE ALL SPECIES FOR THRESHOLD ", n_layer-1, sep=""))
++     }
++ 
++     #check we have selected the correct layers
++     if( 
++         (!identical(names(current_suit_stack), paste("threshold_", n_layer-1, "_", species_to_test, sep=""))) |
++         (!identical(names(future_suit_stack), paste("threshold_", n_layer-1, "_", species_to_test, sep="")))){
++         stop(paste("ERROR! FALSE! WE HAVE NOT SELECTED THE CORRECT LAYERS FOR THRESHOLD ", n_layer-1, sep=""))
++     }
++ 
++     #sum the presence of all pines into one single raster for current and future conditions, respectively
++     current_suit_stack_sum = sum(current_suit_stack)
++     future_suit_stack_sum = sum(future_suit_stack)
++     
++     #calculate the difference in pine richness between current and future conditions for the selected threshold
++     diff_suit = future_suit_stack_sum -current_suit_stack_sum 
++ 
++     #add name to the layer using the threshold number
++     names(diff_suit) = paste("threshold_", n_layer-1, sep="")
++ 
++     #ending
++     print(paste("ENDING THRESHOLD ", n_layer-1, sep=""))
++     return(diff_suit)
++ }
+> #diff_suit_stack=stack(stack_pred_threshold(26), stack_pred_threshold(50), stack_pred_threshold(76))
+> 
+> ##parallelize the function
+> #load packages
+> require(foreach)
+> require(doParallel)
+> 
+> #set up cluster
+> clust <- makeCluster(5, outfile="")
+[1][1] FALSE
+ FALSEWarning message:
+
+Warning message:
+In file.remove(".RData") :In file.remove(".RData") :
+ 
+  cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Loading required package: SystWrapper
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0Warning message:
+    8388608 64.0  1031475  7.9
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: colorout
+Loading required package: colorout
+         usedLoading required package: colorout
+ (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127709  6.9     350000 18.7   196907 10.6
+Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: SystWrapper
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+starting worker pid=1643464 on localhost:11868 at 10:39:17.335
+starting worker pid=1643468 on localhost:11868 at 10:39:17.348
+starting worker pid=1643465 on localhost:11868 at 10:39:17.348
+starting worker pid=1643466 on localhost:11868 at 10:39:17.348
+starting worker pid=1643467 on localhost:11868 at 10:39:17.348
+>     #5 less cores to avoid memory explosion
+>     #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
+>         #https://stackoverflow.com/a/24352032
+> registerDoParallel(clust)
+> 
+> #run the function in parallel
+> diff_suit_stack = foreach(i=thresholds_to_test+1, .packages=c("raster", "sf"), .combine="stack") %dopar% { 
++     stack_pred_threshold(n_layer=i)
++ }
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+[1] "STARTING THRESHOLD 0"
+[1] "STARTING THRESHOLD 1"
+[1] "STARTING THRESHOLD 3"
+[1] "STARTING THRESHOLD 2"
+[1] "STARTING THRESHOLD 4"
+[1] "ENDING THRESHOLD 1"
+[1] "STARTING THRESHOLD 5"
+[1] "ENDING THRESHOLD 0"
+[1] "STARTING THRESHOLD 6"
+[1] "ENDING THRESHOLD 3"
+[1] "ENDING THRESHOLD 2"
+[1] "STARTING THRESHOLD 7"
+[1] "STARTING THRESHOLD 8"
+[1] "ENDING THRESHOLD 4"
+[1] "STARTING THRESHOLD 9"
+[1] "ENDING THRESHOLD 5"
+[1] "STARTING THRESHOLD 10"
+[1] "ENDING THRESHOLD 7"
+[1] "STARTING THRESHOLD 11"
+[1] "ENDING THRESHOLD 6"
+[1] "STARTING THRESHOLD 12"
+[1] "ENDING THRESHOLD 8"
+[1] "STARTING THRESHOLD 13"
+[1] "ENDING THRESHOLD 9"
+[1] "STARTING THRESHOLD 14"
+[1] "ENDING THRESHOLD 10"
+[1] "STARTING THRESHOLD 15"
+[1] "ENDING THRESHOLD 11"
+[1] "STARTING THRESHOLD 16"
+[1] "ENDING THRESHOLD 12"
+[1] "STARTING THRESHOLD 17"
+[1] "ENDING THRESHOLD 13"
+[1] "STARTING THRESHOLD 18"
+[1] "ENDING THRESHOLD 14"
+[1] "STARTING THRESHOLD 19"
+[1] "ENDING THRESHOLD 15"
+[1] "STARTING THRESHOLD 20"
+[1] "ENDING THRESHOLD 17"
+[1] "STARTING THRESHOLD 21"
+[1] "ENDING THRESHOLD 16"
+[1] "STARTING THRESHOLD 22"
+[1] "ENDING THRESHOLD 18"
+[1] "STARTING THRESHOLD 23"
+[1] "ENDING THRESHOLD 19"
+[1] "STARTING THRESHOLD 24"
+[1] "ENDING THRESHOLD 20"
+[1] "STARTING THRESHOLD 25"
+[1] "ENDING THRESHOLD 21"
+[1] "STARTING THRESHOLD 26"
+[1] "ENDING THRESHOLD 22"
+[1] "STARTING THRESHOLD 27"
+[1] "ENDING THRESHOLD 23"
+[1] "STARTING THRESHOLD 28"
+[1] "ENDING THRESHOLD 24"
+[1] "STARTING THRESHOLD 29"
+[1] "ENDING THRESHOLD 28"
+[1] "STARTING THRESHOLD 30"
+[1] "ENDING THRESHOLD 25"
+[1] "STARTING THRESHOLD 31"
+[1] "ENDING THRESHOLD 26"
+[1] "STARTING THRESHOLD 32"
+[1] "ENDING THRESHOLD 27"
+[1] "STARTING THRESHOLD 33"
+[1] "ENDING THRESHOLD 29"
+[1] "STARTING THRESHOLD 34"
+[1] "ENDING THRESHOLD 30"
+[1] "STARTING THRESHOLD 35"
+[1] "ENDING THRESHOLD 31"
+[1] "STARTING THRESHOLD 36"
+[1] "ENDING THRESHOLD 32"
+[1] "STARTING THRESHOLD 37"
+[1] "ENDING THRESHOLD 33"
+[1] "STARTING THRESHOLD 38"
+[1] "ENDING THRESHOLD 34"
+[1] "STARTING THRESHOLD 39"
+[1] "ENDING THRESHOLD 35"
+[1] "STARTING THRESHOLD 40"
+[1] "ENDING THRESHOLD 36"
+[1] "STARTING THRESHOLD 41"
+[1] "ENDING THRESHOLD 37"
+[1] "STARTING THRESHOLD 42"
+[1] "ENDING THRESHOLD 38"
+[1] "STARTING THRESHOLD 43"
+[1] "ENDING THRESHOLD 39"
+[1] "STARTING THRESHOLD 44"
+[1] "ENDING THRESHOLD 40"
+[1] "STARTING THRESHOLD 45"
+[1] "ENDING THRESHOLD 41"
+[1] "STARTING THRESHOLD 46"
+[1] "ENDING THRESHOLD 42"
+[1] "STARTING THRESHOLD 47"
+[1] "ENDING THRESHOLD 43"
+[1] "STARTING THRESHOLD 48"
+[1] "ENDING THRESHOLD 44"
+[1] "STARTING THRESHOLD 49"
+[1] "ENDING THRESHOLD 45"
+[1] "STARTING THRESHOLD 50"
+[1] "ENDING THRESHOLD 46"
+[1] "STARTING THRESHOLD 51"
+[1] "ENDING THRESHOLD 47"
+[1] "STARTING THRESHOLD 52"
+[1] "ENDING THRESHOLD 48"
+[1] "STARTING THRESHOLD 53"
+[1] "ENDING THRESHOLD 49"
+[1] "STARTING THRESHOLD 54"
+[1] "ENDING THRESHOLD 50"
+[1] "STARTING THRESHOLD 55"
+[1] "ENDING THRESHOLD 51"
+[1] "STARTING THRESHOLD 56"
+[1] "ENDING THRESHOLD 52"
+[1] "STARTING THRESHOLD 57"
+[1] "ENDING THRESHOLD 53"
+[1] "STARTING THRESHOLD 58"
+[1] "ENDING THRESHOLD 54"
+[1] "STARTING THRESHOLD 59"
+[1] "ENDING THRESHOLD 55"
+[1] "STARTING THRESHOLD 60"
+[1] "ENDING THRESHOLD 56"
+[1] "STARTING THRESHOLD 61"
+[1] "ENDING THRESHOLD 57"
+[1] "STARTING THRESHOLD 62"
+[1] "ENDING THRESHOLD 58"
+[1] "STARTING THRESHOLD 63"
+[1] "ENDING THRESHOLD 59"
+[1] "STARTING THRESHOLD 64"
+[1] "ENDING THRESHOLD 60"
+[1] "STARTING THRESHOLD 65"
+[1] "ENDING THRESHOLD 61"
+[1] "STARTING THRESHOLD 66"
+[1] "ENDING THRESHOLD 62"
+[1] "STARTING THRESHOLD 67"
+[1] "ENDING THRESHOLD 63"
+[1] "STARTING THRESHOLD 68"
+[1] "ENDING THRESHOLD 64"
+[1] "STARTING THRESHOLD 69"
+[1] "ENDING THRESHOLD 65"
+[1] "STARTING THRESHOLD 70"
+[1] "ENDING THRESHOLD 66"
+[1] "STARTING THRESHOLD 71"
+[1] "ENDING THRESHOLD 67"
+[1] "STARTING THRESHOLD 72"
+[1] "ENDING THRESHOLD 68"
+[1] "STARTING THRESHOLD 73"
+[1] "ENDING THRESHOLD 69"
+[1] "STARTING THRESHOLD 74"
+[1] "ENDING THRESHOLD 70"
+[1] "STARTING THRESHOLD 75"
+[1] "ENDING THRESHOLD 72"
+[1] "STARTING THRESHOLD 76"
+[1] "ENDING THRESHOLD 71"
+[1] "STARTING THRESHOLD 77"
+[1] "ENDING THRESHOLD 73"
+[1] "STARTING THRESHOLD 78"
+[1] "ENDING THRESHOLD 74"
+[1] "STARTING THRESHOLD 79"
+[1] "ENDING THRESHOLD 75"
+[1] "STARTING THRESHOLD 80"
+[1] "ENDING THRESHOLD 76"
+[1] "STARTING THRESHOLD 81"
+[1] "ENDING THRESHOLD 77"
+[1] "STARTING THRESHOLD 82"
+[1] "ENDING THRESHOLD 78"
+[1] "STARTING THRESHOLD 83"
+[1] "ENDING THRESHOLD 79"
+[1] "STARTING THRESHOLD 84"
+[1] "ENDING THRESHOLD 80"
+[1] "STARTING THRESHOLD 85"
+[1] "ENDING THRESHOLD 81"
+[1] "STARTING THRESHOLD 86"
+[1] "ENDING THRESHOLD 82"
+[1] "STARTING THRESHOLD 87"
+[1] "ENDING THRESHOLD 83"
+[1] "STARTING THRESHOLD 88"
+[1] "ENDING THRESHOLD 84"
+[1] "STARTING THRESHOLD 89"
+[1] "ENDING THRESHOLD 85"
+[1] "STARTING THRESHOLD 90"
+[1] "ENDING THRESHOLD 86"
+[1] "STARTING THRESHOLD 91"
+[1] "ENDING THRESHOLD 87"
+[1] "STARTING THRESHOLD 92"
+[1] "ENDING THRESHOLD 88"
+[1] "STARTING THRESHOLD 93"
+[1] "ENDING THRESHOLD 89"
+[1] "STARTING THRESHOLD 94"
+[1] "ENDING THRESHOLD 90"
+[1] "STARTING THRESHOLD 95"
+[1] "ENDING THRESHOLD 91"
+[1] "STARTING THRESHOLD 96"
+[1] "ENDING THRESHOLD 92"
+[1] "STARTING THRESHOLD 97"
+[1] "ENDING THRESHOLD 93"
+[1] "STARTING THRESHOLD 98"
+[1] "ENDING THRESHOLD 94"
+[1] "STARTING THRESHOLD 99"
+[1] "ENDING THRESHOLD 95"
+[1] "STARTING THRESHOLD 100"
+[1] "ENDING THRESHOLD 96"
+[1] "ENDING THRESHOLD 97"
+[1] "ENDING THRESHOLD 99"
+[1] "ENDING THRESHOLD 98"
+[1] "ENDING THRESHOLD 100"
+>     #thresholds_to_test+1 is the number of layers. Threshold 0 is layer 1, threshold 1 is layer 2, and so on...
+>     #the output is a raster, so use stack to save the different raster into a stack
+> 
+> #stop the cluster 
+> stopCluster(clust)
+> 
+> #reorder the layers to ensure we have thresholds in increasing order
+> diff_suit_stack=diff_suit_stack[[paste("threshold_", thresholds_to_test, sep="")]]
+>     #if a threshold is missing, you will get a warning and a missing layer
+> 
+> #check
+> if(
++     (class(diff_suit_stack)[1] != "RasterStack") | 
++     (nlayers(diff_suit_stack) != length(thresholds_to_test)) |
++     (!identical(names(diff_suit_stack), paste("threshold_", thresholds_to_test, sep="")))){
++     stop("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE DIFFERENCE IN PINE RICHNESS ACROSS THRESHOLDS")
++ }
+> 
+> #save the stack with the difference in richness across thresholds
+> writeRaster(diff_suit_stack, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack", options="COMPRESS=LZW", overwrite=TRUE)
+> 
+> 
+> ##calculate the percentage of thresholds for which a cell have less or more pine species
+> #copy the stack with the difference
+> diff_suit_stack_positive=diff_suit_stack
+> diff_suit_stack_negative=diff_suit_stack
+> 
+> #in each layer, convert to zero those cases that have negative or positive change in richness for the positive and negative rasters, respectively
+> #layer=1
+> for(layer in 1:nlayers(diff_suit_stack)){
++     diff_suit_stack_positive[[layer]][which(getValues(diff_suit_stack_positive[[layer]])<0)] <- 0
++     diff_suit_stack_positive[[layer]][which(getValues(diff_suit_stack_positive[[layer]])>0)] <- 1
++     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])>0)] <- 0
++     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])<0)] <- 1
++ }
+>     #IMPORTANT: this approach loses information about cases where pine richness increases in more than 1, but I think this is ok. If you have an area where richness increases by 2 up to 75% of uncertainty, and then other area increases richness by 1 from 1 to 90% of uncertainty. We have more certainty that richness is going to increase in the second scenario even if the number of species is reduced.
+> 
+> #calculate the proportion of thresholds that have positive and negative change in pine richness, respectively
+> positive_pine_richness_across_thresholds = (sum(diff_suit_stack_positive)/nlayers(diff_suit_stack_positive))*100
+> negative_pine_richness_across_thresholds = (sum(diff_suit_stack_negative)/nlayers(diff_suit_stack_negative))*100
+> 
+> #remove water bodies
+> positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, environment_var)
+> negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, environment_var)
+> 
+> #remove the areas outside the global distribution of pines
+> positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
+> negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
+> 
+> #save them
+> writeRaster(positive_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/positive_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+class      : RasterLayer 
+dimensions : 1800, 4320, 7776000  (nrow, ncol, ncell)
+resolution : 0.08333333333, 0.08333333333  (x, y)
+extent     : -180, 180, -60, 90  (xmin, xmax, ymin, ymax)
+crs        : +proj=longlat +datum=WGS84 +no_defs 
+source     : positive_pine_richness_across_thresholds.grd 
+names      : layer 
+values     : 0, 100  (min, max)
+
+>     #positive_pine_richness_across_thresholds=raster("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/positive_pine_richness_across_thresholds.grd")
+> writeRaster(negative_pine_richness_across_thresholds, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/negative_pine_richness_across_thresholds", options="COMPRESS=LZW", overwrite=TRUE)
+class      : RasterLayer 
+dimensions : 1800, 4320, 7776000  (nrow, ncol, ncell)
+resolution : 0.08333333333, 0.08333333333  (x, y)
+extent     : -180, 180, -60, 90  (xmin, xmax, ymin, ymax)
+crs        : +proj=longlat +datum=WGS84 +no_defs 
+source     : negative_pine_richness_across_thresholds.grd 
+names      : layer 
+values     : 0, 100  (min, max)
+
+>     #negative_pine_richness_across_thresholds=raster("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/negative_pine_richness_across_thresholds.grd")
+> 
+> 
+> ##make two plots with percentage of thresholds gaining or losing species 
+> #set extent of the raster to be plotted
+> plot_extent = c(-180,180,-10,90) #if you change the extent of the plot, some sea border could change (only difference of 1 cell). For example, when you plot the whole globe, save the plot as pdf and then zoom to the Canary Islands, the shape of the island is not very accurate. If you crop the maps to P. canariensis buffer, then the shape of the islands in the pdf is more similar to the reality.
+> 
+> ##define the color palette
+> require(RColorBrewer)
+Loading required package: RColorBrewer
+> #We selected from Colorbrewer a single hue pallete with green. As we are going to plot only one variable in each plot.
+> green_palette <-brewer.pal(9,"Greens")
+>     #Names taken from "http://colorbrewer2.org/#type=sequential&scheme=Greens&n=9"
+>     #All works for anomalous trychromacy and dychromacy ("http://www.color-blindness.com/coblis-color-blindness-simulator/")
+> #these palletes are used in colorRampPalette to create a function that can create a great number of colors 
+> colfunc_green <- colorRampPalette(green_palette)
+> 
+> 
+> ##open the plot
+> cairo_pdf("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/change_pine_richness.pdf", width=12, height=12)
+> par(mfcol=c(2,1), mai=c(0,0.4,0,0.5), oma=c(0,0,2,1))
+> 
+> #upper plot
+> plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
+> plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
+>     #colors of colorbrewer2 can be seen at "http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=3"
+>     #breaks indicate the number of partitions between colors, whilst "at" indicate the numbers in the legend. The number of colors have to be EQUAL to the number o breaks. Breaks should encompass the RANGE of values of the raster
+> 
+> #lower plot
+> plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
+> plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
+> dev.off()
+null device 
+          1 
+> 
+> 
+> 
+> 
+> #######################################################################
+> ##### FINISH THE SCRIPT #####
+> #######################################################################
+> 
+> #finish the script
+> print("## FINISH ##")
+[1] "## FINISH ##"
+> 
+> 
+> #why with the three first species, some areas non-suitable for 50 are suitable 75% threshold?
+>     #plot(diff_suit_stack_positive[[3]]-diff_suit_stack_positive[[2]])
+> #check ubuntu 22.04 works the same in general
+> #check only the changes you did for the last figure
+> 
+> proc.time()
+    user   system  elapsed 
+ 150.410   30.534 4052.493 

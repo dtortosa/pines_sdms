@@ -504,6 +504,7 @@ if(
 
 #save the stack with the difference in richness across thresholds
 writeRaster(diff_suit_stack, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack", options="COMPRESS=LZW", overwrite=TRUE)
+#diff_suit_stack=stack("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack")
 
 
 ##calculate the percentage of thresholds for which a cell have less or more pine species
@@ -519,7 +520,15 @@ for(layer in 1:nlayers(diff_suit_stack)){
     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])>0)] <- 0
     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])<0)] <- 1
 }
-    #IMPORTANT: this approach loses information about cases where pine richness increases in more than 1, but I think this is ok. If you have an area where richness increases by 2 up to 75% of uncertainty, and then other area increases richness by 1 from 1 to 90% of uncertainty. We have more certainty that richness is going to increase in the second scenario even if the number of species is reduced.
+    #IMPORTANT NOTE 1: 
+        #this approach loses information about cases where pine richness increases in more than 1, but I think this is ok. If you have an area where richness increases by 2 up to 75% of uncertainty, and then other area increases richness by 1 from 1 to 90% of uncertainty. We have more certainty that richness is going to increase in the second scenario even if the number of species is reduced.
+    #IMPORTANT NOTE 2:
+        #We have regions where the number of species increases with threshold 75% but not with threshold 25%. In other words, if we consider as suitable only regions with 75% certainty, we get more species!!!
+        #This seems counterintuitive, but it is not. You have to remember that the threshold is applied, not only to the future conditions, but also to the current conditions. Therefore, when you select a more stringent threshold, you could make the current suitable area smaller and, of course, you cannot lose what you did not have in the first place.
+        #If a region suitable under current conditions 25% is unsuitable for 75% still under current conditions, and it is suitable under future conditions for both 25% and 75%, this means that richness increases under 75%. The ensemble did not consider that the species was there under current conditions but it is at future when using the 75% threshold. This is the case of a region at the far north of the Pumila distribution.
+            #This is telling you that today we do not have a great certainty that the region is suitable but the certainty will increase in the future, making it a possible space for range expansion.
+        #This is a clear example why it is not enough just to select those regions with gains of pine richness for 100% threshold. These regions could not gain richness at lower thresholds, despite the decrease in stringentness because the current suitable area increase, so it is more likely that some of these new regions become unsuitable. We have more area to care about and it is area with less certainty of suitability.
+        #This is similar to what we saw with the temporal decrease in range loss when increasing the threshold. Again, we reduce the are considered to be suitable under current conditions, so there is less room to have areas that become unsuitable under future conditions.
 
 #calculate the proportion of thresholds that have positive and negative change in pine richness, respectively
 positive_pine_richness_across_thresholds = (sum(diff_suit_stack_positive)/nlayers(diff_suit_stack_positive))*100
@@ -528,6 +537,7 @@ negative_pine_richness_across_thresholds = (sum(diff_suit_stack_negative)/nlayer
 #remove water bodies
 positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, environment_var)
 negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, environment_var)
+    #we first remove water bodies with environment_var because this variable has more resolution that the distribution buffer, so it makes the coast border more smooth. The only border that are coarse (0.5 res) are the limits of the global distribution of pines.
 
 #remove the areas outside the global distribution of pines
 positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
@@ -547,11 +557,15 @@ plot_extent = c(-180,180,-10,90) #if you change the extent of the plot, some sea
 ##define the color palette
 require(RColorBrewer)
 #We selected from Colorbrewer a single hue pallete with green. As we are going to plot only one variable in each plot.
-green_palette <-brewer.pal(9,"Greens")
-    #Names taken from "http://colorbrewer2.org/#type=sequential&scheme=Greens&n=9"
+blue_palette <-brewer.pal(9,"Blues")
+red_palette <-brewer.pal(9,"Reds")
+    #Names taken from 
+        #"http://colorbrewer2.org/#type=sequential&scheme=Blues&n=9"
+        #https://colorbrewer2.org/#type=sequential&scheme=Reds&n=9
     #All works for anomalous trychromacy and dychromacy ("http://www.color-blindness.com/coblis-color-blindness-simulator/")
 #these palletes are used in colorRampPalette to create a function that can create a great number of colors 
-colfunc_green <- colorRampPalette(green_palette)
+colfunc_blue <- colorRampPalette(blue_palette)
+colfunc_red <- colorRampPalette(red_palette)
 
 
 ##open the plot
@@ -560,13 +574,13 @@ par(mfcol=c(2,1), mai=c(0,0.4,0,0.5), oma=c(0,0,2,1))
 
 #upper plot
 plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
+plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_blue(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
     #colors of colorbrewer2 can be seen at "http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=3"
     #breaks indicate the number of partitions between colors, whilst "at" indicate the numbers in the legend. The number of colors have to be EQUAL to the number o breaks. Breaks should encompass the RANGE of values of the raster
 
 #lower plot
 plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
+plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_red(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
 dev.off()
 
 
@@ -578,9 +592,3 @@ dev.off()
 
 #finish the script
 print("## FINISH ##")
-
-
-#why with the three first species, some areas non-suitable for 50 are suitable 75% threshold?
-    #plot(diff_suit_stack_positive[[3]]-diff_suit_stack_positive[[2]])
-#check changes in def file
-#check only the changes you did for the last figure
