@@ -322,7 +322,7 @@ if(check_1 & check_2){
 
 #save the table
 write.table(threshold_results_df, "./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.tsv", sep="\t", row.names=FALSE, col.names=TRUE)
-#threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
+#threshold_results_df=read.table("./results/global_figures/final_global_figures/threshold_comparisons/range_change_loss/range_change_loss_thresholds.tsv", sep="\t", header=TRUE)
 
 
 
@@ -355,6 +355,7 @@ for(species in unique(threshold_results_df$species)){
 }
 title(ylab="Range loss (%)", line=2.5, cex.lab=1.2)
 lines(x=mean_range_loss$selected_threshold, y=mean_range_loss$range_loss, lwd=3, col="red")
+abline(v=75, col="blue", lwd=3)
 
 #plot range change
 plot(x=threshold_results_df$selected_threshold, y=threshold_results_df$range_change, ylab="", xlab="", type="n", lwd=0.1, cex=0.5)
@@ -367,6 +368,7 @@ for(species in unique(threshold_results_df$species)){
 }
 title(xlab="Threshold (%)", ylab="Range change (%)", line=2.5, cex.lab=1.2)
 lines(x=mean_range_change$selected_threshold, y=mean_range_change$range_change, lwd=3, col="red")
+abline(v=75, col="blue", lwd=3)
 dev.off()
 detach("package:dplyr", unload=TRUE)
     #some function names are overlapped with raster and other packages

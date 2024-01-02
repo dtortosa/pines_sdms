@@ -27,6 +27,101 @@
 ##### BEGIN SCRIPT #####
 ########################
 
+#create some folders
+system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
+
+#pre-defined functions
+plot_sin=function(input){
+    jpeg("./singularity_plot.jpeg", height=2000, width=2000, res=300)
+    plot(input)
+    dev.off()
+}
+
+#require packages
+require(raster)
+require(sf)
+
+#load species names
+list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
+
+#extract epithet from species list
+epithet_species_list = NULL
+for(i in 1:nrow(list_species)){
+
+    #selected species
+    selected_species = as.vector(list_species[i,])
+
+    #extract epithet
+    epithet_species_list = append(epithet_species_list, strsplit(selected_species, split=" ")[[1]][2])
+}
+#check there is no NA
+summary(!is.na(epithet_species_list))
+#check
+if(FALSE){
+    require(tidyverse)
+    paste("Pinus", epithet_species_list, sep=" ") == str_trim(as.vector(list_species[,1])) #the seperated epithet more Pinus are equal to list_species? We use str_trim from tidyverse to remove end spaces in each element of list_species
+}#it is in false because loading tidyverse lead to load several packages that have a function name "extract", and this gives problems with the extract function of raster. If you want to check run these lines manually
+
+#remove tecunumanii, jaliscana y discolor. These species are not used for Niche paper. The two first because we should downloadad gbif data now, so we would mix gbif data form 2016 and 2019. The third one was impossible to differentiate from P. cembroides
+epithet_species_list = epithet_species_list[which(!epithet_species_list %in% c("tecunumanii", "jaliscana", "discolor"))]
+#check these species are not present
+!c("tecunumanii", "jaliscana", "discolor") %in% epithet_species_list
+
+#load environment variables for using them as a background
+clay = raster("datos/finals/clay.asc")
+bio1 = raster("datos/finals/bio1.asc")
+environment_var = clay*bio1
+    #Multiply both variables for obtaining a raster with all NAs. We will use them to ensure that all presences have environmental data, and specific we want to ensure that 0.5 fall in areas with value of environmental variables. We use a soil variable because there is bioclim data for some water bodies inside the continents, and we don't want to get presences in these areas. 
+
+#load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
+buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
+
+#resample environment_var
+environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
+
+#NOTE: In general, I have used extract to obtain any information about the points: elevation, environmental data and number of cell. Extract only consider that a point falls inside a cell if its center is inside that cell. It is important consider this. 
+
+
+
+
+###################################################
+##### SELECT OCCURRENCES OUTSIDE DISTRIBUTION #####
+###################################################
+
+#species="radiata"
+exsitu_occurrences=function(species){
+
+    #load the buffer used to create PAs.
+    #This is out area of known absences due to edaphoclimatic conditions, i.e., no migration, etc... so we will consider as exsitu all occurrences outside this buffer
+    raster_pa_buffer = raster(paste("./results/pseudo_absences/", species, "_PA_buffer.asc", sep=""))  
+    
+    #convert to polygon 
+    polygon_raster_pa_buffer = rasterToPolygons(raster_pa_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
+
+
+
+
+
+}
+
+
+
+##STEPS
+    #we have to select all occurrences outside the PA buffer, but we have to resample them? we do not have our 50x50 cells out there. The problem is that you have very correlated occurrences, you are going to predict and get precision of non-independent points
+
+    #maybe we can create a global buffer of 50x50 where the PA buffer is excluded, and then we select 3 occurrences within each cell. If the occurrence is high precision we can select based on elevation
+        #check the original occurrence script in case we miss an relevant step here
+
+    #once we have 3 occurrences per 50x50 cell (as we did for training), we can select the environmental variables used as predictors in the corresponding species, and then extract their values for the occurrences outside the PA buffer
+
+    #we can then predict the probability of occurrence based on env variables and then check how well predict true presences, TSS....
+        #high vs low precision was not considered in the evaluation of the models we did, so we could skip that for evaluation here
+
+    #evaluate again, but this time considering also as suitable regions fully within the phylogenetic range. 
+
+    #we can do this for all species, then compare the median TSS with and without phylo, also look for species where phylo improves a lot
+
+
 
 ####################################################
 ########### Loop preparing data #########################

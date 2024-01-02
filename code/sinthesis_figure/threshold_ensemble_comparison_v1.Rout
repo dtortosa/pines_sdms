@@ -15,10 +15,13 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
-[1] TRUE
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 126729  6.8     350000 18.7   195675 10.5
-Vcells 249646  2.0    8388608 64.0  1022685  7.9
+Ncells 127737  6.9     350000 18.7   197183 10.6
+Vcells 251236  2.0    8388608 64.0  1031540  7.9
 Loading required package: colorout
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
@@ -79,7 +82,7 @@ Loading required package: raster
 Loading required package: sp
 > require(sf)
 Loading required package: sf
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 > 
 > #load species names
 > list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
@@ -325,129 +328,112 @@ Loading required package: parallel
 > 
 > #set up cluster
 > clust <- makeCluster(20, outfile="")
+[1][1][1][1][1][1][1] FALSE FALSE[1] FALSE[1] FALSE FALSE FALSE
+
+ FALSE
+ FALSE
+
 [1] FALSE
+Warning message:
+
+Warning message:
+
+Warning message:
+Warning message:
+
+Warning message:
+ FALSEWarning message:
+Warning message:
+Warning message:
+
+Warning message:
+In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :Warning message:
+
+ 
+ 
+ In file.remove(".RData") :In file.remove(".RData") :
+ In file.remove(".RData") :In file.remove(".RData") : cannot remove file '.RData', reason 'No such file or directory'
+In file.remove(".RData") : cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+
+ 
+  cannot remove file '.RData', reason 'No such file or directory'
+
+ 
+ 
+ In file.remove(".RData") :[1] cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+
+  FALSE cannot remove file '.RData', reason 'No such file or directory'
+
 Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
-[1][1][1][1] FALSE FALSE FALSE
-
-
- FALSEWarning message:
+[1][1][1][1] FALSE FALSE
+ FALSE
+ FALSE
 Warning message:
 
+Warning message:
+Warning message:
+[1]Warning message:
+In file.remove(".RData") : FALSEIn file.remove(".RData") :
+ In file.remove(".RData") :
+
+  cannot remove file '.RData', reason 'No such file or directory'
+
+ In file.remove(".RData") : cannot remove file '.RData', reason 'No such file or directory'
+Warning message:
+ cannot remove file '.RData', reason 'No such file or directory'
+[1][1][1]
+  FALSE FALSEIn file.remove(".RData") : cannot remove file '.RData', reason 'No such file or directory'
+ FALSE
+
+
+ 
+Warning message:
+ cannot remove file '.RData', reason 'No such file or directory'
 Warning message:
 Warning message:
 In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :
  
- In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
- cannot remove file '.RData', reason 'No such file or directory'
-
-  cannot remove file '.RData', reason 'No such file or directory'
- cannot remove file '.RData', reason 'No such file or directory'
-[1][1] FALSE
-Warning message:
- FALSE
-Warning message:
-In file.remove(".RData") :
- [1] cannot remove file '.RData', reason 'No such file or directory'
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
- FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1][1] FALSE FALSE
-
-Warning message:
-Warning message:
-In file.remove(".RData") :In file.remove(".RData") :
  
   cannot remove file '.RData', reason 'No such file or directory'
  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-[1]In file.remove(".RData") : FALSE
- 
  cannot remove file '.RData', reason 'No such file or directory'
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
 [1] FALSE
 Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-Loading required package: colorout
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
+Ncells 127726  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608 64.0  1031530  7.9
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9           350000   used 18.7 (Mb)   196907 gc trigger 10.6 (Mb)
-Vcells max used 251229 (Mb)  2.0
-Ncells    8388608 64.0  1031475 127709  7.9  6.9
-     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-               used   used (Mb) (Mb) gc trigger gc trigger (Mb) (Mb) max used max used (Mb) (Mb)
+Ncells 127726  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608 64.0  1031530  7.9
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127726  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608       64.0         used  1031530   used (Mb)  7.9 (Mb) gc trigger
+ gc trigger (Mb) (Mb) max used max used (Mb) (Mb)
 Ncells
-Ncells 127709 127709  6.9  6.9     350000     350000 18.7 18.7   196907   196907 10.6 10.6
+Ncells 127726 127726  6.9  6.9     350000     350000 18.7 18.7   197084   197084 10.6 10.6
 Vcells
-Vcells 251229 251229  2.0  2.0    8388608    8388608 64.0 64.0  1031475  1031475  7.9  7.9
+Vcells 251237 251237  2.0  2.0    8388608    8388608 64.0 64.0  1031530  1031530  7.9  7.9
 
-         used       (Mb)   used gc trigger (Mb) (Mb) gc trigger max used (Mb) (Mb) max used
-Ncells (Mb)
-Ncells 127709  6.9 127709     350000  6.9       18.7     350000   used 18.7   196907 (Mb) 10.6   196907 gc trigger 10.6
-Vcells (Mb) 251229
-Vcells max used  2.0 251229 (Mb)    8388608  2.0
-Ncells    8388608 64.0 64.0  1031475  1031475 127709  7.9  7.9  6.9
-
-     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Ncells       127726         used  6.9   used     350000 (Mb) 18.7 (Mb)   197084 gc trigger gc trigger 10.6 (Mb) (Mb)
+Vcells max used max used 251237 (Mb) (Mb)  2.0
+Ncells
+Ncells    8388608 64.0  1031530  7.9
+ 127726  6.9     350000 127726 18.7  6.9   197084     350000 10.6 18.7
+Vcells   197084 251237 10.6  2.0
+Vcells    8388608 251237 64.0  2.0  1031530    8388608  7.9 64.0
+  1031530  7.9
 Loading required package: colorout
 Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
 Loading required package: colorout
 Loading required package: colorout
 Loading required package: colorout
@@ -455,196 +441,213 @@ Loading required package: colorout
 Loading required package: colorout
 Loading required package: colorout
 Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229        2.0   used    8388608 (Mb) 64.0 gc trigger  1031475 (Mb)  7.9 max used
- (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
 Warning message:
 Loading required package: SystWrapper
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
 Loading required package: SystWrapper
+Warning message:
       Warning message:
-   used (Mb) gc trigger (Mb) max used (Mb)
-NcellsIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : 127709
-   6.9 there is no package called 'colorout'
-     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-Loading required package: SystWrapper
+   usedIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Loading required package: SystWrapper
+ (Mb)
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : gc trigger there is no package called 'colorout'
 Warning message:
-Warning message:
-Warning message:
-Warning message:
-Warning message:
-Loading required package: SystWrapper
-Loading required package: colorout
-      In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :   used
- 
- 
- 
- 
- Warning message:
- (Mb) there is no package called 'SystWrapper'
-Loading required package: colorout
- there is no package called 'colorout'
- there is no package called 'SystWrapper'
- there is no package called 'colorout'
- there is no package called 'colorout'
- gc triggerWarning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
-  max used there is no package called 'colorout'
+
+  (Mb) there is no package called 'SystWrapper'
+ max usedLoading required package: SystWrapper
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
  
 Ncells there is no package called 'SystWrapper'
- 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+ 127726  6.9     350000Loading required package: SystWrapper
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : 18.7
+    197084 there is no package called 'colorout'
+ 10.6
+Vcells 251237  2.0    8388608 64.0        1031530        7.9   used         used
 Warning message:
 Loading required package: SystWrapper
+      Warning message:
+      Warning message:
+Loading required package: SystWrapper
+ (Mb)   used (Mb)Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :         used   usedIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :   used gc trigger (Mb)In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :       gc trigger   used
+             In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :       (Mb) (Mb)
+  (Mb) (Mb) gc trigger
+  (Mb) (Mb) there is no package called 'SystWrapper'
+   used   used
+    used gc trigger gc trigger there is no package called 'SystWrapper'
+ gc trigger max used (Mb) there is no package called 'SystWrapper'
+ max used gc trigger (Mb) (Mb) there is no package called 'SystWrapper'
+ (Mb) (Mb) (Mb) (Mb) (Mb) max used (Mb) (Mb) gc trigger gc trigger gc trigger max used max used max used
+Ncells (Mb)
+Ncells max used (Mb) (Mb) (Mb) (Mb) (Mb) (Mb) 127726Warning message:
+
+Ncells (Mb) max used max used max used
+Ncells 127726
+Ncells  6.9 127726
+Ncells  6.9
+Ncells (Mb) (Mb) (Mb)In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+     350000  6.9     350000 127726 127726  6.9  6.9     350000
+Ncells
+Ncells
+Ncells 127726
+  127726 18.7  6.9     350000     350000 18.7In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :     350000 18.7 18.7   197084  6.9 there is no package called 'SystWrapper'
+ 127726   197084 127726 127726  6.9  6.9 18.7 18.7   197084   197084
+    197084 10.6     350000  6.9 10.6     350000     350000 18.7   197084 10.6 10.6 there is no package called 'SystWrapper'
+       10.6
+Vcells 18.7 251237   197084     350000 10.6 18.7
+Vcells 18.7   197084 10.6
+Vcells
+Vcells   used 251237
+Vcells  2.0 251237
+Vcells   197084 251237   197084 10.6
+Vcells 251237 (Mb)  2.0    8388608  2.0 251237 10.6  2.0 10.6
+Vcells 251237  2.0 gc trigger    8388608 64.0    8388608  2.0
+Vcells    8388608 251237
+Vcells 251237  2.0    8388608 (Mb) 64.0  1031530 64.0    8388608 64.0  2.0 251237  2.0    8388608 64.0 max used  1031530  7.9  1031530 64.0  1031530    8388608  2.0    8388608 64.0  1031530 (Mb)  7.9
+  7.9  1031530  7.9 64.0    8388608 64.0  1031530  7.9
+Ncells
+
+  7.9
+  1031530 64.0  1031530  1031530  7.9
+
+  7.9  7.9  7.9 127726
+
+
+
+  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608 64.0  1031530  7.9
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: SystWrapper
+Warning message:
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'colorout'
+
+ Warning message:
+ there is no package called 'colorout'
 Warning message:
-      In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
 Warning message:
-   used
-  (Mb) there is no package called 'SystWrapper'
- gc triggerIn library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : (Mb)
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
  
-  there is no package called 'SystWrapper'
- max used there is no package called 'SystWrapper'
- (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-VcellsLoading required package: colorout
- 251229  2.0    8388608 64.0  1031475  7.9
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ 
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'colorout'
+ there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'colorout'
+
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Loading required package: colorout
-      Loading required package: SystWrapper
-   used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608Loading required package: SystWrapper
- 64.0  1031475  7.9
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-VcellsLoading required package: colorout
- 251229  2.0    8388608 64.0  1031475  7.9
-Warning message:
-Loading required package: colorout
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: colorout
 
   there is no package called 'colorout'
-Loading required package: colorout
+ there is no package called 'colorout'
 Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Loading required package: colorout
 Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
 Loading required package: SystWrapper
-Loading required package: colorout
-Warning message:
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
 Loading required package: SystWrapper
 Loading required package: SystWrapper
 Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+Warning message:
+
+ Warning message:
+ there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
+
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
+
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
+
   there is no package called 'SystWrapper'
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-starting worker pid=1642437 on localhost:11868 at 10:31:29.246
-starting worker pid=1642445 on localhost:11868 at 10:31:29.248
-starting worker pid=1642446 on localhost:11868 at 10:31:29.249
-starting worker pid=1642432 on localhost:11868 at 10:31:29.249
-starting worker pid=1642441 on localhost:11868 at 10:31:29.249
-starting worker pid=1642438 on localhost:11868 at 10:31:29.249
-starting worker pid=1642443 on localhost:11868 at 10:31:29.249
-starting worker pid=1642435 on localhost:11868 at 10:31:29.250
-starting worker pid=1642430 on localhost:11868 at 10:31:29.250
-starting worker pid=1642429 on localhost:11868 at 10:31:29.252
-starting worker pid=1642442 on localhost:11868 at 10:31:29.252
-starting worker pid=1642439 on localhost:11868 at 10:31:29.253
-starting worker pid=1642431 on localhost:11868 at 10:31:29.253
-starting worker pid=1642433 on localhost:11868 at 10:31:29.253
-starting worker pid=1642436 on localhost:11868 at 10:31:29.253
-starting worker pid=1642440 on localhost:11868 at 10:31:29.253
-starting worker pid=1642444 on localhost:11868 at 10:31:29.254
-starting worker pid=1642434 on localhost:11868 at 10:31:29.254
-starting worker pid=1642428 on localhost:11868 at 10:31:29.254
-starting worker pid=1642427 on localhost:11868 at 10:31:29.265
+starting worker pid=3071250 on localhost:11725 at 12:33:54.041
+starting worker pid=3071254 on localhost:11725 at 12:33:54.041
+starting worker pid=3071262 on localhost:11725 at 12:33:54.041
+starting worker pid=3071243 on localhost:11725 at 12:33:54.041
+starting worker pid=3071256 on localhost:11725 at 12:33:54.041
+starting worker pid=3071257 on localhost:11725 at 12:33:54.041
+starting worker pid=3071251 on localhost:11725 at 12:33:54.041
+starting worker pid=3071252 on localhost:11725 at 12:33:54.041
+starting worker pid=3071249 on localhost:11725 at 12:33:54.048
+starting worker pid=3071261 on localhost:11725 at 12:33:54.048
+starting worker pid=3071253 on localhost:11725 at 12:33:54.048
+starting worker pid=3071247 on localhost:11725 at 12:33:54.048
+starting worker pid=3071255 on localhost:11725 at 12:33:54.048
+starting worker pid=3071245 on localhost:11725 at 12:33:54.048
+starting worker pid=3071260 on localhost:11725 at 12:33:54.049
+starting worker pid=3071248 on localhost:11725 at 12:33:54.049
+starting worker pid=3071244 on localhost:11725 at 12:33:54.049
+starting worker pid=3071258 on localhost:11725 at 12:33:54.049
+starting worker pid=3071246 on localhost:11725 at 12:33:54.049
+starting worker pid=3071259 on localhost:11725 at 12:33:54.058
 >     #only 20 to avoid memory explosion
 >     #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
 >         #https://stackoverflow.com/a/24352032
@@ -674,26 +677,26 @@ Loading required package: sp
 Loading required package: sp
 Loading required package: sp
 Loading required package: sp
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 >     #.combine: 
 >         #function that is used to process the tasks results as they generated.  This can be specified as either a function or a non-empty character string naming the function. Specifying 'c' is useful for concatenating the results into a vector, for example.  The values 'cbind' and 'rbind' can combine vectors into a matrix.
 >         #we use rbind.data.frame to combine each vector as a row in a data.frame
@@ -935,86 +938,86 @@ null device
 > 
 > #set up cluster
 > clust <- makeCluster(5, outfile="")
-[1][1] FALSE
- FALSEWarning message:
+[1][1][1][1][1] FALSE FALSE FALSE FALSE
+
+
+ FALSE
+Warning message:
+Warning message:
 
 Warning message:
+Warning message:
+Warning message:
 In file.remove(".RData") :In file.remove(".RData") :
- 
+ In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+In file.remove(".RData") :
+ In file.remove(".RData") : cannot remove file '.RData', reason 'No such file or directory'
+
+  cannot remove file '.RData', reason 'No such file or directory'
+
   cannot remove file '.RData', reason 'No such file or directory'
  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Ncells 127726  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608 64.0  1031530  7.9
+                     used   used   used (Mb) (Mb) (Mb) gc trigger       gc trigger gc trigger (Mb)   used (Mb) (Mb) max used (Mb) max used max used (Mb) gc trigger (Mb) (Mb)
+Ncells (Mb)
+Ncells
+Ncells max used (Mb)
+Ncells 127726 127726  6.9 127726  6.9     350000 127726  6.9  6.9     350000 18.7     350000   197084     350000 18.7 18.7 10.6   197084 18.7   197084
+Vcells 10.6   197084 10.6 251237
+Vcells 10.6 251237
+Vcells  2.0
+Vcells  2.0 251237    8388608 251237    8388608  2.0 64.0  2.0 64.0    8388608  1031530  1031530    8388608 64.0  7.9  1031530  7.9 64.0
+  7.9
+  1031530
+  7.9
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
 Loading required package: colorout
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
-Loading required package: SystWrapper
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0Warning message:
-    8388608 64.0  1031475  7.9
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Loading required package: colorout
-Loading required package: colorout
-         usedLoading required package: colorout
- (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127709  6.9     350000 18.7   196907 10.6
-Vcells 251229  2.0    8388608 64.0  1031475  7.9
+Warning message:
+Warning message:
+Warning message:
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
-Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'colorout'
 Loading required package: SystWrapper
 Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
 Loading required package: SystWrapper
-Loading required package: colorout
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
+Loading required package: SystWrapper
 Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=1643464 on localhost:11868 at 10:39:17.335
-starting worker pid=1643468 on localhost:11868 at 10:39:17.348
-starting worker pid=1643465 on localhost:11868 at 10:39:17.348
-starting worker pid=1643466 on localhost:11868 at 10:39:17.348
-starting worker pid=1643467 on localhost:11868 at 10:39:17.348
+Warning message:
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ 
+  there is no package called 'SystWrapper'
+ there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+starting worker pid=3072263 on localhost:11725 at 12:39:55.341
+starting worker pid=3072267 on localhost:11725 at 12:39:55.341
+starting worker pid=3072265 on localhost:11725 at 12:39:55.341
+starting worker pid=3072264 on localhost:11725 at 12:39:55.341
+starting worker pid=3072266 on localhost:11725 at 12:39:55.341
 >     #5 less cores to avoid memory explosion
 >     #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
 >         #https://stackoverflow.com/a/24352032
@@ -1029,41 +1032,41 @@ Loading required package: sp
 Loading required package: sp
 Loading required package: sp
 Loading required package: sp
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
-Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 0"
+[1] "STARTING THRESHOLD 2"
 [1] "STARTING THRESHOLD 1"
 [1] "STARTING THRESHOLD 3"
-[1] "STARTING THRESHOLD 2"
 [1] "STARTING THRESHOLD 4"
-[1] "ENDING THRESHOLD 1"
-[1] "STARTING THRESHOLD 5"
-[1] "ENDING THRESHOLD 0"
-[1] "STARTING THRESHOLD 6"
 [1] "ENDING THRESHOLD 3"
-[1] "ENDING THRESHOLD 2"
-[1] "STARTING THRESHOLD 7"
-[1] "STARTING THRESHOLD 8"
+[1] "STARTING THRESHOLD 5"
 [1] "ENDING THRESHOLD 4"
+[1] "STARTING THRESHOLD 6"
+[1] "ENDING THRESHOLD 0"
+[1] "STARTING THRESHOLD 7"
+[1] "ENDING THRESHOLD 2"
+[1] "STARTING THRESHOLD 8"
+[1] "ENDING THRESHOLD 1"
 [1] "STARTING THRESHOLD 9"
-[1] "ENDING THRESHOLD 5"
-[1] "STARTING THRESHOLD 10"
-[1] "ENDING THRESHOLD 7"
-[1] "STARTING THRESHOLD 11"
 [1] "ENDING THRESHOLD 6"
-[1] "STARTING THRESHOLD 12"
+[1] "STARTING THRESHOLD 10"
 [1] "ENDING THRESHOLD 8"
+[1] "STARTING THRESHOLD 11"
+[1] "ENDING THRESHOLD 7"
+[1] "ENDING THRESHOLD 5"
+[1] "STARTING THRESHOLD 12"
 [1] "STARTING THRESHOLD 13"
 [1] "ENDING THRESHOLD 9"
 [1] "STARTING THRESHOLD 14"
 [1] "ENDING THRESHOLD 10"
 [1] "STARTING THRESHOLD 15"
-[1] "ENDING THRESHOLD 11"
-[1] "STARTING THRESHOLD 16"
 [1] "ENDING THRESHOLD 12"
+[1] "STARTING THRESHOLD 16"
+[1] "ENDING THRESHOLD 11"
 [1] "STARTING THRESHOLD 17"
 [1] "ENDING THRESHOLD 13"
 [1] "STARTING THRESHOLD 18"
@@ -1071,11 +1074,11 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 19"
 [1] "ENDING THRESHOLD 15"
 [1] "STARTING THRESHOLD 20"
-[1] "ENDING THRESHOLD 17"
-[1] "STARTING THRESHOLD 21"
 [1] "ENDING THRESHOLD 16"
-[1] "STARTING THRESHOLD 22"
+[1] "STARTING THRESHOLD 21"
 [1] "ENDING THRESHOLD 18"
+[1] "STARTING THRESHOLD 22"
+[1] "ENDING THRESHOLD 17"
 [1] "STARTING THRESHOLD 23"
 [1] "ENDING THRESHOLD 19"
 [1] "STARTING THRESHOLD 24"
@@ -1089,21 +1092,21 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 28"
 [1] "ENDING THRESHOLD 24"
 [1] "STARTING THRESHOLD 29"
-[1] "ENDING THRESHOLD 28"
-[1] "STARTING THRESHOLD 30"
 [1] "ENDING THRESHOLD 25"
-[1] "STARTING THRESHOLD 31"
+[1] "STARTING THRESHOLD 30"
 [1] "ENDING THRESHOLD 26"
-[1] "STARTING THRESHOLD 32"
+[1] "STARTING THRESHOLD 31"
 [1] "ENDING THRESHOLD 27"
+[1] "STARTING THRESHOLD 32"
+[1] "ENDING THRESHOLD 28"
 [1] "STARTING THRESHOLD 33"
 [1] "ENDING THRESHOLD 29"
 [1] "STARTING THRESHOLD 34"
 [1] "ENDING THRESHOLD 30"
 [1] "STARTING THRESHOLD 35"
-[1] "ENDING THRESHOLD 31"
-[1] "STARTING THRESHOLD 36"
 [1] "ENDING THRESHOLD 32"
+[1] "STARTING THRESHOLD 36"
+[1] "ENDING THRESHOLD 31"
 [1] "STARTING THRESHOLD 37"
 [1] "ENDING THRESHOLD 33"
 [1] "STARTING THRESHOLD 38"
@@ -1125,9 +1128,9 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 46"
 [1] "ENDING THRESHOLD 42"
 [1] "STARTING THRESHOLD 47"
-[1] "ENDING THRESHOLD 43"
-[1] "STARTING THRESHOLD 48"
 [1] "ENDING THRESHOLD 44"
+[1] "STARTING THRESHOLD 48"
+[1] "ENDING THRESHOLD 43"
 [1] "STARTING THRESHOLD 49"
 [1] "ENDING THRESHOLD 45"
 [1] "STARTING THRESHOLD 50"
@@ -1181,9 +1184,9 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 74"
 [1] "ENDING THRESHOLD 70"
 [1] "STARTING THRESHOLD 75"
-[1] "ENDING THRESHOLD 72"
-[1] "STARTING THRESHOLD 76"
 [1] "ENDING THRESHOLD 71"
+[1] "STARTING THRESHOLD 76"
+[1] "ENDING THRESHOLD 72"
 [1] "STARTING THRESHOLD 77"
 [1] "ENDING THRESHOLD 73"
 [1] "STARTING THRESHOLD 78"
@@ -1215,9 +1218,9 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 91"
 [1] "ENDING THRESHOLD 87"
 [1] "STARTING THRESHOLD 92"
-[1] "ENDING THRESHOLD 88"
-[1] "STARTING THRESHOLD 93"
 [1] "ENDING THRESHOLD 89"
+[1] "STARTING THRESHOLD 93"
+[1] "ENDING THRESHOLD 88"
 [1] "STARTING THRESHOLD 94"
 [1] "ENDING THRESHOLD 90"
 [1] "STARTING THRESHOLD 95"
@@ -1225,9 +1228,9 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 [1] "STARTING THRESHOLD 96"
 [1] "ENDING THRESHOLD 92"
 [1] "STARTING THRESHOLD 97"
-[1] "ENDING THRESHOLD 93"
-[1] "STARTING THRESHOLD 98"
 [1] "ENDING THRESHOLD 94"
+[1] "STARTING THRESHOLD 98"
+[1] "ENDING THRESHOLD 93"
 [1] "STARTING THRESHOLD 99"
 [1] "ENDING THRESHOLD 95"
 [1] "STARTING THRESHOLD 100"
@@ -1256,6 +1259,7 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 > 
 > #save the stack with the difference in richness across thresholds
 > writeRaster(diff_suit_stack, "./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack", options="COMPRESS=LZW", overwrite=TRUE)
+> #diff_suit_stack=stack("./results/global_figures/final_global_figures/threshold_comparisons/pine_richness_change/diff_suit_stack")
 > 
 > 
 > ##calculate the percentage of thresholds for which a cell have less or more pine species
@@ -1271,7 +1275,15 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 +     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])>0)] <- 0
 +     diff_suit_stack_negative[[layer]][which(getValues(diff_suit_stack_negative[[layer]])<0)] <- 1
 + }
->     #IMPORTANT: this approach loses information about cases where pine richness increases in more than 1, but I think this is ok. If you have an area where richness increases by 2 up to 75% of uncertainty, and then other area increases richness by 1 from 1 to 90% of uncertainty. We have more certainty that richness is going to increase in the second scenario even if the number of species is reduced.
+>     #IMPORTANT NOTE 1: 
+>         #this approach loses information about cases where pine richness increases in more than 1, but I think this is ok. If you have an area where richness increases by 2 up to 75% of uncertainty, and then other area increases richness by 1 from 1 to 90% of uncertainty. We have more certainty that richness is going to increase in the second scenario even if the number of species is reduced.
+>     #IMPORTANT NOTE 2:
+>         #We have regions where the number of species increases with threshold 75% but not with threshold 25%. In other words, if we consider as suitable only regions with 75% certainty, we get more species!!!
+>         #This seems counterintuitive, but it is not. You have to remember that the threshold is applied, not only to the future conditions, but also to the current conditions. Therefore, when you select a more stringent threshold, you could make the current suitable area smaller and, of course, you cannot lose what you did not have in the first place.
+>         #If a region suitable under current conditions 25% is unsuitable for 75% still under current conditions, and it is suitable under future conditions for both 25% and 75%, this means that richness increases under 75%. The ensemble did not consider that the species was there under current conditions but it is at future when using the 75% threshold. This is the case of a region at the far north of the Pumila distribution.
+>             #This is telling you that today we do not have a great certainty that the region is suitable but the certainty will increase in the future, making it a possible space for range expansion.
+>         #This is a clear example why it is not enough just to select those regions with gains of pine richness for 100% threshold. These regions could not gain richness at lower thresholds, despite the decrease in stringentness because the current suitable area increase, so it is more likely that some of these new regions become unsuitable. We have more area to care about and it is area with less certainty of suitability.
+>         #This is similar to what we saw with the temporal decrease in range loss when increasing the threshold. Again, we reduce the are considered to be suitable under current conditions, so there is less room to have areas that become unsuitable under future conditions.
 > 
 > #calculate the proportion of thresholds that have positive and negative change in pine richness, respectively
 > positive_pine_richness_across_thresholds = (sum(diff_suit_stack_positive)/nlayers(diff_suit_stack_positive))*100
@@ -1280,6 +1292,7 @@ Linking to GEOS 3.10.2, GDAL 3.4.1, PROJ 8.2.1; sf_use_s2() is TRUE
 > #remove water bodies
 > positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, environment_var)
 > negative_pine_richness_across_thresholds = mask(negative_pine_richness_across_thresholds, environment_var)
+>     #we first remove water bodies with environment_var because this variable has more resolution that the distribution buffer, so it makes the coast border more smooth. The only border that are coarse (0.5 res) are the limits of the global distribution of pines.
 > 
 > #remove the areas outside the global distribution of pines
 > positive_pine_richness_across_thresholds = mask(positive_pine_richness_across_thresholds, polygon_range_calc_stack_sum)
@@ -1318,11 +1331,15 @@ values     : 0, 100  (min, max)
 > require(RColorBrewer)
 Loading required package: RColorBrewer
 > #We selected from Colorbrewer a single hue pallete with green. As we are going to plot only one variable in each plot.
-> green_palette <-brewer.pal(9,"Greens")
->     #Names taken from "http://colorbrewer2.org/#type=sequential&scheme=Greens&n=9"
+> blue_palette <-brewer.pal(9,"Blues")
+> red_palette <-brewer.pal(9,"Reds")
+>     #Names taken from 
+>         #"http://colorbrewer2.org/#type=sequential&scheme=Blues&n=9"
+>         #https://colorbrewer2.org/#type=sequential&scheme=Reds&n=9
 >     #All works for anomalous trychromacy and dychromacy ("http://www.color-blindness.com/coblis-color-blindness-simulator/")
 > #these palletes are used in colorRampPalette to create a function that can create a great number of colors 
-> colfunc_green <- colorRampPalette(green_palette)
+> colfunc_blue <- colorRampPalette(blue_palette)
+> colfunc_red <- colorRampPalette(red_palette)
 > 
 > 
 > ##open the plot
@@ -1331,13 +1348,13 @@ Loading required package: RColorBrewer
 > 
 > #upper plot
 > plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-> plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
+> plot(positive_pine_richness_across_thresholds, add=TRUE, col=colfunc_blue(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds + richness'))), side=4, font=2, line=3.4, cex=1.5)) 
 >     #colors of colorbrewer2 can be seen at "http://colorbrewer2.org/#type=sequential&scheme=YlOrRd&n=3"
 >     #breaks indicate the number of partitions between colors, whilst "at" indicate the numbers in the legend. The number of colors have to be EQUAL to the number o breaks. Breaks should encompass the RANGE of values of the raster
 > 
 > #lower plot
 > plot(crop(environment_var, plot_extent), col=gray.colors(1, start=0.2), legend=FALSE, axes=FALSE, box=FALSE, main="") #higher values in argument start of gray colors lead to brighter gray
-> plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_green(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
+> plot(negative_pine_richness_across_thresholds, add=TRUE, col=colfunc_red(161), breaks=seq(0,100,1), axes=FALSE, box=FALSE, axis.args=list(at=seq(0,100,20), cex.axis=1.3), legend=TRUE, legend.shrink=0.8, legend.args=list(text=expression(bold(paste('% Thresholds - richness'))), side=4, font=2, line=3.4, cex=1.5))
 > dev.off()
 null device 
           1 
@@ -1353,12 +1370,6 @@ null device
 > print("## FINISH ##")
 [1] "## FINISH ##"
 > 
-> 
-> #why with the three first species, some areas non-suitable for 50 are suitable 75% threshold?
->     #plot(diff_suit_stack_positive[[3]]-diff_suit_stack_positive[[2]])
-> #check ubuntu 22.04 works the same in general
-> #check only the changes you did for the last figure
-> 
 > proc.time()
     user   system  elapsed 
- 150.410   30.534 4052.493 
+ 148.879   30.064 3462.995 
