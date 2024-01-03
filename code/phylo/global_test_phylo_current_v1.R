@@ -73,11 +73,16 @@ bio1 = raster("datos/finals/bio1.asc")
 environment_var = clay*bio1
     #Multiply both variables for obtaining a raster with all NAs. We will use them to ensure that all presences have environmental data, and specific we want to ensure that 0.5 fall in areas with value of environmental variables. We use a soil variable because there is bioclim data for some water bodies inside the continents, and we don't want to get presences in these areas. 
 
-#load buffer albicaulis to get a reduced resolution version of environment_var to mask the distribution buffers used for the sum of distribution
-buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
+#load elevation at low resolution
+elev = raster("./datos/topografia/elev_low_resolution.asc")
+    #we will calculate the percentile of altitude inside each cell of 50x50 inside the buffer, so we don't need great resolution. Only 10x10 is enough (0.08333334, 0.08333334)
+print(round(res(elev)[1], 7) == round(res(environment_var)[1], 7))
+print(round(res(elev)[1], 7) == round(res(environment_var)[1], 7))
+    #Now, it has a similar resolution of moisture bioclimvariables up to the 7th decimal
 
-#resample environment_var
-environment_var_low_res = resample(environment_var, buffer_albicaulis, method="bilinear")
+#load buffer albicaulis 
+#we will use it later to get a reduced resolution version of environment_var after removing the PA buffer from there. This will be the input to get a polygons of everything outside the PA buffer
+buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
 
 #NOTE: In general, I have used extract to obtain any information about the points: elevation, environmental data and number of cell. Extract only consider that a point falls inside a cell if its center is inside that cell. It is important consider this. 
 
@@ -91,15 +96,82 @@ environment_var_low_res = resample(environment_var, buffer_albicaulis, method="b
 #species="radiata"
 exsitu_occurrences=function(species){
 
-    #load the buffer used to create PAs.
+    ##load the buffer used to create PAs.
     #This is out area of known absences due to edaphoclimatic conditions, i.e., no migration, etc... so we will consider as exsitu all occurrences outside this buffer
+    #Note that we have to include EVERYTHING outside of the PA buffer, even if it is outside of the global distribution of pines. Pinus radiata is present in Australia...
     raster_pa_buffer = raster(paste("./results/pseudo_absences/", species, "_PA_buffer.asc", sep=""))  
     
     #convert to polygon 
     polygon_raster_pa_buffer = rasterToPolygons(raster_pa_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
 
 
+    ##obtain a polygon for all the world outside of the PA buffer
+    #we will use the environmental raster, as it already includes areas with environmental data (both climatic and edaphic) across the globe and exclude water bodies
+    #do an inverse mask of the environmental variable using the PA buffer as mask. This will give us all areas outside of the PA buffer.
+    environment_var_no_pa=mask(environment_var, polygon_raster_pa_buffer, inverse=TRUE)
+        #we are masking using the high resolution climatic variable as input because if we use a coarser resolution (0.5), some areas inside the PA buffer are left in the coast for Pinus radiata.
+        #it is ok, because we will then convert to low resolution to match the PA buffer we used to create occurrences
 
+    #reduce resolution
+    environment_var_no_pa_low_res=resample(environment_var_no_pa, buffer_albicaulis, method="bilinear")
+
+    #convert to 1 all cells with no NA, i.e., with edaphoclimatic data
+    environment_var_no_pa_low_res[which(!is.na(getValues(environment_var_no_pa_low_res)))] = 1
+
+    #create a polygon with all rows having edaphoclimatic data
+    environment_var_no_pa_low_res_polygon = rasterToPolygons(environment_var_no_pa_low_res, fun=function(x){x==1}, n=16, dissolve = TRUE)
+
+
+    ##load occurrence data
+    #read the table
+    occurrences=read.csv(paste("./datos/raw_ocurrences/ocurrences/tree_species/final_species/Pinus_", species, ".csv", sep=""), header=TRUE, fill=TRUE, check.names=TRUE, stringsAsFactors=FALSE)
+        #stringsAsFactors=FALSE sirve para procesar mejor la columna coordinatePrecision, que lleva mezclados números y caracteres
+
+    #Cambia el nombre de lat a latitud y lon a longitud
+    n.column.lon = which(colnames(occurrences)=="lon") 
+    n.column.lat = which(colnames(occurrences)=="lat") 
+        #look for the number of the column with longitude and latitude
+    colnames(occurrences)[n.column.lon] = "longitude" 
+    colnames(occurrences)[n.column.lat] = "latitude" #Use these number as index for select the correct column and change the name. 
+    
+    #drop rows with NA for longitude and latitude
+    occurrences<-occurrences[!(is.na(occurrences$longitude)),] 
+    occurrences<-occurrences[!(is.na(occurrences$latitude)),] 
+
+    #drop points without environmental variables.
+    environment_presences = extract(x=environment_var, y=occurrences[c("longitude", "latitude")]) 
+        #extract coge los puntos d epresencia, coge las varialbes, y para cada punto de presencai coge los valoers de las variables. Los puntos que quedan fuera del area de las variables se pone NA que luego quitaremos.
+        #we use the raster with 10x10km cell size because we will 10x10 raster as input in the prediction of probability of presence for these points 
+    
+    #no es un data.frame, lo convertimos, 
+    environment_presences<-data.frame(environment_presences) 
+        #este data.frame tiene una columna por variable, una fila por punto de presencia, y esa tabla la vamos a unir con la table de occurrences (coordenadas pais, y todo lo demas)
+
+    #lo unimos a las presencias
+    occurrences<-data.frame(occurrences, environment_presences)
+    nrow(occurrences)
+    rm(environment_presences)
+
+    #quitamos los registros que tienen nulos en los valores de variables ambientales
+    occurrences<-occurrences[!(is.na(occurrences$environment_presences)), ] 
+    nrow(occurrences) 
+        #in this way we drop the points without environmental data (bioclim and soil)
+
+    #create a coordinatePrecision variable if it is neccesary
+    if (length(occurrences$coordinatePrecision)==0){
+        occurrences$coordinatePrecision = rep(NA, nrow(occurrences))            
+    }
+
+
+    
+
+
+    plot(environment_var_no_pa_low_res)
+    plot(environment_var_no_pa_low_res_polygon, add=TRUE)
+    #points(presencia$longitude, presencia$latitude, cex=0.5)
+
+    points(points_and_values_distribution_buffer[points_outside_distribution_buffer,]$longitude, points_and_values_distribution_buffer[points_outside_distribution_buffer,]$latitude, cex=0.2, col="black")
+    points(points_and_values_distribution_buffer[points_inside_distribution_buffer,]$longitude, points_and_values_distribution_buffer[points_inside_distribution_buffer,]$latitude, cex=0.2, col="red")
 
 
 }
