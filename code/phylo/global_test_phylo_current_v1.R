@@ -156,6 +156,9 @@ exsitu_occurrences=function(species){
     #create a polygon with all rows having edaphoclimatic data
     raster_outside_pa_buffer_polygon = rasterToPolygons(raster_outside_pa_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE)
 
+    #create the same polygon but with cell borders inside just for checking occurrences resampling in the plots
+    raster_outside_pa_buffer_polygon_non_dissolved = rasterToPolygons(raster_outside_pa_buffer, fun=function(x){x==1}, n=16, dissolve = FALSE)
+
 
     ##load occurrence data
     #read the table
@@ -207,13 +210,13 @@ exsitu_occurrences=function(species){
     points_inside_pa_buffer = which(is.na(points_and_values_outside_pa_buffer$outside_pa_buffer_values_of_points)) #obtain rows in which values of the distribution buffer raster is NA, thus points inside the buffer
     
     #plot the result
-    cairo_pdf(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_ocurrences.pdf", sep=""), width=7, height=7)
+    cairo_pdf(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_ocurrences.pdf", sep=""), width=12, height=12)
     plot(environment_var, col="gray80")
     plot(polygon_distribution_buffer, add=TRUE, lwd=0.1, border="black")
     plot(raster_outside_pa_buffer_polygon, add=TRUE, lwd=0.1, border="red")
     plot(polygon_raster_pa_buffer, add=TRUE, lwd=0.1, border="blue")
-    points(points_and_values_outside_pa_buffer[points_inside_pa_buffer,]$longitude, points_and_values_outside_pa_buffer[points_inside_pa_buffer,]$latitude, cex=0.01, pch=20, alpha=0.01, col="blue")
-    points(points_and_values_outside_pa_buffer[points_outside_pa_buffer,]$longitude, points_and_values_outside_pa_buffer[points_outside_pa_buffer,]$latitude, cex=0.01, pch=20, alpha=0.01, col="red")
+    points(points_and_values_outside_pa_buffer[points_inside_pa_buffer,]$longitude, points_and_values_outside_pa_buffer[points_inside_pa_buffer,]$latitude, cex=0.01, lwd=0.1, pch=20, col="blue")
+    points(points_and_values_outside_pa_buffer[points_outside_pa_buffer,]$longitude, points_and_values_outside_pa_buffer[points_outside_pa_buffer,]$latitude, cex=0.01, lwd=0.1, pch=20, col="red")
     legend(x="topright", legend=c("Distribution buffer", "PA buffer", "Outside PA buffer"), fill=c("black", "blue", "red"), cex=0.8)
     dev.off()
 
@@ -381,10 +384,32 @@ exsitu_occurrences=function(species){
     table_stratified_sample = cbind(table_stratified_sample, precision_weight)    
 
     #check the weights have been correctly calculated
-    if( 
-        (unique(table_stratified_sample[is.na(table_stratified_sample$coordinatePrecision),]$precision_weight)!=0.5) |
-        (unique(table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision<1 | !is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>25,]$precision_weight)!=0.5) | 
-        (unique(table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>=1 & table_stratified_sample$coordinatePrecision<=25,]$precision_weight)!=1)){
+    subset_1=table_stratified_sample[is.na(table_stratified_sample$coordinatePrecision),]$precision_weight
+    subset_2=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision<1 | !is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>25,]$precision_weight
+    subset_3=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>=1 & table_stratified_sample$coordinatePrecision<=25,]$precision_weight
+    checks=list()
+    if(length(subset_1)>0){
+        if(length(unique(subset_1))==1){
+            checks[[1]]=unique(subset_1)==0.5
+        } else { 
+            checks[[1]]=FALSE
+        }
+    }
+    if(length(subset_2)>0){
+        if(length(unique(subset_2))==1){
+            checks[[2]]=unique(subset_2)==0.5
+        } else { 
+            checks[[2]]=FALSE
+        }
+    }
+    if(length(subset_3)>0){
+        if(length(unique(subset_3))==1){
+            checks[[3]]=unique(subset_3)==1
+        } else { 
+            checks[[3]]=FALSE
+        }
+    }
+    if(FALSE %in% checks){
         stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PRECISION WEIGHT FOR OCCURRENCES") 
     }
 
@@ -419,7 +444,12 @@ exsitu_occurrences=function(species){
                 final.presences = rbind(
                 final.presences,
                 subset_high_precision[c(closest_p10[sample(1:length(closest_p10),1)],closest_p50[sample(1:length(closest_p50),1)], closest_p90[sample(1:length(closest_p90),1)]),]) 
-                    #select the the points closest to each percentile, the point is selected randomly from the number of points closest to the percentile.     
+                    #select the the points closest to each percentile, the point is selected randomly from the number of points closest to the percentile.
+                    #it would have been better to check whether we have the same point closes to two percentiles, but it is very unlikely this happens:
+                        #first, a point has to be the closest to TWO percentiles of elevation
+                        #second, the point is randomly selected for the first percentile and the second
+                        #alternatively, there is no more points closest to these percentiles so it is selected in both cases again
+                        #also note the lack of high precision occurrences we have in the data, therefore this seems to be very unlikely to happen. Just a small bug that could produce a bit more correlation of occurrences.
             } else { #if not 
                 if (nrow(subset_high_precision)<=3 && nrow(subset_high_precision)>=1 && nrow(subset_low_precision)==0){ #if the number of high precision points is equal or lower than  3 and equal or higher than 1 and the number of low precision points is equal to 0. From here, we don`t need use elevation because elevation resampling can be made only with more than 3 high precision points and elevation data. In this way we don't lose high precision points without elevation in cells with 3 or less high precision points.
                     final.presences = rbind(
@@ -465,7 +495,7 @@ exsitu_occurrences=function(species){
             stop("ERROR! FALSE! WE HAVE A PROBLE, IN RESAMPLING, MORE THAN 3 POINTS IN SOME CELLS")
         }
 
-        #each condition of the cleaning code works
+        #check whether all cell IDs obtained meet one of the conditions to be included regarding number and precision of the points. We take again points using the conditions from the original data.frame
         test_cells = data.frame(id_cell=NA, points=NA, high_precision=NA, high_p_elev=NA, low_precision=NA)
         #k=unique(table_stratified_sample$cell_id_presences)[1]
         for (k in unique(table_stratified_sample$cell_id_presences)){
@@ -477,6 +507,10 @@ exsitu_occurrences=function(species){
         }
         names(test_cells) <- c("id_cell", "points", "high_precision", "high_p_elev", "low_precision") #change the name of the data.frame
         test_cells=test_cells[-1,] #remove row with NAs
+        #check whether the total number of presences inside a cell is the same than the sum of high and low precision presences
+        if(sum(test_cells$points == test_cells$high_precision+test_cells$low_precision)!=nrow(test_cells)){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
+        }
         #Extract the cell that accomplish each condition
         test_cells[test_cells$high_p_elev>3,]$id_cell
         test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision==0,]$id_cell
@@ -492,85 +526,112 @@ exsitu_occurrences=function(species){
             test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision<=3-test_cells$high_precision,]$id_cell,
             test_cells[test_cells$high_precision==0 & test_cells$low_precision>3,]$id_cell,
             test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 & test_cells$low_precision<=3,]$id_cell)
-        if(length(eso)!=length(unique(final.presences$cell_id_presences))){
+        if(!identical(sort(eso), sort(unique(final.presences$cell_id_presences)))){
             stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
         }
     }
-
-
-    ##POR AQUII
-
 
     #if there are high precision points final selected plot them into altitudinal plot to see the performance of the altitudinal sampling.
     if(nrow(final.presences[which(final.presences$precision_weight==1),]) > 1){
         
         #open png
-        png(paste("/Volumes/GoogleDrive/My Drive/science/phd/nicho_pinus/results/ocurrences/", i, "_check_altitudinal_sampling.png", sep=""), width=1100, height=800, pointsize=30)
+        png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_altitudinal_sampling.png", sep=""), width=2200, height=1600, res=300)
 
         #plot elevation
-        plot(elev_plots, main="Altitudinal sampling of high precision points")
-
-        #add polygon buffer to see celss
-        plot(polygon_buffer, add=TRUE)
+        if(species=="radiata"){
+            #if radiata, plot the canary islands where it has been introduced and where we can see selection of high precision points across the Teide
+            canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
+            canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
+            plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
+            plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
+        } else {
+            plot(elev, main="Altitudinal sampling of high precision points")
+            plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
+        }
 
         #add all points high precision points before the altitudinal sampling
-        points(table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$longitude, table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$latitude, cex=0.5, col="white", lwd=0.15)
+        points(table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$longitude, table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$latitude, pch=20, cex=0.01, col="black", lwd=0.1)
         
         #add high precision points after altitudinal sampling
-        points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, cex=0.5, col="red")
+        points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
         #add legend
-        legend("topright", legend=c("all points", "high preci. selected"), fill=c("white", "red"), cex=0.5)
+        legend("topright", legend=c("outside PA buffer", "all points high", "high selected"), fill=c("blue", "black", "red"), cex=0.5)
         dev.off() #you have to check that the three high preicion points selected (red) in each cell are close to the maximum, mediam and minimun altitude considering altitude of ALL high precision points (white). Checked in pinus canriensis, it is ok, pay attention to Teide, it is very clear. 
     }
+        #The resampling works great, the only little problem i see is in the case of cells with a lot of sea. In those cases can be selected 3 points close between them, but i don't think this could have great impact on the models. Only more correlation between very few points (only from buffer cells with a lot of sea).
 
-    #The resampling works great, the only little problem i see is in the case of cells with a lot of sea. In those cases can be selected 3 points close between them, but i don't think this could have great impact on the models. Only more correlation between very few points (only from buffer cells with a lot of sea).
+    #visualize high and low precision occurrences
+    png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_high_low_occurrences.png", sep=""), width=2200, height=1600, res=300)
 
+    #plot elevation
+    if(species=="radiata"){
+        #if radiata, plot the canary islands where it has been introduced and where we can see selection of points in more detail
+        canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
+        canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
+        plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
+        plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
+    } else {
+        plot(elev, main="Altitudinal sampling of high precision points")
+        plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
+    }
+    
+    #add high precision points after altitudinal sampling
+    points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
+    
+    #add low precision points
+    points(final.presences[which(final.presences$precision_weight==0.5),]$longitude, final.presences[which(final.presences$precision_weight==0.5),]$latitude, pch=20, cex=0.01, col="blue", lwd=0.1)
 
+    #add legend
+    legend("topright", legend=c("high precision points", "low precision points"), fill=c("red", "blue"), cex=0.5)
+    dev.off()
+        #checked for pinus radiata in canary islands, 3 points per cell
 
+    #plot final occurrences
+    pdf(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.pdf", sep=""), width=12, height=12)
+    plot(environment_var, col="gray80")
+    points(final.presences$longitude, final.presences$latitude,  cex=0.1, lwd=0.1, pch=20, col="red")
+    dev.off()
 
+    #select the columns of occurrences we are interested in
+    ultimate_ocurrences = final.presences[, c("longitude", "latitude", "precision_weight")]
 
+    #create a variable of final.presences
+    ultimate_ocurrences$presence = rep(x=1, time=nrow(ultimate_ocurrences))
+
+    #write the resulting data.frame in a csv. 
+    write.table(ultimate_ocurrences, paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", row.names=FALSE)
 }
 
-
-
-##STEPS
-    #we have to select all occurrences outside the PA buffer, but we have to resample them? we do not have our 50x50 cells out there. The problem is that you have very correlated occurrences, you are going to predict and get precision of non-independent points
-
-    #maybe we can create a global buffer of 50x50 where the PA buffer is excluded, and then we select 3 occurrences within each cell. If the occurrence is high precision we can select based on elevation
-        #check the original occurrence script in case we miss an relevant step here
-
-    #once we have 3 occurrences per 50x50 cell (as we did for training), we can select the environmental variables used as predictors in the corresponding species, and then extract their values for the occurrences outside the PA buffer
-
-    #we can then predict the probability of occurrence based on env variables and then check how well predict true presences, TSS....
-        #high vs low precision was not considered in the evaluation of the models we did, so we could skip that for evaluation here
-
-    #evaluate again, but this time considering also as suitable regions fully within the phylogenetic range. 
-
-    #we can do this for all species, then compare the median TSS with and without phylo, also look for species where phylo improves a lot
+#run it for one species
+#exsitu_occurrences("halepensis")
 
 
 
-####################################################
-########### Loop preparing data #########################
-####################################################
-##RUN only ONE time. Already runned. 
 
-#function for preparing data (extract data of variables in ocurrences points)
-prepar_data = function(species) {
+########################################
+##### EXTRACT ENVIRONMENTAL VALUES #####
+########################################
 
-    #required libraries
-    #library(raster)
-    #library(dismo)
+
+##RUN only ONE time???
+
+##CHECK WE ARE USING THE CORRECT INPUT FILES HERE
+
+#species="radiata"
+env_predictors = function(species) {
 
     #load the group of species according to cluster
-    group_species = read.csv("/Users/dsalazar/nicho_pinus/data/climate/complete_2_10_g_2.csv", header=TRUE)  
+    group_species = read.csv("./code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", header=TRUE)  
     
     #select the group of the corresponding species
     variables_cluster = group_species[which(group_species$species == species),]$groups   
     #select the number cluster of this species 
-    rasters_list = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=TRUE) #list the corresponding group of variables
-    rasters_names = list.files("/Users/dsalazar/nicho_pinus/data/climate/finals", pattern=".asc", full.names=FALSE) #list names of raster
-    names_variables = NULL #loop for separate raster names from extension ".asc"
+    rasters_list = list.files("./datos/finals", pattern=".asc", full.names=TRUE) #list the corresponding group of variables
+    rasters_names = list.files("./datos/finals", pattern=".asc", full.names=FALSE) #list names of raster
+
+    #loop for separate raster names from extension ".asc"
+    names_variables = NULL
+    #i=rasters_names[1]
     for (i in rasters_names){
         names_variables = append(names_variables, strsplit(i, split=".asc")[[1]])
     }
@@ -591,7 +652,7 @@ prepar_data = function(species) {
     if (n_ocurrence<length(selected_variables)*10){ #if there is not 10 ocurrences for each variable 
         
         #load the names of selected variables of low number ocurrences species
-        load("/Users/dsalazar/nicho_pinus/data/climate/finals/final_variables_low_number_ocurrence_species.rda")
+        load("./datos/finals/final_variables_low_number_ocurrence_species.rda")
 
         #select the selecte variables for low number ocurrences species
         variables_stack = variables_stack[[final_variables_low_number_ocurrence_species_new[[species]]]]    
@@ -618,6 +679,44 @@ prepar_data = function(species) {
     #name of species
     print(paste(species, "ended"))   
 }
+
+
+
+
+#took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
+
+
+
+#run all the functions
+master_processor=function(species){
+
+    #occurrences preparation
+    exsitu_occurrences(species)
+
+    #
+
+}
+
+
+##STEPS
+
+    #once we have 3 occurrences per 50x50 cell (as we did for training), we can select the environmental variables used as predictors in the corresponding species, and then extract their values for the occurrences outside the PA buffer
+
+    #we can then predict the probability of occurrence based on env variables and then check how well predict true presences, TSS....
+        #high vs low precision was not considered in the evaluation of the models we did, so we could skip that for evaluation here
+
+    #evaluate again, but this time considering also as suitable regions fully within the phylogenetic range. 
+        #evaluation with presence only!!!
+            #This refined Boyce evaluation approach was, for instance, used in a study assessing our ability to project niche models into new territories to predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investi- gating colonizing species.
+                #Nick's book
+
+    #we can do this for all species, then compare the median TSS with and without phylo, also look for species where phylo improves a lot
+
+
+
+####################################################
+########### Loop preparing data #########################
+####################################################
 
 
 ####################################################
