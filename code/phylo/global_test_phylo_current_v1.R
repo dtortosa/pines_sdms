@@ -32,6 +32,7 @@ set.seed(56756)
 
 #create some folders
 system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
+system("mkdir -p ./results/global_test_phylo_current/env_predictors")
 
 #pre-defined functions
 plot_sin=function(input){
@@ -223,383 +224,391 @@ exsitu_occurrences=function(species){
     #drop the ocurrences outside the buffer in the presencia data frame
     presencia = occurrences[points_outside_pa_buffer,]
 
-    #Pedimos nombres de especies (ya realizada limpaiza taxonomicoa, solo lo dejamos por si aca)
-    #------------------------------------
-    print(unique(presencia$specificEpithet))
-    print(unique(presencia$scientificName))
-    print(unique(presencia$speciesKey))
-    for (k in unique(presencia$speciesKey)){
-        print(unique(presencia[presencia$speciesKey==k,]$scientificName))
-    } #loop for taking a look of scientificName of each speciesKey
+    #we stop here if there is no presence points
+    if(nrow(presencia)>0){
+
+        #Pedimos nombres de especies (ya realizada limpaiza taxonomicoa, solo lo dejamos por si aca)
+        #------------------------------------
+        print(unique(presencia$specificEpithet))
+        print(unique(presencia$scientificName))
+        print(unique(presencia$speciesKey))
+        for (k in unique(presencia$speciesKey)){
+            print(unique(presencia[presencia$speciesKey==k,]$scientificName))
+        } #loop for taking a look of scientificName of each speciesKey
 
 
-    #QUITAMOS LOS REGISTROS FÓSILES (SI LOS HAY)
-    #-------------------------------------------
-    #barplot(table(presencia$basisOfRecord)) #Las observaciones humanas y observaciones nos interesan, y tambien los pliegos de herbario (dentro del area de distribucion), pero si hay registros fosiles entonces hay que echar un ojo a ver si cuadranc on los registros actuales (mira codgio blas), no es nuestro caso. 
-    #vemos la distribución de los especímenes fósiles y preservados. Para ello: 
-    #plot(elev, col="gray80") #ploteo una variable
-    #points(presencia$longitude,presencia$latitude, cex=0.6) #pongo los puntos de presencia
-    #points(presencia[presencia$basisOfRecord == "FOSSIL_SPECIMEN", ]$longitude,presencia[presencia$basisOfRecord == "FOSSIL_SPECIMEN", ]$latitude, col="red", cex=1.2) #pongo encima los puntos fosiles. Poneindo la longitudeigtid y latitudeitis de unicamente las filas de regristors fosiles. 
-    #nos quedamos con todos los registros que no son FOSSIL_SPECIMEN o UNKNOWN (tipo de registro desconocido)
-    presencia<-presencia[which(!presencia$basisOfRecord %in% c("FOSSIL_SPECIMEN")), ]
-    #barplot(table(presencia$basisOfRecord)) #Ya no tenemos datos fosiles, hay observaciones, datos de especimenes preservados y datos desconocisos que son datos en los que no se han rellenado ese campo. 
-    if(sum(presencia$basisOfRecord=="FOSSIL_SPECIMEN") != 0){
-        stop("ERROR! FALSE! WE HAVE A PROBLEM REMOVING FOSSILS")
-    }
+        #QUITAMOS LOS REGISTROS FÓSILES (SI LOS HAY)
+        #-------------------------------------------
+        #barplot(table(presencia$basisOfRecord)) #Las observaciones humanas y observaciones nos interesan, y tambien los pliegos de herbario (dentro del area de distribucion), pero si hay registros fosiles entonces hay que echar un ojo a ver si cuadranc on los registros actuales (mira codgio blas), no es nuestro caso. 
+        #vemos la distribución de los especímenes fósiles y preservados. Para ello: 
+        #plot(elev, col="gray80") #ploteo una variable
+        #points(presencia$longitude,presencia$latitude, cex=0.6) #pongo los puntos de presencia
+        #points(presencia[presencia$basisOfRecord == "FOSSIL_SPECIMEN", ]$longitude,presencia[presencia$basisOfRecord == "FOSSIL_SPECIMEN", ]$latitude, col="red", cex=1.2) #pongo encima los puntos fosiles. Poneindo la longitudeigtid y latitudeitis de unicamente las filas de regristors fosiles. 
+        #nos quedamos con todos los registros que no son FOSSIL_SPECIMEN o UNKNOWN (tipo de registro desconocido)
+        presencia<-presencia[which(!presencia$basisOfRecord %in% c("FOSSIL_SPECIMEN")), ]
+        #barplot(table(presencia$basisOfRecord)) #Ya no tenemos datos fosiles, hay observaciones, datos de especimenes preservados y datos desconocisos que son datos en los que no se han rellenado ese campo. 
+        if(sum(presencia$basisOfRecord=="FOSSIL_SPECIMEN") != 0){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM REMOVING FOSSILS")
+        }
 
-    #LIMPIEZA DE DUPLICADOS EN LAS COORDENADAS
-    #-----------------------------------------
-    #buscamos registros duplicados en las coordenadas
-    duplicados<-duplicated(presencia[ , c("latitude", "longitude")]) #la funcion duplicated del paqeute dismo busca registros duplicados para unas columnas que yo le diga. 
-    #¿cuantos duplicados hay?
-    length(duplicados[duplicados==TRUE])
-    #selecciona los no duplicados (el símbolo ! significa "todo menos los duplicados")
-    presencia<-presencia[!duplicados, ]
-    #comprobamos que no han quedado duplicados (solo para cultivar vuestra fé)
-    duplicados<-duplicated(presencia[ , c("latitude", "longitude")])
-    if(sum(duplicados) != 0){
-        stop("ERROR! FALSE! WE HAVE A PROBLEM REMOVING DUPLICATE OCCURRENCES")
-    }
-
-
-    ##Create a variable of precision weight
-    #Hasta abril de 2016 había solo una variable de accuracy of coordinates, pero gbif cambio en favor de los terminos de Darwin Core. Ahora, o tienes dato de coordinateUncertaintyInMeters ó de coordinatePrecision, pero nunca de los dos. 
-
-    #coordinatePrecision
-    #Hasta abril de 2016 este termino era el radio de error que tiene cada coordenada. La unidad es en metros, por tanto un valor de 25 indica un radio de 25x25 metros, y eso es lo que tenemos nosotros. 
-    ###Desde abril de 2016 ha cambiado. Una representación lineal de la precisión de las coordenadas dada en latitud y longitud decimal. Debe estar entre 0 y 1. Nosotros NO tenemos esto, por que la peña sigue subiendo los datos para esta variable como metros. 
-    #for further details: 
-        #http://lists.gbif.org/pipermail/api-users/2016-April/000300.html 
-        #http://www.gbif.org/publishing-data/quality
-        #http://tdwg.github.io/dwc/terms/index.htm#coordinateUncertaintyInMeters
-    #vemos el tipo de los datos
-    #str(presencia$coordinatePrecision)  
-    #vemos los valores de los datos
-    #unique(presencia$coordinatePrecision) 
-    #vemos su distribución
-    #barplot(table(presencia$coordinatePrecision)) #Mis variables tenian una resolucion de 4x4 km  y aqui tenemos valores por debajo (1,10, 25 = 1.85 km) y algunos por encima (0 =  18 km), los calculos están explicados en niche_questions.txt. Points with 1,10,25 will receive a weight of 1, whilst points with 0 will receive a weight of 0.5. 
-
-    #coordinateUncertaintyInMeters
-    #Esta variable indica la distancia horizontal en metros desde la latitud decimal dada y la longitud decimal ada describrined the smallest circle containing the whole of the location. Se deja empty si la incertidumbre es desconocida, no puede ser estimada o no es aplicable (porque no hay coordenadas). Zero no es valor valido para este termino. Debe ser mayor y diferente de cero además de menor de 5000000 (5000 km). 
-    #vemos el tipo de los datos
-    #str(presencia$coordinateUncertaintyInMeters) 
-    #vemos los valores de los datos
-    #unique(presencia$coordinateUncertaintyInMeters) 
-    #vemos su distribución
-    #barplot(table(presencia$coordinateUncertaintyInMeters)) #points with precision lower than 4 km will receive a weight of 1, whilts point with coarser precision will receive a weight of 0.5.
-    #It will not be used! becasue we have no evidence that this variable explcain anything about precision (see notebook and example sylvestris).
+        #LIMPIEZA DE DUPLICADOS EN LAS COORDENADAS
+        #-----------------------------------------
+        #buscamos registros duplicados en las coordenadas
+        duplicados<-duplicated(presencia[ , c("latitude", "longitude")]) #la funcion duplicated del paqeute dismo busca registros duplicados para unas columnas que yo le diga. 
+        #¿cuantos duplicados hay?
+        length(duplicados[duplicados==TRUE])
+        #selecciona los no duplicados (el símbolo ! significa "todo menos los duplicados")
+        presencia<-presencia[!duplicados, ]
+        #comprobamos que no han quedado duplicados (solo para cultivar vuestra fé)
+        duplicados<-duplicated(presencia[ , c("latitude", "longitude")])
+        if(sum(duplicados) != 0){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM REMOVING DUPLICATE OCCURRENCES")
+        }
 
 
-    ##Resampling ocurrences points##########    
-    #extrac values of elevation for presences
-    elevation_of_presences = extract(elev, presencia[,c("longitude","latitude")])
+        ##Create a variable of precision weight
+        #Hasta abril de 2016 había solo una variable de accuracy of coordinates, pero gbif cambio en favor de los terminos de Darwin Core. Ahora, o tienes dato de coordinateUncertaintyInMeters ó de coordinatePrecision, pero nunca de los dos. 
 
-    #Calculate the cell in which each point is located
-    #we create a raster with the number of cell as values
-    index_raster <- raster_outside_pa_buffer #the raster is created from raster_outside_pa_buffer
-    index_raster[] <- 1:ncell(raster_outside_pa_buffer) #the new raster take as value the number of cells of raster_outside_pa_buffer
-    index_raster <- mask(index_raster, raster_outside_pa_buffer) #remove now all cells that are not included the outside PA buffer (cells inside the PA buffer or water bodies)
-    #Calculate the cell from halepensis map (buffer+bianca) in which each point is located
-    cell_id_presences= extract(index_raster, presencia[,c("longitude","latitude")])
-    #join data
-    if (nrow(presencia)>0){
-        id_presence=1:nrow(presencia[ ,c("longitude","latitude")]) #create a variable as id_presencia
-    } else {
-        id_presence = NULL
-    }
-    table_stratified_sample = cbind(cell_id_presences, id_presence, presencia[,c("longitude","latitude", "coordinatePrecision")], elevation_of_presences)
-    
-    #check 0
-    #check that we have only one ID per occurrence
-    if(length(unique(table_stratified_sample$id_presence))!=nrow(table_stratified_sample)){
-        stop("ERROR! FALSE! WE HAVE A PROBLEM GIVING AN ID TO EACH OCCURRENCE DURING THE RESAMPLING")
-    }
+        #coordinatePrecision
+        #Hasta abril de 2016 este termino era el radio de error que tiene cada coordenada. La unidad es en metros, por tanto un valor de 25 indica un radio de 25x25 metros, y eso es lo que tenemos nosotros. 
+        ###Desde abril de 2016 ha cambiado. Una representación lineal de la precisión de las coordenadas dada en latitud y longitud decimal. Debe estar entre 0 y 1. Nosotros NO tenemos esto, por que la peña sigue subiendo los datos para esta variable como metros. 
+        #for further details: 
+            #http://lists.gbif.org/pipermail/api-users/2016-April/000300.html 
+            #http://www.gbif.org/publishing-data/quality
+            #http://tdwg.github.io/dwc/terms/index.htm#coordinateUncertaintyInMeters
+        #vemos el tipo de los datos
+        #str(presencia$coordinatePrecision)  
+        #vemos los valores de los datos
+        #unique(presencia$coordinatePrecision) 
+        #vemos su distribución
+        #barplot(table(presencia$coordinatePrecision)) #Mis variables tenian una resolucion de 4x4 km  y aqui tenemos valores por debajo (1,10, 25 = 1.85 km) y algunos por encima (0 =  18 km), los calculos están explicados en niche_questions.txt. Points with 1,10,25 will receive a weight of 1, whilst points with 0 will receive a weight of 0.5. 
 
-    #check 1
-    #check that id of cell selected with presences has an 1 in raster buffer (inside buffer) and the rest cells have NA (outside of the buffer)
-    if((unique(raster_outside_pa_buffer[cell_id_presences])!=1) | (!is.na(unique(raster_outside_pa_buffer[-cell_id_presences])))){
-        stop("ERROR! FALSE! WE HAVE A PROBLEM PREPARING OCCURRENCES OUTSIDE PA BUFFER FOR RESAMPLING")
-    }
-
-    #check 2
-    #check that cell indicated for each point is correct
-    test = index_raster #create a raster from index raster (cell numbers)
-    test[] <- NA #set all NA
-    test[cell_id_presences] <- index_raster[cell_id_presences] #select only cells with presences and put their number, i.e., the number of the cell
-    #select the ids without repetition and ordered (less to more)
-    cell_id_presences_order = sort(unique(cell_id_presences))
-    #plot
-    require(viridis)    
-    colours_viridis = viridis(length(cell_id_presences_order)) #colour palette
-    #open png
-    png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_cell_number.png", sep=""), width=1100, height=800, pointsize=30)
-    #plot raster with cell numbers of cells with presences
-    plot(test)
-    #for each id cell with presence
-    #k=1
-    for(k in 1:length(cell_id_presences_order)){
-        #select presences of the [k] cell
-        selected_cell = table_stratified_sample[which(table_stratified_sample$cell_id_presences == cell_id_presences_order[k]),]
-        #add these points to the plot 
-        points(selected_cell[,"longitude"], selected_cell[,"latitude"], col=colours_viridis[k])
-    }
-    #add legend
-    legend("topright", legend=cell_id_presences_order, fill=colours_viridis, cex=0.3)
-    dev.off() 
-        #you have to check that each color hf the first legend (inside plot) correspond to the points included in only ONE cell. Then, you have to cheack the the color of the cell correspond in second legend with the same number than in the second: Por ejemplo: La primera celda tiene solo PUNTOS de color muuuuy violetas, todos están ahi métidos, según la primera leyenda eso corresponde XXXXX. Ahora miras el color de la CELDA, y te vas a la segunda leyenda, su color debe corresponde con el número XXXXX ó cercano. Comprobado con canariensis y todo correcto. Además los puntos seleccionados al final son 3 por celdas en varias especies que he chequeado.
-        #the point here is to visually check for a few species that the value of the cell is indeed the index of the cell, i.e., the first cell has value 1 and all points inside that cell have a value of 1 for the cell value index value. Cell 2 has value of 2....
-        #so we are correctly selecting the number of each cell
+        #coordinateUncertaintyInMeters
+        #Esta variable indica la distancia horizontal en metros desde la latitud decimal dada y la longitud decimal ada describrined the smallest circle containing the whole of the location. Se deja empty si la incertidumbre es desconocida, no puede ser estimada o no es aplicable (porque no hay coordenadas). Zero no es valor valido para este termino. Debe ser mayor y diferente de cero además de menor de 5000000 (5000 km). 
+        #vemos el tipo de los datos
+        #str(presencia$coordinateUncertaintyInMeters) 
+        #vemos los valores de los datos
+        #unique(presencia$coordinateUncertaintyInMeters) 
+        #vemos su distribución
+        #barplot(table(presencia$coordinateUncertaintyInMeters)) #points with precision lower than 4 km will receive a weight of 1, whilts point with coarser precision will receive a weight of 0.5.
+        #It will not be used! becasue we have no evidence that this variable explcain anything about precision (see notebook and example sylvestris).
 
 
-    ##Resampling gbif points according to precision######
-    #create a categorical variable of precision
-    #we consider as high precision ocurrences those with a coordinatePrecision between 1 and 25, the rest of ocurrences are considered as low precision.  
+        ##Resampling ocurrences points##########    
+        #extrac values of elevation for presences
+        elevation_of_presences = extract(elev, presencia[,c("longitude","latitude")])
 
-    #create the empty variable for precision
-    precision_weight = NULL
+        #Calculate the cell in which each point is located
+        #we create a raster with the number of cell as values
+        index_raster <- raster_outside_pa_buffer #the raster is created from raster_outside_pa_buffer
+        index_raster[] <- 1:ncell(raster_outside_pa_buffer) #the new raster take as value the number of cells of raster_outside_pa_buffer
+        index_raster <- mask(index_raster, raster_outside_pa_buffer) #remove now all cells that are not included the outside PA buffer (cells inside the PA buffer or water bodies)
+        #Calculate the cell from halepensis map (buffer+bianca) in which each point is located
+        cell_id_presences= extract(index_raster, presencia[,c("longitude","latitude")])
+        #join data
+        if (nrow(presencia)>0){
+            id_presence=1:nrow(presencia[ ,c("longitude","latitude")]) #create a variable as id_presencia
+        } else {
+            id_presence = NULL
+        }
+        table_stratified_sample = cbind(cell_id_presences, id_presence, presencia[,c("longitude","latitude", "coordinatePrecision")], elevation_of_presences)
 
-    #run loop across presences
-    if(nrow(table_stratified_sample)>0){
+        #check 0
+        #check that we have only one ID per occurrence
+        if(length(unique(table_stratified_sample$id_presence))!=nrow(table_stratified_sample)){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM GIVING AN ID TO EACH OCCURRENCE DURING THE RESAMPLING")
+        }
+
+        #check 1
+        #check that id of cell selected with presences has an 1 in raster buffer (inside buffer) and the rest cells have NA (outside of the buffer)
+        if((unique(raster_outside_pa_buffer[cell_id_presences])!=1) | (!is.na(unique(raster_outside_pa_buffer[-cell_id_presences])))){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM PREPARING OCCURRENCES OUTSIDE PA BUFFER FOR RESAMPLING")
+        }
+
+        #check 2
+        #check that cell indicated for each point is correct
+        test = index_raster #create a raster from index raster (cell numbers)
+        test[] <- NA #set all NA
+        test[cell_id_presences] <- index_raster[cell_id_presences] #select only cells with presences and put their number, i.e., the number of the cell
+        #select the ids without repetition and ordered (less to more)
+        cell_id_presences_order = sort(unique(cell_id_presences))
+        #plot
+        require(viridis)    
+        colours_viridis = viridis(length(cell_id_presences_order)) #colour palette
+        #open png
+        png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_cell_number.png", sep=""), width=1100, height=800, pointsize=30)
+        #plot raster with cell numbers of cells with presences
+        plot(test)
+        #for each id cell with presence
         #k=1
-        for (k in 1:nrow(table_stratified_sample)){ #for each row of table_stratified_sample
-            subset=table_stratified_sample[k,] #subset this row
-            if (is.na(subset$coordinatePrecision)){ #if the point have cP=Na
-                precision_weight = append(precision_weight, 0.5) #precision_weight = 0.5
-            } else { #if not
-                if (subset$coordinatePrecision>=1 && subset$coordinatePrecision<=25){ #if the point has a cP between 1 and 25, inclugin both extremes. 
-                    precision_weight = append(precision_weight, 1)
-                } else {
-                    precision_weight = append(precision_weight, 0.5)
-                } 
-            }   
+        for(k in 1:length(cell_id_presences_order)){
+            #select presences of the [k] cell
+            selected_cell = table_stratified_sample[which(table_stratified_sample$cell_id_presences == cell_id_presences_order[k]),]
+            #add these points to the plot 
+            points(selected_cell[,"longitude"], selected_cell[,"latitude"], col=colours_viridis[k])
         }
-    } 
+        #add legend
+        legend("topright", legend=cell_id_presences_order, fill=colours_viridis, cex=0.3)
+        dev.off() 
+            #you have to check that each color hf the first legend (inside plot) correspond to the points included in only ONE cell. Then, you have to cheack the the color of the cell correspond in second legend with the same number than in the second: Por ejemplo: La primera celda tiene solo PUNTOS de color muuuuy violetas, todos están ahi métidos, según la primera leyenda eso corresponde XXXXX. Ahora miras el color de la CELDA, y te vas a la segunda leyenda, su color debe corresponde con el número XXXXX ó cercano. Comprobado con canariensis y todo correcto. Además los puntos seleccionados al final son 3 por celdas en varias especies que he chequeado.
+            #the point here is to visually check for a few species that the value of the cell is indeed the index of the cell, i.e., the first cell has value 1 and all points inside that cell have a value of 1 for the cell value index value. Cell 2 has value of 2....
+            #so we are correctly selecting the number of each cell
 
-    #check
-    if(length(precision_weight)!=nrow(table_stratified_sample)){
-        stop("ERROR! FALSE! WE HAVE NOT CALCULATED THE PRECISION WEIGHT FOR ALL OCCURRENCES")
-    }
 
-    #bind precision_weight with table_stratified_sample
-    table_stratified_sample = cbind(table_stratified_sample, precision_weight)    
+        ##Resampling gbif points according to precision######
+        #create a categorical variable of precision
+        #we consider as high precision ocurrences those with a coordinatePrecision between 1 and 25, the rest of ocurrences are considered as low precision.  
 
-    #check the weights have been correctly calculated
-    subset_1=table_stratified_sample[is.na(table_stratified_sample$coordinatePrecision),]$precision_weight
-    subset_2=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision<1 | !is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>25,]$precision_weight
-    subset_3=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>=1 & table_stratified_sample$coordinatePrecision<=25,]$precision_weight
-    checks=list()
-    if(length(subset_1)>0){
-        if(length(unique(subset_1))==1){
-            checks[[1]]=unique(subset_1)==0.5
-        } else { 
-            checks[[1]]=FALSE
+        #create the empty variable for precision
+        precision_weight = NULL
+
+        #run loop across presences
+        if(nrow(table_stratified_sample)>0){
+            #k=1
+            for (k in 1:nrow(table_stratified_sample)){ #for each row of table_stratified_sample
+                subset=table_stratified_sample[k,] #subset this row
+                if (is.na(subset$coordinatePrecision)){ #if the point have cP=Na
+                    precision_weight = append(precision_weight, 0.5) #precision_weight = 0.5
+                } else { #if not
+                    if (subset$coordinatePrecision>=1 && subset$coordinatePrecision<=25){ #if the point has a cP between 1 and 25, inclugin both extremes. 
+                        precision_weight = append(precision_weight, 1)
+                    } else {
+                        precision_weight = append(precision_weight, 0.5)
+                    } 
+                }   
+            }
+        } 
+
+        #check
+        if(length(precision_weight)!=nrow(table_stratified_sample)){
+            stop("ERROR! FALSE! WE HAVE NOT CALCULATED THE PRECISION WEIGHT FOR ALL OCCURRENCES")
         }
-    }
-    if(length(subset_2)>0){
-        if(length(unique(subset_2))==1){
-            checks[[2]]=unique(subset_2)==0.5
-        } else { 
-            checks[[2]]=FALSE
+
+        #bind precision_weight with table_stratified_sample
+        table_stratified_sample = cbind(table_stratified_sample, precision_weight)    
+
+        #check the weights have been correctly calculated
+        subset_1=table_stratified_sample[is.na(table_stratified_sample$coordinatePrecision),]$precision_weight
+        subset_2=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision<1 | !is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>25,]$precision_weight
+        subset_3=table_stratified_sample[!is.na(table_stratified_sample$coordinatePrecision) & table_stratified_sample$coordinatePrecision>=1 & table_stratified_sample$coordinatePrecision<=25,]$precision_weight
+        checks=list()
+        if(length(subset_1)>0){
+            if(length(unique(subset_1))==1){
+                checks[[1]]=unique(subset_1)==0.5
+            } else { 
+                checks[[1]]=FALSE
+            }
         }
-    }
-    if(length(subset_3)>0){
-        if(length(unique(subset_3))==1){
-            checks[[3]]=unique(subset_3)==1
-        } else { 
-            checks[[3]]=FALSE
+        if(length(subset_2)>0){
+            if(length(unique(subset_2))==1){
+                checks[[2]]=unique(subset_2)==0.5
+            } else { 
+                checks[[2]]=FALSE
+            }
         }
-    }
-    if(FALSE %in% checks){
-        stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PRECISION WEIGHT FOR OCCURRENCES") 
-    }
+        if(length(subset_3)>0){
+            if(length(unique(subset_3))==1){
+                checks[[3]]=unique(subset_3)==1
+            } else { 
+                checks[[3]]=FALSE
+            }
+        }
+        if(FALSE %in% checks){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PRECISION WEIGHT FOR OCCURRENCES") 
+        }
 
-    #create the variable for final presences of gbif
-    final.presences = NULL
+        #create the variable for final presences of gbif
+        final.presences = NULL
 
-    #make the resampling
-    if (nrow(table_stratified_sample)>0){ #if there is gbif points with a high precision
-        #cell_ids_several_high_precision_points=table_stratified_sample[duplicated(table_stratified_sample$cell_id_presences) & table_stratified_sample$precision_weight==1,]$cell_id_presences
-            #all cells with several high precision points
-        #for(l in cell_ids_several_high_precision_points){if(length(which(cell_ids_several_high_precision_points==l))==3){k=l}}
-            #cell with 3 high precision points
-        #for(l in cell_ids_several_high_precision_points){if(length(which(cell_ids_several_high_precision_points==l))<2){k=l}}
-            #cell with less than 3 high precision points. You have to use 2, because less than 3 means you can have at least 2 points in cell_ids_several_high_precision_points, but remember that this variable includes those cells with several presences, i.e., duplicated cell ID, but the first appearance of the cell ID is not included
+        #make the resampling
+        if (nrow(table_stratified_sample)>0){ #if there is gbif points with a high precision
+            #cell_ids_several_high_precision_points=table_stratified_sample[duplicated(table_stratified_sample$cell_id_presences) & table_stratified_sample$precision_weight==1,]$cell_id_presences
+                #all cells with several high precision points
+            #for(l in cell_ids_several_high_precision_points){if(length(which(cell_ids_several_high_precision_points==l))==3){k=l}}
+                #cell with 3 high precision points
+            #for(l in cell_ids_several_high_precision_points){if(length(which(cell_ids_several_high_precision_points==l))<2){k=l}}
+                #cell with less than 3 high precision points. You have to use 2, because less than 3 means you can have at least 2 points in cell_ids_several_high_precision_points, but remember that this variable includes those cells with several presences, i.e., duplicated cell ID, but the first appearance of the cell ID is not included
 
-        for (k in unique(table_stratified_sample$cell_id_presences)){ #for each cell of the distribution buffer
-            subset=table_stratified_sample[table_stratified_sample$cell_id_presences==k,] #select the points inside the [i] cell. 
-            subset_high_precision = subset[subset$precision_weight==1,] #subset the high precision points
-            subset_high_precision_with_elevation = subset_high_precision[!is.na(subset_high_precision$elevation_of_presences),] #select the points with high precision and elevation data because of the elevation resampling
-            subset_low_precision = subset[subset$precision_weight==0.5,] #subset the low precision points
-            if (nrow(subset_high_precision_with_elevation)>3){ #if there is more than 3 high precision points
-                elevations_in_cell=subset_high_precision_with_elevation$elevation_of_presences 
-                    #select the elevation of these points
-                p10=as.vector(quantile(elevations_in_cell, 0.10, na.rm=T))
-                p50=as.vector(quantile(elevations_in_cell, 0.50, na.rm=T))
-                p90=as.vector(quantile(elevations_in_cell, 0.90, na.rm=T))
-                    #calculate the percentile 10, 50 and 90 of the elevation of all points inside the cell 
-                closest_p10 = which(abs(elevations_in_cell-p10)==min(abs(elevations_in_cell-p10))) 
-                closest_p50 = which(abs(elevations_in_cell-p50)==min(abs(elevations_in_cell-p50)))
-                closest_p90 = which(abs(elevations_in_cell-p90)==min(abs(elevations_in_cell-p90))) 
-                    #which elevation is closest to each percentile
-                final.presences = rbind(
-                final.presences,
-                subset_high_precision[c(closest_p10[sample(1:length(closest_p10),1)],closest_p50[sample(1:length(closest_p50),1)], closest_p90[sample(1:length(closest_p90),1)]),]) 
-                    #select the the points closest to each percentile, the point is selected randomly from the number of points closest to the percentile.
-                    #it would have been better to check whether we have the same point closes to two percentiles, but it is very unlikely this happens:
-                        #first, a point has to be the closest to TWO percentiles of elevation
-                        #second, the point is randomly selected for the first percentile and the second
-                        #alternatively, there is no more points closest to these percentiles so it is selected in both cases again
-                        #also note the lack of high precision occurrences we have in the data, therefore this seems to be very unlikely to happen. Just a small bug that could produce a bit more correlation of occurrences.
-            } else { #if not 
-                if (nrow(subset_high_precision)<=3 && nrow(subset_high_precision)>=1 && nrow(subset_low_precision)==0){ #if the number of high precision points is equal or lower than  3 and equal or higher than 1 and the number of low precision points is equal to 0. From here, we don`t need use elevation because elevation resampling can be made only with more than 3 high precision points and elevation data. In this way we don't lose high precision points without elevation in cells with 3 or less high precision points.
+            for (k in unique(table_stratified_sample$cell_id_presences)){ #for each cell of the distribution buffer
+                subset=table_stratified_sample[table_stratified_sample$cell_id_presences==k,] #select the points inside the [i] cell. 
+                subset_high_precision = subset[subset$precision_weight==1,] #subset the high precision points
+                subset_high_precision_with_elevation = subset_high_precision[!is.na(subset_high_precision$elevation_of_presences),] #select the points with high precision and elevation data because of the elevation resampling
+                subset_low_precision = subset[subset$precision_weight==0.5,] #subset the low precision points
+                if (nrow(subset_high_precision_with_elevation)>3){ #if there is more than 3 high precision points
+                    elevations_in_cell=subset_high_precision_with_elevation$elevation_of_presences 
+                        #select the elevation of these points
+                    p10=as.vector(quantile(elevations_in_cell, 0.10, na.rm=T))
+                    p50=as.vector(quantile(elevations_in_cell, 0.50, na.rm=T))
+                    p90=as.vector(quantile(elevations_in_cell, 0.90, na.rm=T))
+                        #calculate the percentile 10, 50 and 90 of the elevation of all points inside the cell 
+                    closest_p10 = which(abs(elevations_in_cell-p10)==min(abs(elevations_in_cell-p10))) 
+                    closest_p50 = which(abs(elevations_in_cell-p50)==min(abs(elevations_in_cell-p50)))
+                    closest_p90 = which(abs(elevations_in_cell-p90)==min(abs(elevations_in_cell-p90))) 
+                        #which elevation is closest to each percentile
                     final.presences = rbind(
                     final.presences,
-                    subset_high_precision) #Select all the points
+                    subset_high_precision[c(closest_p10[sample(1:length(closest_p10),1)],closest_p50[sample(1:length(closest_p50),1)], closest_p90[sample(1:length(closest_p90),1)]),]) 
+                        #select the the points closest to each percentile, the point is selected randomly from the number of points closest to the percentile.
+                        #it would have been better to check whether we have the same point closes to two percentiles, but it is very unlikely this happens:
+                            #first, a point has to be the closest to TWO percentiles of elevation
+                            #second, the point is randomly selected for the first percentile and the second
+                            #alternatively, there is no more points closest to these percentiles so it is selected in both cases again
+                            #also note the lack of high precision occurrences we have in the data, therefore this seems to be very unlikely to happen. Just a small bug that could produce a bit more correlation of occurrences.
                 } else { #if not 
-                    if (nrow(subset_high_precision)<=3 && nrow(subset_high_precision)>=1 && nrow(subset_low_precision)>0){ #if the number of precision points is equal, lower than and equal or higher than 1 and the number of low precision points is higher to 0.
+                    if (nrow(subset_high_precision)<=3 && nrow(subset_high_precision)>=1 && nrow(subset_low_precision)==0){ #if the number of high precision points is equal or lower than  3 and equal or higher than 1 and the number of low precision points is equal to 0. From here, we don`t need use elevation because elevation resampling can be made only with more than 3 high precision points and elevation data. In this way we don't lose high precision points without elevation in cells with 3 or less high precision points.
+                        final.presences = rbind(
+                        final.presences,
+                        subset_high_precision) #Select all the points
+                    } else { #if not 
+                        if (nrow(subset_high_precision)<=3 && nrow(subset_high_precision)>=1 && nrow(subset_low_precision)>0){ #if the number of precision points is equal, lower than and equal or higher than 1 and the number of low precision points is higher to 0.
 
-                        if (nrow(subset_low_precision)>3-nrow(subset_high_precision)){ #if the number of low precision points is higher than the number of point that we need to reach 3 (3 less the number of high precision points)
-                            final.presences = rbind(final.presences, 
-                            subset_low_precision[sample(x=1:nrow(subset_low_precision), size=3-nrow(subset_high_precision)),], 
-                            subset_high_precision) #select all the high precision points and select randomly 3-nrow(subset_high_precision) points form all low precision points
-                        } else { #if not
-                            final.presences = rbind(final.presences, subset_high_precision, 
-                                subset_low_precision) #select all points
-                        }
-                    } else{ #if not 
-                        if(nrow(subset_high_precision)==0 && nrow(subset_low_precision)>0){ #if the nubmer of high precision points is 0 and the number of low precision ir higher than 0
-
-                            if (nrow(subset_low_precision)>3){ #if the number of low precision points is higher tna 3 
-                                final.presences = rbind(final.presences, subset_low_precision[sample(x=1:nrow(subset_low_precision), size=3),]) #selec randomly three low precision points
-                            } else { #if not 
-                                final.presences = rbind(final.presences, subset_low_precision) #select all low precision points. 
+                            if (nrow(subset_low_precision)>3-nrow(subset_high_precision)){ #if the number of low precision points is higher than the number of point that we need to reach 3 (3 less the number of high precision points)
+                                final.presences = rbind(final.presences, 
+                                subset_low_precision[sample(x=1:nrow(subset_low_precision), size=3-nrow(subset_high_precision)),], 
+                                subset_high_precision) #select all the high precision points and select randomly 3-nrow(subset_high_precision) points form all low precision points
+                            } else { #if not
+                                final.presences = rbind(final.presences, subset_high_precision, 
+                                    subset_low_precision) #select all points
                             }
-                        } 
+                        } else{ #if not 
+                            if(nrow(subset_high_precision)==0 && nrow(subset_low_precision)>0){ #if the nubmer of high precision points is 0 and the number of low precision ir higher than 0
+
+                                if (nrow(subset_low_precision)>3){ #if the number of low precision points is higher tna 3 
+                                    final.presences = rbind(final.presences, subset_low_precision[sample(x=1:nrow(subset_low_precision), size=3),]) #selec randomly three low precision points
+                                } else { #if not 
+                                    final.presences = rbind(final.presences, subset_low_precision) #select all low precision points. 
+                                }
+                            } 
+                        }
                     }
+                }   
+            }
+        } else { #If there is not gbif points 
+            final.presences = NULL #create a empty vector
+        }
+
+        #checks
+        if(nrow(table_stratified_sample)>0 && nrow(final.presences)>0){
+            
+            #only 3 points for each cell
+            test = NULL
+            for (k in unique(final.presences$cell_id_presences)){
+                test = append(test, nrow(final.presences[final.presences$cell_id_presences==k,])<=3)
+            }
+            if(sum(test)!=length(unique(final.presences$cell_id_presences))){
+                stop("ERROR! FALSE! WE HAVE A PROBLE, IN RESAMPLING, MORE THAN 3 POINTS IN SOME CELLS")
+            }
+
+            #check whether all cell IDs obtained meet one of the conditions to be included regarding number and precision of the points. We take again points using the conditions from the original data.frame
+            test_cells = data.frame(id_cell=NA, points=NA, high_precision=NA, high_p_elev=NA, low_precision=NA)
+            #k=unique(table_stratified_sample$cell_id_presences)[1]
+            for (k in unique(table_stratified_sample$cell_id_presences)){
+                subset=table_stratified_sample[table_stratified_sample$cell_id_presences== k,] 
+                subset_high_precision = subset[subset$precision_weight==1,] 
+                subset_high_precision_with_elevation = subset_high_precision[!is.na(subset_high_precision$elevation_of_presences),] 
+                subset_low_precision = subset[subset$precision_weight==0.5,] 
+                test_cells = rbind(test_cells, c(k, nrow(subset), nrow(subset_high_precision), nrow(subset_high_precision_with_elevation), nrow(subset_low_precision))) #for each cell calculate the different subsets, extract the number of rows (number of points) and then save in a data.frame.
+            }
+            names(test_cells) <- c("id_cell", "points", "high_precision", "high_p_elev", "low_precision") #change the name of the data.frame
+            test_cells=test_cells[-1,] #remove row with NAs
+            #check whether the total number of presences inside a cell is the same than the sum of high and low precision presences
+            if(sum(test_cells$points == test_cells$high_precision+test_cells$low_precision)!=nrow(test_cells)){
+                stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
+            }
+            #Extract the cell that accomplish each condition
+            test_cells[test_cells$high_p_elev>3,]$id_cell
+            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision==0,]$id_cell
+            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision>3-test_cells$high_precision,]$id_cell
+            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision<=3-test_cells$high_precision,]$id_cell  
+            test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 &  test_cells$low_precision>3,]$id_cell
+            test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 & test_cells$low_precision<=3,]$id_cell
+
+            #test if the different conditions cover all cells
+            eso = c(test_cells[test_cells$high_p_elev>3,]$id_cell,
+                test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision==0,]$id_cell,
+                test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision>3-test_cells$high_precision,]$id_cell,
+                test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision<=3-test_cells$high_precision,]$id_cell,
+                test_cells[test_cells$high_precision==0 & test_cells$low_precision>3,]$id_cell,
+                test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 & test_cells$low_precision<=3,]$id_cell)
+            if(!identical(sort(eso), sort(unique(final.presences$cell_id_presences)))){
+                stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
+            }
+        }
+
+        #Do the last steps only if we have at least one presence. In some cases like amaniana, there are no occurrences outside of the PA buffer
+        if(!is.null(final.presences)){
+            
+            #if there are high precision points final selected plot them into altitudinal plot to see the performance of the altitudinal sampling.
+            if(nrow(final.presences[which(final.presences$precision_weight==1),]) > 1){
+                
+                #open png
+                png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_altitudinal_sampling.png", sep=""), width=2200, height=1600, res=300)
+
+                #plot elevation
+                if(species=="radiata"){
+                    #if radiata, plot the canary islands where it has been introduced and where we can see selection of high precision points across the Teide
+                    canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
+                    canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
+                    plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
+                    plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
+                } else {
+                    plot(elev, main="Altitudinal sampling of high precision points")
+                    plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
                 }
-            }   
+
+                #add all points high precision points before the altitudinal sampling
+                points(table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$longitude, table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$latitude, pch=20, cex=0.01, col="black", lwd=0.1)
+                
+                #add high precision points after altitudinal sampling
+                points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
+                #add legend
+                legend("topright", legend=c("outside PA buffer", "all points high", "high selected"), fill=c("blue", "black", "red"), cex=0.5)
+                dev.off() #you have to check that the three high preicion points selected (red) in each cell are close to the maximum, mediam and minimun altitude considering altitude of ALL high precision points (white). Checked in pinus canriensis, it is ok, pay attention to Teide, it is very clear.
+            }
+                #The resampling works great, the only little problem i see is in the case of cells with a lot of sea. In those cases can be selected 3 points close between them, but i don't think this could have great impact on the models. Only more correlation between very few points (only from buffer cells with a lot of sea).
+
+            #visualize high and low precision occurrences
+            png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_high_low_occurrences.png", sep=""), width=2200, height=1600, res=300)
+
+            #plot elevation
+            if(species=="radiata"){
+                #if radiata, plot the canary islands where it has been introduced and where we can see selection of points in more detail
+                canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
+                canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
+                plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
+                plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
+            } else {
+                plot(elev, main="Altitudinal sampling of high precision points")
+                plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
+            }
+
+            #add high precision points after altitudinal sampling
+            points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
+
+            #add low precision points
+            points(final.presences[which(final.presences$precision_weight==0.5),]$longitude, final.presences[which(final.presences$precision_weight==0.5),]$latitude, pch=20, cex=0.01, col="blue", lwd=0.1)
+
+            #add legend
+            legend("topright", legend=c("high precision points", "low precision points"), fill=c("red", "blue"), cex=0.5)
+            dev.off()
+                #checked for pinus radiata in canary islands, 3 points per cell
+
+            #plot final occurrences
+            pdf(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.pdf", sep=""), width=12, height=12)
+            plot(environment_var, col="gray80")
+            points(final.presences$longitude, final.presences$latitude,  cex=0.1, lwd=0.1, pch=20, col="red")
+            dev.off()
+
+            #select the columns of occurrences we are interested in
+            ultimate_ocurrences = final.presences[, c("longitude", "latitude", "precision_weight")]
+
+            #create a variable of final.presences
+            ultimate_ocurrences$presence = rep(x=1, time=nrow(ultimate_ocurrences))
+
+            #write the resulting data.frame in a csv. 
+            write.table(ultimate_ocurrences, paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", row.names=FALSE)
         }
-    } else { #If there is not gbif points 
-        final.presences = NULL #create a empty vector
     }
-
-    #checks
-    if(nrow(table_stratified_sample)>0 && nrow(final.presences)>0){
-        
-        #only 3 points for each cell
-        test = NULL
-        for (k in unique(final.presences$cell_id_presences)){
-            test = append(test, nrow(final.presences[final.presences$cell_id_presences==k,])<=3)
-        }
-        if(sum(test)!=length(unique(final.presences$cell_id_presences))){
-            stop("ERROR! FALSE! WE HAVE A PROBLE, IN RESAMPLING, MORE THAN 3 POINTS IN SOME CELLS")
-        }
-
-        #check whether all cell IDs obtained meet one of the conditions to be included regarding number and precision of the points. We take again points using the conditions from the original data.frame
-        test_cells = data.frame(id_cell=NA, points=NA, high_precision=NA, high_p_elev=NA, low_precision=NA)
-        #k=unique(table_stratified_sample$cell_id_presences)[1]
-        for (k in unique(table_stratified_sample$cell_id_presences)){
-            subset=table_stratified_sample[table_stratified_sample$cell_id_presences== k,] 
-            subset_high_precision = subset[subset$precision_weight==1,] 
-            subset_high_precision_with_elevation = subset_high_precision[!is.na(subset_high_precision$elevation_of_presences),] 
-            subset_low_precision = subset[subset$precision_weight==0.5,] 
-            test_cells = rbind(test_cells, c(k, nrow(subset), nrow(subset_high_precision), nrow(subset_high_precision_with_elevation), nrow(subset_low_precision))) #for each cell calculate the different subsets, extract the number of rows (number of points) and then save in a data.frame.
-        }
-        names(test_cells) <- c("id_cell", "points", "high_precision", "high_p_elev", "low_precision") #change the name of the data.frame
-        test_cells=test_cells[-1,] #remove row with NAs
-        #check whether the total number of presences inside a cell is the same than the sum of high and low precision presences
-        if(sum(test_cells$points == test_cells$high_precision+test_cells$low_precision)!=nrow(test_cells)){
-            stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
-        }
-        #Extract the cell that accomplish each condition
-        test_cells[test_cells$high_p_elev>3,]$id_cell
-        test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision==0,]$id_cell
-        test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision>3-test_cells$high_precision,]$id_cell
-        test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision<=3-test_cells$high_precision,]$id_cell  
-        test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 &  test_cells$low_precision>3,]$id_cell
-        test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 & test_cells$low_precision<=3,]$id_cell
-
-        #test if the different conditions cover all cells
-        eso = c(test_cells[test_cells$high_p_elev>3,]$id_cell,
-            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision==0,]$id_cell,
-            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision>3-test_cells$high_precision,]$id_cell,
-            test_cells[test_cells$high_precision<=3 & test_cells$high_precision>=1 & test_cells$low_precision>0 & test_cells$low_precision<=3-test_cells$high_precision,]$id_cell,
-            test_cells[test_cells$high_precision==0 & test_cells$low_precision>3,]$id_cell,
-            test_cells[test_cells$high_precision==0 & test_cells$low_precision>0 & test_cells$low_precision<=3,]$id_cell)
-        if(!identical(sort(eso), sort(unique(final.presences$cell_id_presences)))){
-            stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE RESAMPLE")
-        }
-    }
-
-    #if there are high precision points final selected plot them into altitudinal plot to see the performance of the altitudinal sampling.
-    if(nrow(final.presences[which(final.presences$precision_weight==1),]) > 1){
-        
-        #open png
-        png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_altitudinal_sampling.png", sep=""), width=2200, height=1600, res=300)
-
-        #plot elevation
-        if(species=="radiata"){
-            #if radiata, plot the canary islands where it has been introduced and where we can see selection of high precision points across the Teide
-            canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
-            canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
-            plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
-            plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
-        } else {
-            plot(elev, main="Altitudinal sampling of high precision points")
-            plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
-        }
-
-        #add all points high precision points before the altitudinal sampling
-        points(table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$longitude, table_stratified_sample[which(table_stratified_sample$precision_weight==1),]$latitude, pch=20, cex=0.01, col="black", lwd=0.1)
-        
-        #add high precision points after altitudinal sampling
-        points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
-        #add legend
-        legend("topright", legend=c("outside PA buffer", "all points high", "high selected"), fill=c("blue", "black", "red"), cex=0.5)
-        dev.off() #you have to check that the three high preicion points selected (red) in each cell are close to the maximum, mediam and minimun altitude considering altitude of ALL high precision points (white). Checked in pinus canriensis, it is ok, pay attention to Teide, it is very clear. 
-    }
-        #The resampling works great, the only little problem i see is in the case of cells with a lot of sea. In those cases can be selected 3 points close between them, but i don't think this could have great impact on the models. Only more correlation between very few points (only from buffer cells with a lot of sea).
-
-    #visualize high and low precision occurrences
-    png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_high_low_occurrences.png", sep=""), width=2200, height=1600, res=300)
-
-    #plot elevation
-    if(species=="radiata"){
-        #if radiata, plot the canary islands where it has been introduced and where we can see selection of points in more detail
-        canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
-        canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
-        plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
-        plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)
-    } else {
-        plot(elev, main="Altitudinal sampling of high precision points")
-        plot(raster_outside_pa_buffer_polygon, add=TRUE, border="blue", lwd=0.02)
-    }
-    
-    #add high precision points after altitudinal sampling
-    points(final.presences[which(final.presences$precision_weight==1),]$longitude, final.presences[which(final.presences$precision_weight==1),]$latitude, pch=20, cex=0.01, col="red", lwd=0.1)
-    
-    #add low precision points
-    points(final.presences[which(final.presences$precision_weight==0.5),]$longitude, final.presences[which(final.presences$precision_weight==0.5),]$latitude, pch=20, cex=0.01, col="blue", lwd=0.1)
-
-    #add legend
-    legend("topright", legend=c("high precision points", "low precision points"), fill=c("red", "blue"), cex=0.5)
-    dev.off()
-        #checked for pinus radiata in canary islands, 3 points per cell
-
-    #plot final occurrences
-    pdf(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.pdf", sep=""), width=12, height=12)
-    plot(environment_var, col="gray80")
-    points(final.presences$longitude, final.presences$latitude,  cex=0.1, lwd=0.1, pch=20, col="red")
-    dev.off()
-
-    #select the columns of occurrences we are interested in
-    ultimate_ocurrences = final.presences[, c("longitude", "latitude", "precision_weight")]
-
-    #create a variable of final.presences
-    ultimate_ocurrences$presence = rep(x=1, time=nrow(ultimate_ocurrences))
-
-    #write the resulting data.frame in a csv. 
-    write.table(ultimate_ocurrences, paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", row.names=FALSE)
 }
 
 #run it for one species
@@ -616,71 +625,73 @@ exsitu_occurrences=function(species){
 ##RUN only ONE time???
 
 ##CHECK WE ARE USING THE CORRECT INPUT FILES HERE
+    #updated already, but check the script
+
+##change the loading of all variables!! just load the ones you interested ine for each case
 
 #species="radiata"
 env_predictors = function(species) {
 
-    #load the group of species according to cluster
-    group_species = read.csv("./code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", header=TRUE)  
-    
-    #select the group of the corresponding species
-    variables_cluster = group_species[which(group_species$species == species),]$groups   
-    #select the number cluster of this species 
-    rasters_list = list.files("./datos/finals", pattern=".asc", full.names=TRUE) #list the corresponding group of variables
-    rasters_names = list.files("./datos/finals", pattern=".asc", full.names=FALSE) #list names of raster
+    #open folder
+    system(paste("mkdir -p ./results/global_test_phylo_current/env_predictors/", species, "/", sep=""))
 
-    #loop for separate raster names from extension ".asc"
-    names_variables = NULL
-    #i=rasters_names[1]
-    for (i in rasters_names){
-        names_variables = append(names_variables, strsplit(i, split=".asc")[[1]])
-    }
-    variables_stack = stack(rasters_list) #stack them 
-    names(variables_stack) = names_variables #give the names to layers of the stack
+    #check if we have output from the previous step
+    presence_file_exist=file.exists(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""))
 
-    #load names of selected variables  
-    load("/Users/dsalazar/nicho_pinus/data/climate/list_selected_variables.rda") 
+    #do stuff if we have the presence file
+    if(presence_file_exist){
 
-    #take selected variables from the list of variables
-    selected_variables = ultimate_variables[[variables_cluster]]
+        #load the group of species according to cluster
+        group_species = read.csv("./code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", header=TRUE)  
 
-    #calculate the number of ocurrences for each species 
-    number_ocurrences = read.csv("/Users/dsalazar/nicho_pinus/data/ocurrences/ocurrences_per_species.csv", header=TRUE)
-    n_ocurrence = number_ocurrences[number_ocurrences$species==species,]$number_ocurrences
+        #select the group of the corresponding species
+        variables_cluster = group_species[which(group_species$species == species),]$groups   
 
-    #load names of selected variables 
-    if (n_ocurrence<length(selected_variables)*10){ #if there is not 10 ocurrences for each variable 
-        
-        #load the names of selected variables of low number ocurrences species
-        load("./datos/finals/final_variables_low_number_ocurrence_species.rda")
+        #load names of selected variables  
+        load("./results/final_variables/list_selected_variables.rda") 
 
-        #select the selecte variables for low number ocurrences species
-        variables_stack = variables_stack[[final_variables_low_number_ocurrence_species_new[[species]]]]    
-    
-    } else {
+        #take selected variables from the list of variables
+        selected_variables = ultimate_variables[[variables_cluster]]
 
-        variables_stack = variables_stack[[selected_variables]]
-    
-    }     
- 
-    ##Extract values of variables 
-    presences = read.csv(paste("/Users/dsalazar/nicho_pinus/data/pseudo_absences", paste(species, "complete.presences.csv", sep="_"), sep="/")) #read the data final data with presences and pseudoabsences
-    variables = extract(variables_stack, presences[, c("longitude", "latitude")]) #extract the value of the variable in these points
-    data = cbind(presences, variables) #bind the presence data and the variable data in one data frame 
+        #calculate the number of ocurrences for each species, this is the number of occurrences used for modelling. We need to select the same variables that the ones used for modeling 
+        number_ocurrences = read.csv("./results/ocurrences/ocurrences_per_species.csv", header=TRUE)
+        n_ocurrence = number_ocurrences[number_ocurrences$species==species,]$number_ocurrences
 
-    #change the names of variables if the number of selected variables is 1 (it is to say, only 5 columns in data)
-    if (ncol(data)<6){
-        colnames(data)[5] = names(variables_stack)
-    }
+        #update the selected variables if the number of occurrences is too low
+        if (n_ocurrence<length(selected_variables)*10){ #if there is not 10 ocurrences for each variable 
+            
+            #load the names of selected variables of low number ocurrences species and save
+            load("./datos/finals/final_variables_low_number_ocurrence_species.rda")
+            selected_variables=final_variables_low_number_ocurrence_species_new[[species]]
+        }
+        #prepare paths and load
+        path_variables=paste("./datos/finals/", selected_variables, ".asc", sep="")
+        variables_stack = stack(path_variables)    
+        #check
+        if(sum(names(variables_stack) == selected_variables)!=length(selected_variables)){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN STACKING VARIABLES")
+        } #give the names to layers of the stack
 
-    #write the final.data file
-    write.csv(data, paste("/Users/dsalazar/nicho_pinus/data/data_prepare_modelling", paste(species, "csv", sep="."), sep="/"), row.names=FALSE) 
+        #Extract values of variables 
+        presences = read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE) #read the data final data with presences and pseudoabsences
+        variables = extract(variables_stack, presences[, c("longitude", "latitude")]) #extract the value of the variable in these points
+        data = cbind(presences, variables) #bind the presence data and the variable data in one data frame 
 
-    #name of species
-    print(paste(species, "ended"))   
+        #change the names of variables if the number of selected variables is 1 (it is to say, only 5 columns in data)
+        if (ncol(data)<6){
+            colnames(data)[5] = names(variables_stack)
+        }
+
+        #write the final.data file
+        write.table(data, gzfile(paste("./results/global_test_phylo_current/env_predictors/", species, "/", species, "_env_predictors.tsv.gz", sep="")), sep="\t", row.names=FALSE) 
+
+        #name of species
+        print(paste(species, "ended"))
+    }  
 }
 
-
+#run one species
+env_predictors("halepensis")
 
 
 #took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
