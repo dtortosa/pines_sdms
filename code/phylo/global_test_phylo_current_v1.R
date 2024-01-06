@@ -33,6 +33,7 @@ set.seed(56756)
 #create some folders
 system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
 system("mkdir -p ./results/global_test_phylo_current/env_predictors")
+system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", sep=""))
 
 #pre-defined functions
 plot_sin=function(input){
@@ -621,16 +622,8 @@ exsitu_occurrences=function(species){
 ##### EXTRACT ENVIRONMENTAL VALUES #####
 ########################################
 
-
-##RUN only ONE time???
-
-##CHECK WE ARE USING THE CORRECT INPUT FILES HERE
-    #updated already, but check the script
-
-##change the loading of all variables!! just load the ones you interested ine for each case
-
 #species="radiata"
-env_predictors = function(species) {
+env_predictors = function(species){
 
     #open folder
     system(paste("mkdir -p ./results/global_test_phylo_current/env_predictors/", species, "/", sep=""))
@@ -642,19 +635,22 @@ env_predictors = function(species) {
     if(presence_file_exist){
 
         #load the group of species according to cluster
-        group_species = read.csv("./code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", header=TRUE)  
+        group_species = read.csv("./code/variables/variable_selection/species_clustering/_tables/complete_2_10_g_2.csv", header=TRUE)
+            #generated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/species_clustering_v2.R"
 
         #select the group of the corresponding species
         variables_cluster = group_species[which(group_species$species == species),]$groups   
 
         #load names of selected variables  
         load("./results/final_variables/list_selected_variables.rda") 
+            #generated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/variables/variable_selection/variable_selection_inside_clusters/variable_selection_inside_clusters_v2.R"
 
         #take selected variables from the list of variables
         selected_variables = ultimate_variables[[variables_cluster]]
 
-        #calculate the number of ocurrences for each species, this is the number of occurrences used for modelling. We need to select the same variables that the ones used for modeling 
+        #calculate the number of ocurrences for each species, this is the number of occurrences used for modelling. We need to select the same variables that the ones used for modeling, so we have to consider the number of occurences inside the natural range to get the same variable selection obtained to model the current range
         number_ocurrences = read.csv("./results/ocurrences/ocurrences_per_species.csv", header=TRUE)
+            #generated from "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/presences/ocurrences_resample/number_ocurrences_by_species.R"
         n_ocurrence = number_ocurrences[number_ocurrences$species==species,]$number_ocurrences
 
         #update the selected variables if the number of occurrences is too low
@@ -662,15 +658,19 @@ env_predictors = function(species) {
             
             #load the names of selected variables of low number ocurrences species and save
             load("./datos/finals/final_variables_low_number_ocurrence_species.rda")
+                #generated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/variables/variable_selection/variable_selection_inside_clusters/variable_selection_inside_clusters_v2.R"
             selected_variables=final_variables_low_number_ocurrence_species_new[[species]]
         }
         #prepare paths and load
         path_variables=paste("./datos/finals/", selected_variables, ".asc", sep="")
+            #The rasters stored in "datos/finals" were used as input in the species clustering and the selection of variables inside each cluster, so I assume these are the rasters used in the manuscript
+                #generated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/variables/variable_selection/species_clustering/species_clustering_v2.R"
+                #generated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/variables/variable_selection/variable_selection_inside_clusters/variable_selection_inside_clusters_v2.R"
         variables_stack = stack(path_variables)    
         #check
         if(sum(names(variables_stack) == selected_variables)!=length(selected_variables)){
             stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN STACKING VARIABLES")
-        } #give the names to layers of the stack
+        }
 
         #Extract values of variables 
         presences = read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE) #read the data final data with presences and pseudoabsences
@@ -691,7 +691,37 @@ env_predictors = function(species) {
 }
 
 #run one species
-env_predictors("halepensis")
+#env_predictors("halepensis")
+
+
+
+
+#################################################
+##### PREDICT AND EVALUATE USING THE MODELS #####
+#################################################
+
+#species="radiata"
+predict_eval_no_phylo=function(species){
+    
+    #open folder
+    system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
+
+    #load models
+    #the models have been obtained from Rafa PRO: "/Users/dsalazar/nicho_pinus/results/final_analyses/models". This is the path indicated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/models/fit_predict_current_suit/fit_predict_current_suit_v5.R"
+    
+    ##POR AQUII, EXTRACTING THE MODEL INTO THE FOLDER
+    #maybe you can just extract the wole thing into the folder, only 4 files!
+
+    glm_resample=system(paste("unzip -p ./results/models/models_", species, ".zip ", species, "_glm_model.rda > ./results/global_test_phylo_current/predict_eval_no_phylo/", species, sep=""), intern=TRUE)
+    
+    
+
+    save(glm_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "glm_model.rda", sep="_"), sep="/"))
+    save(gam_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "gam_model.rda", sep="_"), sep="/"))
+    save(rf_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "rf_model.rda", sep="_"), sep="/"))  
+}
+
+
 
 
 #took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
@@ -704,14 +734,15 @@ master_processor=function(species){
     #occurrences preparation
     exsitu_occurrences(species)
 
-    #
-
+    #obtain env predictors
+    env_predictors(species)
+    
+    #predict and evaluate without phylo
+    predict_eval_no_phylo(species)
 }
 
 
 ##STEPS
-
-    #once we have 3 occurrences per 50x50 cell (as we did for training), we can select the environmental variables used as predictors in the corresponding species, and then extract their values for the occurrences outside the PA buffer
 
     #we can then predict the probability of occurrence based on env variables and then check how well predict true presences, TSS....
         #high vs low precision was not considered in the evaluation of the models we did, so we could skip that for evaluation here
