@@ -618,15 +618,15 @@ exsitu_occurrences=function(species){
 
 
 
-########################################
-##### EXTRACT ENVIRONMENTAL VALUES #####
-########################################
+#################################################
+##### PREDICT AND EVALUATE USING THE MODELS #####
+#################################################
 
 #species="radiata"
-env_predictors = function(species){
+predict_eval_no_phylo = function(species){
 
     #open folder
-    system(paste("mkdir -p ./results/global_test_phylo_current/env_predictors/", species, "/", sep=""))
+    system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
 
     #check if we have output from the previous step
     presence_file_exist=file.exists(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""))
@@ -683,42 +683,35 @@ env_predictors = function(species){
         }
 
         #write the final.data file
-        write.table(data, gzfile(paste("./results/global_test_phylo_current/env_predictors/", species, "/", species, "_env_predictors.tsv.gz", sep="")), sep="\t", row.names=FALSE) 
+        write.table(data, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_env_predictors.tsv.gz", sep="")), sep="\t", row.names=FALSE) 
+   
 
-        #name of species
-        print(paste(species, "ended"))
-    }  
-}
+        ##load models
+        #open folder to save the decompressed files
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models", sep=""))
 
-#run one species
-#env_predictors("halepensis")
+        #decompress into the folder of the species
+        system(paste("unzip -o ./results/models/models_", species, ".zip -d ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""), intern=TRUE)
+            #the models have been obtained from Rafa PRO: "/Users/dsalazar/nicho_pinus/results/final_analyses/models". This is the path indicated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/models/fit_predict_current_suit/fit_predict_current_suit_v5.R"
+
+        #load the RDA files of the models
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_glm_model.rda", sep=""))
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_gam_model.rda", sep=""))
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_rf_model.rda", sep=""))
 
 
+        ##predict
+        ##por aquii
+        #you have merged two functions, make a quick look about the variables used (varialbes_stack), the folders created....
+        #predecir y hacer ensemble? mira codigo current suitability
 
 
-#################################################
-##### PREDICT AND EVALUATE USING THE MODELS #####
-#################################################
-
-#species="radiata"
-predict_eval_no_phylo=function(species){
-    
-    #open folder
-    system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
-
-    #load models
-    #the models have been obtained from Rafa PRO: "/Users/dsalazar/nicho_pinus/results/final_analyses/models". This is the path indicated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/models/fit_predict_current_suit/fit_predict_current_suit_v5.R"
-    
-    ##POR AQUII, EXTRACTING THE MODEL INTO THE FOLDER
-    #maybe you can just extract the wole thing into the folder, only 4 files!
-
-    glm_resample=system(paste("unzip -p ./results/models/models_", species, ".zip ", species, "_glm_model.rda > ./results/global_test_phylo_current/predict_eval_no_phylo/", species, sep=""), intern=TRUE)
-    
-    
-
-    save(glm_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "glm_model.rda", sep="_"), sep="/"))
-    save(gam_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "gam_model.rda", sep="_"), sep="/"))
-    save(rf_resample, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/models", paste(species, "rf_model.rda", sep="_"), sep="/"))  
+        for(k in length(glm_resample)){
+            glm_predict[[k]] = predict(variables_stack, glm_resample[[1]], type="response")
+            gam_predict[[k]] = predict(variables_stack, gam_resample[[k]], type="response")
+            rf_predict[[k]] = predict(variables_stack, rf_resample[[k]], type="response") #the prediction of rf is binary because we are using classification forest. therefore, we don't have to binarize the predictions of this model. 
+        }
+    }
 }
 
 
@@ -733,9 +726,6 @@ master_processor=function(species){
 
     #occurrences preparation
     exsitu_occurrences(species)
-
-    #obtain env predictors
-    env_predictors(species)
     
     #predict and evaluate without phylo
     predict_eval_no_phylo(species)
