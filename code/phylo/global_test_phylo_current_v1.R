@@ -734,12 +734,12 @@ predict_eval_no_phylo = function(species){
         glm_predict=list()
         gam_predict=list()
         rf_predict=list()
-        glm_evaluation_predict=list()
-        gam_evaluation_predict=list()
-        rf_evaluation_predict=list()
-        glm_evaluation=list()
-        gam_evaluation=list()
-        rf_evaluation=list()
+        glm_boyce=list()
+        gam_boyce=list()
+        rf_boyce=list()
+        glm_boyce_no_dup=list()
+        gam_boyce_no_dup=list()
+        rf_boyce_no_dup=list()
 
         #for each partition of the data
         #k=1
@@ -776,9 +776,9 @@ predict_eval_no_phylo = function(species){
 
             #run the function
             pdf(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_boyce_index_plot.pdf", sep=""))
-            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
-            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
-            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
+            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
+            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
+            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
             dev.off()
                 #this is calculating the boyce index, which is well suited to evaluate presence-only models. In particular, it has been used to evaluate the ability predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investigating colonizing species. Therefore it suits perfectly our case here.
                     #Initially, the boyce index was implemented by making bins (usually 10) of the predicted probability of habitat suitability. For example, from 0 to 0.1, from 0.1 to 0.2, and so on.... Of course, you are classifying the different cells into these bins, if the cell has a predicted probability of 0.05, it will go into the first bin.
@@ -866,32 +866,55 @@ predict_eval_no_phylo = function(species){
                         #TRUE, because we want to avoid cells with suitability values. There is nothing to do there.
                     #rm.dup.points: if 'TRUE' and if 'pred' is a SpatRaster and if there are repeated points within the same pixel, a maximum of one point per pixel is used to compute the presences. See examples in 'ptsrast2obspred'. The default is FALSE
                 #ptsrast2obspred
-                    #This function is internatilly used by our boyce funtion. 
+                    #This function is internally used by our boyce funtion. 
                     #It takes presence points or coordinates and a raster map of model predictions, and it returns a data frame with two columns containing, respectively, the observed (presence or no presence) and the predicted value for each pixel. 
-                    #Duplicate points (i.e., points falling in the same pixel, whether or not they have the exact same coordinates) can be kept or removed.
-                    
+                    #Duplicate points (i.e., points falling in the same pixel, WHETHER OR NOT THEY HAVE THE EXACT SAME COORDINATES) can be kept or removed.
+                        #pts:
+                            #two-column matrix or data frame containing their x (longitude) and y (latitude) coordinates
+                        #rst:
+                            #a one-layer 'SpatRaster' map of the model predictions, in the same CRS as 'pts'. If you have a raster map in another format, you can try to convert it with 'terra::rast()'
+                        #rm.dup
+                            #logical, whether repeated points within the same pixel should be removed. Default is FALSE
+                        #na.rm
+                            #logical, whether presence points with missing or non-finite values of 'rst' should be excluded from the output. The default is FALSE.
+                    #output:
+                        #outputs a data frame with one column containing the observed (1 for presence, 0 for absence) and another column containing the corresponding predicted values from 'rst'.
+                        #In other words, you get a value per pixel and also for each additional presence included in the same pixel with other presence. Each row has a value for presence/absence.
+  
 
-                    #CHECK THIS, this is what we have been talking about
-                    #ptsrast2obspred(pts, rst, rm.dup = FALSE, na.rm = FALSE, verbosity = 2)
+            ##check ptsrast2obspred, which is internally used by boyce
+            #run the function to calculate DF with presence/absence and predicted probability
+            obspred_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=FALSE, na.rm=TRUE, verbosity=2)
+            head(obspred_dup)
+            obspred_no_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=TRUE, na.rm=TRUE, verbosity=2)
+
+            #the number of presences/absences after removing dups (second point in the same cell) should be the same than the total number of cell in the raster of predictions. If the cell has presence 1, if the cell has no presence then 0.
+            if(nrow(obspred_no_dup) != length(which(!is.na(getValues(glm_predict[[k]]))))){
+                stop(paste("ERROR! FALSE! WE ARE NOT CORRECTLY CALCULATING THE PRESENCES/ABSENCES FOR EVALUATION IN SPECIES ", species, sep=""))
+            }
+                #the additional presences in the same cell are included as additional rows in the data.frame
+                #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
 
 
-            length(which(!is.na(getValues(glm_predict[[k]]))))
-            length(which(!is.na(getValues(glm_predict[[k]]))))-nrow(presences)+6
-                #for radiata we have 6 cases for presences in the same cell
-                #from the total number of cells you remove presences without considering the repeated ones, you get the number of absences considered by boyce
-                #it is considering as absence any cell without presence, like background PAs
+            ##calculate the boyce index again without duplicated classes or presences
+            pdf(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_boyce_index_no_dup_plot.pdf", sep=""))
+            glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
+            gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
+            rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
+            dev.off()
 
 
+            ##save the boyce output (with and without dups) in a list
+            glm_boyce[[k]]=glm_boyce
+            gam_boyce[[k]]=glm_boyce
+            rf_boyce[[k]]=glm_boyce
+            glm_boyce_no_dup[[k]]=glm_boyce_no_dup
+            gam_boyce_no_dup[[k]]=glm_boyce_no_dup
+            rf_boyce_no_dup[[k]]=glm_boyce_no_dup
 
-            #calculate the index again without duplicate and check the difference is not too big, if it is, stop the script
 
+            #por aquii
 
-            ##save the boyce output in a list
-
-            
-
-
-            #
             glm_pred_obs=extract(glm_predict[[k]], presences[,c("longitude", "latitude")])
 
             #bin_min=0.1; bin_max=0.2
