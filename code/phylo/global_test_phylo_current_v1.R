@@ -745,7 +745,7 @@ predict_eval_no_phylo = function(species){
         #k=1
         for(k in 1:length(glm_resample)){
 
-            #predict obtaining a continuous probability of presence for each cell outside of the PA_buffer
+            ##predict obtaining a continuous probability of presence for each cell outside of the PA_buffer
             glm_predict[[k]] = predict(variables_stack_masked, glm_resample[[k]], type="response")
             gam_predict[[k]] = predict(variables_stack_masked, gam_resample[[k]], type="response")
             rf_predict[[k]] = predict(variables_stack_masked, rf_resample[[k]], type="prob", index=2)
@@ -767,45 +767,19 @@ predict_eval_no_phylo = function(species){
                 #I have also check with radiata in gam that setting the presence variable as a factor does not change a thing!
 
 
-
-
-
-
-            ##IMPORTANTE:
-                #YOU are including everyhing outside of the buffer, yes, you reduce pseudo-replication with the resampling, but still you could get occurrences that are not recluting
-                    #CHECK what 
-                        #"Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders" does for selecting gbif points outside natural range
-                        #perret does to filter invasive occurrences
-                    #this could be a good reason to just analuze radiata and a few species more that are knwon invasive pines
-
-
-
-            #https://rdrr.io/cran/modEvA/man/Boyce.html
-            #https://www.sciencedirect.com/science/article/abs/pii/S0304380006002468
-
-            require(terra)
+            ##calculate the boyce index
+            #load packages
             require(modEvA)
-                ##check in more deailt how boyce works
-                    #what consider as absence
-                ##should be use terra (rast) instead of raster? raster will fail without rgal?
+                #for boyce index. I am using this instead of ecospat.boyce because the latter gives me errors when loading the predicted raster
+            require(terra)
+                #to convert RasterLayers to SpatRasters, which is the required input format of the boyce index function
 
-
-            length(which(!is.na(getValues(glm_predict[[k]]))))
-
-            length(which(!is.na(getValues(glm_predict[[k]]))))-nrow(presences)+6
-                #for radiata we have 6 cases for presences in the same cell
-                #from the total number of cells you remove presences without considering the repeated ones, you get the number of absences considered by boyce
-                #it is considering as absence any cell without presence, like background PAs
-
-            #calclate numero celdas NA y no NA, deberia eivtarse la zona de PA buffer
-
-
-
-            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]))
-            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]))
-            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]))
-                #modEvA::Boyce is mostly based on ecospat.boyce which is the function used in Nick's book (page 268)
-                    #https://rdrr.io/cran/modEvA/man/Boyce.html
+            #run the function
+            pdf(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_boyce_index_plot.pdf", sep=""))
+            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
+            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
+            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE)
+            dev.off()
                 #this is calculating the boyce index, which is well suited to evaluate presence-only models. In particular, it has been used to evaluate the ability predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investigating colonizing species. Therefore it suits perfectly our case here.
                     #Initially, the boyce index was implemented by making bins (usually 10) of the predicted probability of habitat suitability. For example, from 0 to 0.1, from 0.1 to 0.2, and so on.... Of course, you are classifying the different cells into these bins, if the cell has a predicted probability of 0.05, it will go into the first bin.
                     #In each bin, 
@@ -854,10 +828,68 @@ predict_eval_no_phylo = function(species){
                         #Now, we want to check whether the regions considered suitable outside of the current range, tend to have more presences than expected by chance. 
                         #if we more presences accumulated in an area with high suitability, we should consider that, and the other way around, if we have occurrences accumulated in a low suitability area, we should take that into account?
                         #Given there is not inherent problem to have several occurrences in the same cell for boyce index, provided that these occurrences are independent, then we should keep them. These are independent according to our definition in the manuscript, and we should be consistent with that. Do this validation as close as possible to the original analyses, only changing stuff required for the particular characteristics of invasive analyses.
+                #modEvA::Boyce is mostly based on ecospat.boyce which is the function used in Nick's book (page 268).
+                    #obs: 
+                        #a set of presence point coordinates. 
+                        #In other words, a two-column matrix or data frame containing, respectively, the x (longitude) and y (latitude) coordinates of the presence points, in which case the 'obs' vector will be extracted with 'ptsrast2obspred'.
+                    #pred: 
+                        #a SpatRaster map with the predicted values for the entire model evaluation area, in which case the 'pred' vector will be extracted with 'ptsrast2obspred'
+                            #this has to be "SpatRaster", not "RasterLayer"
+                    #n.bins
+                        #number of classes or bins (e.g. 10) in which to group the 'pred' values, or a vector with the bin thresholds (e.g., c(0.1., 0.4, 0.6...). If 'n.bins = NA' (the default), a moving window is used (see next parameters), so as to compute the "continuous Boyce index" (Hirzel et al. 2006).
+                    #bin.width
+                        #width of the moving window (if n.bins = NA), in the units of 'pred'. By default, it is 1/10th of the 'pred' range). Therefore, by default, the window always has a width of 0.1.
+                        #Nick says in his book that we should select the smallest window possible. 
+                        #I have checked several values for halepensis
+                            #increasing it 7 times (e.g., 0.7) makes the index much higher (around 0.9), but the range of predicted suitability values considered is much lower. The first bin includes suitability values between 0 and 0.7 (median of 0.35). Therefore, we are starting to look at suitability 0.35 in the correlation, ending at median suitability of 0.647. Therefore, we are only looking at a small portion of the predicted suitability values.
+                            #decreasing it 7 times (e.g., 0.04) decreases the boyce index a lot (0.11), but we cover the whole range of suitability values, as we start with a bin from 0 to 0.014, i.e., median 0.007. The last bin has a median of 0.98. So we cover the whole range of suitability in very detail.
+                            #the default (0.1) gives an index of 0.38, while still covering the whole range of suitability. The first bin starts at 0 and ends at 0.1, i.e., median value of 0.050. The last bin has a median of 0.941.
+                        #1/10 (0.1) is also the default in ecospat.boyce, being used by Nick in the book
+                        #Importantly, herzel et al 2006 showed 
+                            #that a window size of 0.1-0.2 makes the boyce index very correlated with AUC measured on the same presences but also adding true absences.
+                            #they also say that increase to much the number of classes (i.e., lower width of the window) increases the variance among cross-validation partitions
+                            #In their opinion, 0.1 is a good optimum. So we are going to use this
+                            #Hirzel, A.H., G. Le Lay, V. Helfer, C. Randin & A. Guisan (2006) Evaluating the ability of habitat suitability models to predict species presences. Ecological Modelling 199: 142-152 
+                    #res
+                        #resolution of the moving window (if n.bins = NA). By default it is 100 focals, providing 100 moving bins. In other words, we move the window 100 times. If you increase the number of windows, each steps will be smaller in order to fit the larger number of windows within the same range of suitability values
+                        #in the guisan paper, they just say the window is moved a small amount. The default of the function is 100, and the book of Nick also used 100, being the default also for ecospat.boyce.
+                    #method
+                        #argument to be passed to 'cor' indicating which correlation coefficient to use. The default is ''spearman'' as per Boyce et al. (2002), but ''pearson'' and ''kendall'' can also be used.
+                        #the Guisan paper also uses Spearman
+                    #rm.dup.classes
+                        #rm.dup.classes: if 'TRUE' (as in 'ecospat::ecospat.boyce') and if there are different bins with the same predicted/expected ratio, only one of each is used to compute the correlation
+                        #default here is FALSE, while in ecospat::ecospat.boyce is TRUE. Nick used the default, which is True.
+                        #I am not sure it is a good idea to remove bins with the same P/E ratio. If two close bins have a similar value, that should be considered to strength the correlation between presence and suitability. These are legit values.... If they are in very different suitability bins, then this will destroy the correlation and that should be the case, because different suitability values have the same P/E ratio.
+                        #using the default of the modEVa function
+                    #na.rm: 
+                        #Logical value indicating if missing values should be removed from computations. The default is TRUE.
+                        #TRUE, because we want to avoid cells with suitability values. There is nothing to do there.
+                    #rm.dup.points: if 'TRUE' and if 'pred' is a SpatRaster and if there are repeated points within the same pixel, a maximum of one point per pixel is used to compute the presences. See examples in 'ptsrast2obspred'. The default is FALSE
+                #ptsrast2obspred
+                    #This function is internatilly used by our boyce funtion. 
+                    #It takes presence points or coordinates and a raster map of model predictions, and it returns a data frame with two columns containing, respectively, the observed (presence or no presence) and the predicted value for each pixel. 
+                    #Duplicate points (i.e., points falling in the same pixel, whether or not they have the exact same coordinates) can be kept or removed.
+                    
+
+                    #CHECK THIS, this is what we have been talking about
+                    #ptsrast2obspred(pts, rst, rm.dup = FALSE, na.rm = FALSE, verbosity = 2)
+
+
+            length(which(!is.na(getValues(glm_predict[[k]]))))
+            length(which(!is.na(getValues(glm_predict[[k]]))))-nrow(presences)+6
+                #for radiata we have 6 cases for presences in the same cell
+                #from the total number of cells you remove presences without considering the repeated ones, you get the number of absences considered by boyce
+                #it is considering as absence any cell without presence, like background PAs
 
 
 
-            #check all the arguments of the boyce function.
+            #calculate the index again without duplicate and check the difference is not too big, if it is, stop the script
+
+
+            ##save the boyce output in a list
+
+            
+
 
             #
             glm_pred_obs=extract(glm_predict[[k]], presences[,c("longitude", "latitude")])
@@ -966,10 +998,14 @@ predict_eval_no_phylo = function(species){
 #species="radiata"
 predict_eval_phylo = function(species){
 
+    #load the phylogenetic range for the species
+    #calculate the probability for both variables in the whole world except for PA buffer and combine to get a phylo probability
     #you have two options to combine the predicted probability of a model (e.g., glm) and the phylo probability, being both from 0 to 1
         #make an average of the two probability predictions as Nick in page 284 of the book
         #manually calculate the boyce index adding new presences that fall within the bin of probability of the phylo-map
-
+            #you could calculate the "obs" object, i.e., presences- absences, and the "pred" object manually using "ptsrast2obspred", see boyce function docs.
+    #calculate the boyce index with the new probability
+    #compare the average boyce index with and without phylo and then check cases with important differences
 }
 
 #took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
