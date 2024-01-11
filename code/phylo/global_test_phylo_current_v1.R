@@ -42,10 +42,6 @@ plot_sin=function(input){
     dev.off()
 }
 
-#require packages
-require(raster)
-require(sf)
-
 #load species names
 list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
 
@@ -138,6 +134,10 @@ if(sum(unique(naturalized_occurrences$species) %in% epithet_species_list)!= leng
 ###################################################
 ##### SELECT OCCURRENCES OUTSIDE DISTRIBUTION #####
 ###################################################
+
+#packages
+require(raster)
+require(sf)
 
 #species="radiata"
 exsitu_occurrences=function(species){
@@ -723,6 +723,12 @@ predict_eval_no_phylo = function(species){
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_gam_model.rda", sep=""))
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_rf_model.rda", sep=""))
 
+        #open folder to save boyce index results
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", sep=""))
+
+        #open folder to save plots
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", sep=""))
+
 
         ##predict and evaluate
         #check
@@ -734,20 +740,25 @@ predict_eval_no_phylo = function(species){
         glm_predict=list()
         gam_predict=list()
         rf_predict=list()
-        glm_boyce=list()
-        gam_boyce=list()
-        rf_boyce=list()
-        glm_boyce_no_dup=list()
-        gam_boyce_no_dup=list()
-        rf_boyce_no_dup=list()
+        glm_eval=list()
+        gam_eval=list()
+        rf_eval=list()
+        glm_eval_no_dup=list()
+        gam_eval_no_dup=list()
+        rf_eval_no_dup=list()
 
-        #for each partition of the data
+        #run a loop using the models trained on the 12 data partitions
         #k=1
         for(k in 1:length(glm_resample)){
 
             ##predict obtaining a continuous probability of presence for each cell outside of the PA_buffer
             glm_predict[[k]] = predict(variables_stack_masked, glm_resample[[k]], type="response")
             gam_predict[[k]] = predict(variables_stack_masked, gam_resample[[k]], type="response")
+                #type="response" for both the predict function of GLM (stats::predict.glm) and GAM (gam::predict.Gam)
+                    #The default is on the scale of the linear predictors (link); the alternative "response" is on the scale of the response variable.
+                        #This is what we want, predicted values between 0 (absence) and 1 (presence)
+                        #using the link option we get weird results, with values between 0 and -1500
+                    #Nick uses type="response" for both type of models in the book. You can look for the term "type=“response”" in the PDF, and you will see.
             rf_predict[[k]] = predict(variables_stack_masked, rf_resample[[k]], type="prob", index=2)
                 #Special case of prediction for RF. In order to get a continuous probability of presence for each cell instead of 0/1, we need to use type="prob", index=2.
                     #We modeled presences with RF considering them as a factor (as.factor(presence)), just like Nick did in his book in page 284. We model presences/absences as binomial using a classification tree as we wanted to have presence/absence to make the ensemble.
@@ -758,6 +769,7 @@ predict_eval_no_phylo = function(species){
                     #this is the case for randomForest:::predict.randomForest. In a classification model, if type="prob" or "votes" a data.frame is returned, with n columns, representing each class. 
                         #For example, for binomial (0/1), you will get the probability of each observation to be 0 and to be 1, i.e., you get 2 columns.
                         #if you want to use probability of each cell (we are predicting across the whole raster, so each 10x10 cell is an observation) of having a presence (1), you have to use index=2. This is what we want.
+                        #if you use index 1, you get the probability of a cell of having absences, which is the opposite to the previous plot.
                     #https://gis.stackexchange.com/a/339856
                     #https://rdrr.io/cran/raster/man/predict.html
                     #https://www.rdocumentation.org/packages/randomForest/versions/4.7-1.1/topics/predict.randomForest
@@ -765,6 +777,9 @@ predict_eval_no_phylo = function(species){
             #NOTE about using presence as continuous (not factor) for glm and gam
                 #this was the approach explained in the book for both GLM (126-128) and GAM (213). They use presence (0/1) without converting it to a factor.
                 #I have also check with radiata in gam that setting the presence variable as a factor does not change a thing!
+
+            #NOTE about the weights based on precision
+                #the weights were not considered in the evaluation of the original models, they were only used during fitting. These weights were used for giving more importance to some occurrences in the fitting, i.e., to their environmental conditions. As we are not fitting the models, just predicting and evaluating, we do not need the weights.
 
 
             ##calculate the boyce index
@@ -774,11 +789,16 @@ predict_eval_no_phylo = function(species){
             require(terra)
                 #to convert RasterLayers to SpatRasters, which is the required input format of the boyce index function
 
-            #run the function
-            pdf(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_boyce_index_plot.pdf", sep=""))
-            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
-            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
-            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE)
+            #run the function removing or not duplicates (see below)
+            jpeg(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
+            par(mfcol=c(3,2))
+            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
+            mtext(paste("radiata - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
+            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
+            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
+            glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
+            gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GAM - no duplicates", sep=""))
+            rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("RF - no duplicates", sep=""))
             dev.off()
                 #this is calculating the boyce index, which is well suited to evaluate presence-only models. In particular, it has been used to evaluate the ability predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investigating colonizing species. Therefore it suits perfectly our case here.
                     #Initially, the boyce index was implemented by making bins (usually 10) of the predicted probability of habitat suitability. For example, from 0 to 0.1, from 0.1 to 0.2, and so on.... Of course, you are classifying the different cells into these bins, if the cell has a predicted probability of 0.05, it will go into the first bin.
@@ -857,14 +877,18 @@ predict_eval_no_phylo = function(species){
                         #argument to be passed to 'cor' indicating which correlation coefficient to use. The default is ''spearman'' as per Boyce et al. (2002), but ''pearson'' and ''kendall'' can also be used.
                         #the Guisan paper also uses Spearman
                     #rm.dup.classes
-                        #rm.dup.classes: if 'TRUE' (as in 'ecospat::ecospat.boyce') and if there are different bins with the same predicted/expected ratio, only one of each is used to compute the correlation
+                        #rm.dup.classes: if 'TRUE' (as in 'ecospat::ecospat.boyce') and if there are different bins with the same predicted/expected ratio, only one of each is used to compute the correlation.
+                        #ONLY removes contiguous bins, i.e., bins that are together (e.g., 0.7-0.8 and 0.71-0.81) and have the same P/E ratio.
                         #default here is FALSE, while in ecospat::ecospat.boyce is TRUE. Nick used the default, which is True.
                         #I am not sure it is a good idea to remove bins with the same P/E ratio. If two close bins have a similar value, that should be considered to strength the correlation between presence and suitability. These are legit values.... If they are in very different suitability bins, then this will destroy the correlation and that should be the case, because different suitability values have the same P/E ratio.
                         #using the default of the modEVa function
+                        #IMPORTANT, DO NOT SET THIS AS TRUE
+                            #Look first the boyce plots for radiata. You can see cases like in GAM, where there are only two P/E ratios above zero, being the rest zero. If you remove bins with the same value (i.e., 0), you indeed get a correlation, but it is completely artificial. Most of the range of suitability, there is no association with the P/E ratio.
                     #na.rm: 
                         #Logical value indicating if missing values should be removed from computations. The default is TRUE.
                         #TRUE, because we want to avoid cells with suitability values. There is nothing to do there.
                     #rm.dup.points: if 'TRUE' and if 'pred' is a SpatRaster and if there are repeated points within the same pixel, a maximum of one point per pixel is used to compute the presences. See examples in 'ptsrast2obspred'. The default is FALSE
+                        #note that the function does not count duplicated presences for calculating the expected proportion. In other words, the expected proportion is calculated by just dividing the number of PIXELS within a given bin respect to the total number of PIXELS in the study area. These presences are used to calculate the proportion of presences in a bin respect to the total number of presences.
                 #ptsrast2obspred
                     #This function is internally used by our boyce funtion. 
                     #It takes presence points or coordinates and a raster map of model predictions, and it returns a data frame with two columns containing, respectively, the observed (presence or no presence) and the predicted value for each pixel. 
@@ -885,132 +909,121 @@ predict_eval_no_phylo = function(species){
             ##check ptsrast2obspred, which is internally used by boyce
             #run the function to calculate DF with presence/absence and predicted probability
             obspred_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=FALSE, na.rm=TRUE, verbosity=2)
-            head(obspred_dup)
             obspred_no_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=TRUE, na.rm=TRUE, verbosity=2)
 
             #the number of presences/absences after removing dups (second point in the same cell) should be the same than the total number of cell in the raster of predictions. If the cell has presence 1, if the cell has no presence then 0.
-            if(nrow(obspred_no_dup) != length(which(!is.na(getValues(glm_predict[[k]]))))){
+            if(nrow(obspred_no_dup) != length(which(!is.na(getValues(rf_predict[[k]]))))){
                 stop(paste("ERROR! FALSE! WE ARE NOT CORRECTLY CALCULATING THE PRESENCES/ABSENCES FOR EVALUATION IN SPECIES ", species, sep=""))
             }
                 #the additional presences in the same cell are included as additional rows in the data.frame
                 #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
 
+            #check if we have too many points within the same 10x10 cells
+            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.2)){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 20% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
+            }
+                #the difference in points between obspred_dup and obspred_no_dup is the number of presences being in 10x10km cells with other presences, as the latter was created by removing these presences, in contrast with the former.
 
-            ##calculate the boyce index again without duplicated classes or presences
-            pdf(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_boyce_index_no_dup_plot.pdf", sep=""))
-            glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
-            gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
-            rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE)
-            dev.off()
+
+            ##check we do not have a low number of pixels in any bin
+            #They say the following: "In bins with overly small sample sizes, the comparison between median prediction and random expectation may not be meaningful, although these bins will equally contribute to the overall Boyce index. When there are bins with less than 30 values, a warning is emitted and their points are plotted in red, but mind that 30 is a largely arbitrary number. See the $bins$bin.N section of the console output, and use the 'bin.width' argument to enlarge the bins."
+            #we have a veeery large study area, so the number of cells in each bin is always relatively high. We are going to check that just in case
+            min_bin_n_glm=min(glm_boyce[[1]]$bin.N) 
+            min_bin_n_gam=min(gam_boyce[[1]]$bin.N) 
+            min_bin_n_rf=min(rf_boyce[[1]]$bin.N) 
+                #calculate the min number of points across bins in each model. You can have different sample size between models because these are bins based on suitability, and the suitability is differently predicted by each model
+            if((min_bin_n_glm<100) | (min_bin_n_gam<100) | (min_bin_n_rf<100)){
+                stop(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 100 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+            }
+
+
+            ##FINAL NOTES about modEvA boyce
+                #The modEVA boyce function says (note at the end of the documentation) that we should only use this for habitat suitability predictions, not presence predictions
+                    #These models (glm, gam....) predict presence probability, which (unless presences and absences are given different weights) incorporates the prevalence (proportion of presences) of the species in the modelled sample. So, predictions for restricted species are always generally low, while predictions for widespread species are always generally higher, regardless of the actual environmental quality.
+                    #they specifically say that "This index is designed for evaluating predictions of habitat suitability, not presence probability (which also depends on the species' presence/absence ratio: rare species do not usually show high proportions of presences, even in highly suitable areas)."
+                    #I guess what they are saying here is that if you have a species with a low number of presences, it is difficult for the model to detect its suitable areas as you do not have enough points of presence in these suitable areas, so the prediction are going to be always low, just because its low prevalence, but this is not a problem for us.
+                    #But we have used different weights for presences and absences, we have also ensure the same ratio of PA/presences across species independently of their range size, and we have also used the whole known range of each species to create occurrences reducing the number if there were many occurrences together. Therefore, even small-range species have a high proportion of presences inside their range, where they, of course, have high suitability. Indeed, you can check the ensemble suitability maps for small-range species like canariensis, amamiana or culminicola, having all high certainty of suitability inside their natural range.
+                    #Also, I have checked the predictions across the globe of canariensis, and it has different predicted suitable areas in the planet.
+                    #I think we are good here.
 
 
             ##save the boyce output (with and without dups) in a list
-            glm_boyce[[k]]=glm_boyce
-            gam_boyce[[k]]=glm_boyce
-            rf_boyce[[k]]=glm_boyce
-            glm_boyce_no_dup[[k]]=glm_boyce_no_dup
-            gam_boyce_no_dup[[k]]=glm_boyce_no_dup
-            rf_boyce_no_dup[[k]]=glm_boyce_no_dup
+            glm_eval[[k]]=glm_boyce
+            gam_eval[[k]]=gam_boyce
+            rf_eval[[k]]=rf_boyce
+            glm_eval_no_dup[[k]]=glm_boyce_no_dup
+            gam_eval_no_dup[[k]]=gam_boyce_no_dup
+            rf_eval_no_dup[[k]]=rf_boyce_no_dup
+        }
 
-
-            #por aquii
-
-            glm_pred_obs=extract(glm_predict[[k]], presences[,c("longitude", "latitude")])
-
-            #bin_min=0.1; bin_max=0.2
-            seq()
-            total_presences=length(glm_pred_obs)
-            presences_bin=length(which(glm_pred_obs>=bin_min & glm_pred_obs<=bin_max))
-            cells_bin=length(which(getValues(glm_predict[[k]]>=bin_min & glm_predict[[k]]<=bin_max)))
-                #this is the number of cells considered in the bin by boyce but only if we remove duplicates
-            total_cells=length(which(getValues(!is.na(glm_predict[[k]]))))
-
-
-            pred_prob=presences_bin/total_presences
-            expect_prob=cells_bin/total_cells
-
-            pe_ratio=pred_prob/expect_prob
-
-
-            pe_ratio=c(0.778817833, 2.534767780, 0.000000000, 0.000000000, 0.000000000, 0.000000000, 5.101697561, 0.000000000, 8.841727082, 2.770607859, 0.000000000)
-            bin_median=c(0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.00)
-            cor.test(pe_ratio, bin_median, method="spearman")
-
-
-            #NO ELIMINES, DEJA 3 POR CELDA
-                #no son pseudo replicas, hemos resampleado para reducir la psuedo-replicacion
-                #al modelar y evaluar la primer avez, si dos puntos est'an en la misma celda de 10x10, tienen la misma suitaiblity, y si la suitabiliaty es alta, se le cuenta doble, porque ha acertado dos veces.
-                #podemos tener dos parches de bosque en una celda de 10x10 que sean independientes
-                #recuerda que los puntos se cogen al azar
-            #si cogemos solo 1 occurrence per cell, boyce does not say we have duplicated values. Makes sense, is considering any cell of the raster (10x10) without presence as absence. Indeed, it is calculating the expected number of presences in a bin as the number of cells in that bin!
-                #we need to remove these cases, because it is inflating the index by lowering the expectation...?
-            #the problem is that if we remove 2 occurrences in a 50x50 cell, then you could remove cases where one occurrences in once 10x10 cell and the other in is other 10x10 cell, but within the same 50x50 cell, it is too coarse, so maybe we can just do rm.dup here?
-            #
-
-
-            #this is the problem!!! maybe we can not evaluate RF
-            #RF only works if we set n_bins to a number instead of NA, i.e., avoiding the continuous boyce index. We can use two classes of predicted probabilities, 0 and 1, althoug not sure if this is very adequate.
-            #you are only using two classes, low and high, and checking whether there are more presences in the high than expected? MIRA EL OUTPUT, ES RARO TENER SOLO UN PAR DE CLASES, MIRA LOS RANGOS
-                #A model that adequately predicts the distri- bution of a given species should predict large numbers of presences in the high prediction bins (i.e. high proportion of presences with high values of habitat suitability) and fewer and fewer presences as one moves toward the lower prediction bins (i.e. toward low habitat suitability for the species).
-                #If n.bins = NA (the default), a moving window is used (see next parameters), so as to compute the "continuous Boyce index" (Hirzel et al. 2006).
-
-
-            plot(rf_predict[[k]])
-            points(presences$longitude, presences$latitude, pch=20, col="red")
-
-                #it says
-                    #Data include 718 presences and 2057997 absences.
-                        #so I guess it is considered everything in the raster that is not a presence like an absence, so it is good we have removed the PA buffer 
-                    #we have duplicates for radiata, but there are no duplicates for longitude-latitude, so maybe the problem is that is considering as duplicates presences within the same cell consider as cell size that indicated in "res"
-
-
-            # The modEVA boyce function says (note at the end of the documentation) that we should only use this for habitat suitability predictions, not presence predictions
-                #These models (glm, gam....) predict presence probability, which (unless presences and abences are given different weights) incorporates the prevalence (proportion of presences) of the species in the modelled sample. So, predictions for restricted species are always generally low, while predictions for widespread species are always generally higher, regardless of the actual envi-ronmental quality. 
-                #But we have used different weights for presences and absences, we have also ensure the same ratio of PA/presences across species independently of their range size, and we have also used the whole known range of each species to create occurrences reducing the number if there were many occurrences together, so I think we are good here.
-
-
-            #make the evaluation
-            glm_evaluation[[k]] = glm_boyce$Boyce
-            gam_evaluation[[k]] = 
-            rf_evaluation[[k]] = 
-                #the weights were not considered in the evaluation of the original models, they were only used during fitting. These weights were used for giving more importance to some occurrences in the fitting, i.e., to their environmental conditions. As we are not fitting the models, just predicting and evaluating, we do not the weights.       
+        #stop if we do not have 12 elements in each list
+        if(length(glm_predict)!=12 | length(gam_predict)!=12 | length(rf_predict)!=12 | length(glm_eval)!=12 | length(gam_eval)!=12 | length(rf_eval)!=12 | length(glm_eval_no_dup)!=12 | length(gam_eval_no_dup)!=12 | length(rf_eval_no_dup)!=12){
+            stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PARTITIONS")
         }
 
 
-    ##SAVE STUFF!!! CHANGE PATHS AND EVERYTHING, MAYBE BINARIZE ALREADY?
+        ##calculate a table with boyce index across models and partitions
+        #add the boyce index of each combination as a row
+        boyce_table=cbind.data.frame(
+            1:length(glm_eval),
+            cbind.data.frame(sapply(glm_eval, function(x){return(x[[2]])})), 
+            cbind.data.frame(sapply(gam_eval, function(x){return(x[[2]])})),
+            cbind.data.frame(sapply(rf_eval, function(x){return(x[[2]])})), 
+            cbind.data.frame(sapply(glm_eval_no_dup, function(x){return(x[[2]])})), 
+            cbind.data.frame(sapply(gam_eval_no_dup, function(x){return(x[[2]])})),
+            cbind.data.frame(sapply(rf_eval_no_dup, function(x){return(x[[2]])})))
+        names(boyce_table)=c("partition", "glm_eval", "gam_eval", "rf_eval", "glm_eval_no_dup", "gam_eval_no_dup", "rf_eval_no_dup")
+            #for each partition, get the second element which is the boyce index, obtaining a vector with all of them. 
+            #Then, convert to a column of DF. 
+            #repeate for all models and combine the different columns in a DF along with the number of the partition.
 
-    #stack all continuous predictions 
-    continuous_predictions_glm= stack(glm_predict)
-    continuous_predictions_gam= stack(gam_predict)
+        #add the median as a new row
+        boyce_table=rbind.data.frame(boyce_table, c("median", as.numeric(apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=median))))
+            #calculate the median of each column (excluding the first one with the number of the partition)
+                #margin lets you select if you want to apply the function across columns (2) or rows (1)
+            #get a vector with the medians and then add the "median" name to indicate these are medians
+            #add this as a new row in the table
 
-    #strack predictions of random forest (binary)
-    binary_predictions_rf = stack(rf_predict)   
 
+        ##save the results
+        #open folders to save
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", sep=""))
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", sep=""))
 
+        #save predictions
+        predictions_glm=stack(glm_predict)
+        predictions_gam=stack(gam_predict)
+        predictions_rf =stack(rf_predict)   
+        writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
-    #save the continuous predictions
-    writeRaster(continuous_predictions_glm, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_glm", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
-    writeRaster(continuous_predictions_gam, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/continuous_predictions/continuous_predictions_gam", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
+        #save evaluations
+        save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
+        save(gam_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce.rda", sep=""))
+        save(rf_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce.rda", sep=""))
+        save(glm_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce_no_dup.rda", sep=""))
+        save(gam_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce_no_dup.rda", sep=""))
+        save(rf_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce_no_dup.rda", sep=""))
 
-    #save the predictions of random forest (binary)
-    writeRaster(binary_predictions_rf, filename=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/binary_predictions/binary_predictions_rf", paste(species, "tif", sep="."), sep="_"), options="INTERLEAVE=BAND", overwrite=TRUE)
+        #save median boyce
+        write.table(boyce_table, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
 
-    #save data for evaluation
-    save(glm_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation_data.rda", sep="_"), sep="/"))
-    save(gam_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation_data.rda", sep="_"), sep="/"))
-    save(rf_evaluation_predict, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation_data.rda", sep="_"), sep="/")) 
-
-    #save evaluations
-    save(glm_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "glm_evaluation.rda", sep="_"), sep="/"))
-    save(gam_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "gam_evaluation.rda", sep="_"), sep="/"))
-    save(rf_evaluation, file=paste("/Users/dsalazar/nicho_pinus/results/final_analyses/evaluations", paste(species, "rf_evaluation.rda", sep="_"), sep="/"))
-
+        #compress and remove files
+        system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""))
+        system(paste("
+            cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
+            tar -zcvf prediction_rasters.tar.gz ./prediction_rasters; 
+            rm -rf ./prediction_rasters", sep=""))
+            #https://unix.stackexchange.com/a/93158
     }
 }
 
 #run it for one species
 #predict_eval_no_phylo("radiata")
 
+
+##METE CONFIDENCE INTERVAL!
 
 
 
@@ -1021,12 +1034,15 @@ predict_eval_no_phylo = function(species){
 #species="radiata"
 predict_eval_phylo = function(species){
 
+
+
     #load the phylogenetic range for the species
     #calculate the probability for both variables in the whole world except for PA buffer and combine to get a phylo probability
     #you have two options to combine the predicted probability of a model (e.g., glm) and the phylo probability, being both from 0 to 1
         #make an average of the two probability predictions as Nick in page 284 of the book
         #manually calculate the boyce index adding new presences that fall within the bin of probability of the phylo-map
             #you could calculate the "obs" object, i.e., presences- absences, and the "pred" object manually using "ptsrast2obspred", see boyce function docs.
+            #if you do this, be very careful with the calculation. the expected ratio is calculated just with the number of pixels in the bin divided by the total number of pixels of the study area. It does not count repeated presences in this proportion, these are considered just in the predicted ratio.
     #calculate the boyce index with the new probability
     #compare the average boyce index with and without phylo and then check cases with important differences
 }
@@ -1064,6 +1080,10 @@ master_processor=function(species){
 unique(naturalized_occurrences$species)
 
 n_points_before_resampling=master_processor
+
+
+#create table across species with boyce
+
 
 #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
 
