@@ -115,7 +115,7 @@ if((round(res(elev)[1], 7) != round(res(environment_var)[1], 7)) | (round(res(el
     #Naturalized distributions show that climatic disequilibrium is structured by niche size in pines (Pinus L.)
 
 #extract and load the naturalized occurrences from zip file
-system(paste("unzip -o /home/dftortosa/diego_docs/science/phd/nicho_pinus/datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip pinus_occurrences_fordryad_exoticonly.csv -d ./results/global_test_phylo_current/exsitu_occurrences/", sep=""), intern=TRUE)
+system(paste("unzip -o ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip pinus_occurrences_fordryad_exoticonly.csv -d ./results/global_test_phylo_current/exsitu_occurrences/", sep=""))
 naturalized_occurrences=read.csv("./results/global_test_phylo_current/exsitu_occurrences/pinus_occurrences_fordryad_exoticonly.csv", header=TRUE)
 summary(naturalized_occurrences)
 #check
@@ -141,6 +141,11 @@ require(sf)
 
 #species="radiata"
 exsitu_occurrences=function(species){
+
+    ##stop if pumila, just in case, because this species has part of its distribution in a corner and we should check it carefully
+    if(species=="pumila"){
+        stop("ERROR! FALSE! YOU ARE TRYING TO ANALYZE PUMILA, AND WE HAVE NOT CHECKED THIS SCRIPT FOR THAT")
+    }
 
     ##open folders
     system(paste("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences/", species, sep=""))
@@ -715,7 +720,7 @@ predict_eval_no_phylo = function(species){
         system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models", sep=""))
 
         #decompress into the folder of the species
-        system(paste("unzip -o ./results/models/models_", species, ".zip -d ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""), intern=TRUE)
+        system(paste("unzip -o ./results/models/models_", species, ".zip -d ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""))
             #the models have been obtained from Rafa PRO: "/Users/dsalazar/nicho_pinus/results/final_analyses/models". This is the path indicated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/models/fit_predict_current_suit/fit_predict_current_suit_v5.R"
 
         #load the RDA files of the models
@@ -723,10 +728,25 @@ predict_eval_no_phylo = function(species){
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_gam_model.rda", sep=""))
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", species, "_rf_model.rda", sep=""))
 
-        #open folder to save boyce index results
-        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", sep=""))
 
-        #open folder to save plots
+        ##extract thresholds
+        #These thresholds were previously calculated using the evaluation data of each partition hence selecting the threshold maximizing TSS for each data partition.
+        #decompress thresholds
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", sep=""))
+        system(paste("unzip -o ./results/threshold/threshold_", species, ".zip -d ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", sep=""))
+            #the thresholds have been obtained from Rafa PRO: "/Users/dsalazar/nicho_pinus/results/final_analyses/thresholds". This is the path indicated in "/home/dftortosa/diego_docs/science/phd/nicho_pinus/code/models/binarize_ensamble_current_suit/binarize_ensamble_current_suit_v5.R"
+
+        #load the thresholds
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_glm_threshold.rda", sep=""))
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_gam_threshold.rda", sep=""))
+        
+
+        ##prepare folders to save outputs
+        #to save prediction rasters
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", sep=""))
+
+        #open folder to save boyce index results
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", sep=""))
         system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", sep=""))
 
 
@@ -740,6 +760,9 @@ predict_eval_no_phylo = function(species){
         glm_predict=list()
         gam_predict=list()
         rf_predict=list()
+        glm_bin_predict=list()
+        gam_bin_predict=list()
+        rf_bin_predict=list()
         glm_eval=list()
         gam_eval=list()
         rf_eval=list()
@@ -780,6 +803,24 @@ predict_eval_no_phylo = function(species){
 
             #NOTE about the weights based on precision
                 #the weights were not considered in the evaluation of the original models, they were only used during fitting. These weights were used for giving more importance to some occurrences in the fitting, i.e., to their environmental conditions. As we are not fitting the models, just predicting and evaluating, we do not need the weights.
+
+
+            ##calculate the binary predictions for ensemble
+            #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
+            #glm
+            glm_bin_predict[[k]] = glm_predict[[k]] #copy the raster 
+            glm_bin_predict[[k]][glm_bin_predict[[k]]>=(glm_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
+            glm_bin_predict[[k]][glm_bin_predict[[k]]<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
+
+            #gam
+            gam_bin_predict[[k]] = gam_predict[[k]] #copy the raster 
+            gam_bin_predict[[k]][gam_bin_predict[[k]]>=(gam_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
+            gam_bin_predict[[k]][gam_bin_predict[[k]]<(gam_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
+            
+            #RF
+            #already binarized as we used a classification tree
+            rf_bin_predict[[k]] = predict(variables_stack_masked, rf_resample[[k]], type="response")
+                #calculate also predictions using the binary results of RF so we can use it later when ensembling predictions
 
 
             ##calculate the boyce index
@@ -957,7 +998,7 @@ predict_eval_no_phylo = function(species){
         }
 
         #stop if we do not have 12 elements in each list
-        if(length(glm_predict)!=12 | length(gam_predict)!=12 | length(rf_predict)!=12 | length(glm_eval)!=12 | length(gam_eval)!=12 | length(rf_eval)!=12 | length(glm_eval_no_dup)!=12 | length(gam_eval_no_dup)!=12 | length(rf_eval_no_dup)!=12){
+        if(length(glm_predict)!=12 | length(gam_predict)!=12 | length(rf_predict)!=12 | length(glm_bin_predict)!=12 | length(gam_bin_predict)!=12 | length(rf_bin_predict)!=12 | length(glm_eval)!=12 | length(gam_eval)!=12 | length(rf_eval)!=12 | length(glm_eval_no_dup)!=12 | length(gam_eval_no_dup)!=12 | length(rf_eval_no_dup)!=12){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PARTITIONS")
         }
 
@@ -977,26 +1018,49 @@ predict_eval_no_phylo = function(species){
             #Then, convert to a column of DF. 
             #repeate for all models and combine the different columns in a DF along with the number of the partition.
 
-        #add the median as a new row
-        boyce_table=rbind.data.frame(boyce_table, c("median", as.numeric(apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=median))))
+        #add the confidence interval as a new row
+        #calculate the different percentiles per column
+        low_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.025)
+        median_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.5)
+        high_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.975)
             #calculate the median of each column (excluding the first one with the number of the partition)
-                #margin lets you select if you want to apply the function across columns (2) or rows (1)
-            #get a vector with the medians and then add the "median" name to indicate these are medians
-            #add this as a new row in the table
+            #margin lets you select if you want to apply the function across columns (2) or rows (1)
+
+        #add them as new rows
+        boyce_table=rbind.data.frame(
+            boyce_table, 
+            c("percentile_2.5", low_interval_boyce),
+            c("percentile_50", median_boyce),
+            c("percentile_97.5", high_interval_boyce))
+            #add the percentiles with their names as new rows
+
+
+        ##make stacks
+        predictions_glm=stack(glm_predict)
+        predictions_gam=stack(gam_predict)
+        predictions_rf =stack(rf_predict)
+        predictions_bin_glm =stack(glm_bin_predict)   
+        predictions_bin_gam =stack(gam_bin_predict)    
+        predictions_bin_rf =stack(rf_bin_predict)   
+
+
+        ##prepare ensemble
+        #stack all binary predictions 
+        binary_predictions = stack(predictions_bin_glm, predictions_bin_gam, predictions_bin_rf)   
+
+        #calculate the percentage of models for which a pixel is suitable
+        ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
 
 
         ##save the results
-        #open folders to save
-        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", sep=""))
-        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", sep=""))
-
         #save predictions
-        predictions_glm=stack(glm_predict)
-        predictions_gam=stack(gam_predict)
-        predictions_rf =stack(rf_predict)   
         writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
         writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
         writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
         #save evaluations
         save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
@@ -1011,9 +1075,10 @@ predict_eval_no_phylo = function(species){
 
         #compress and remove files
         system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""))
+        system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", sep=""))
         system(paste("
             cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
-            tar -zcvf prediction_rasters.tar.gz ./prediction_rasters; 
+            tar -zcvf ", species, "_prediction_rasters.tar.gz ./prediction_rasters; 
             rm -rf ./prediction_rasters", sep=""))
             #https://unix.stackexchange.com/a/93158
     }
@@ -1022,8 +1087,6 @@ predict_eval_no_phylo = function(species){
 #run it for one species
 #predict_eval_no_phylo("radiata")
 
-
-##METE CONFIDENCE INTERVAL!
 
 
 
@@ -1034,7 +1097,115 @@ predict_eval_no_phylo = function(species){
 #species="radiata"
 predict_eval_phylo = function(species){
 
+    #open folder
+    system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/", sep=""))
 
+    #check the outputs of the previous step exists
+    pred_raster_check=file.exists(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz", sep=""))
+    boyce_table_check=file.exists(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep=""))
+
+    #if the outputs exists, do operations
+    if(pred_raster_check & boyce_table_check){
+        
+        ##perform the phylogenetic correction
+        #set function to check if cell values is between ancestral and current value
+        is.between <- function(cell_value, ancestral, current) {
+            
+            #empty vector to save results
+            result = NULL
+
+            #loop for extractinb results
+            for(v in 1:length(cell_value)){ #for each value of cell_value vector
+
+                #select the [v] cell_value
+                selected_value = cell_value[v]
+
+                #test if the [v] cell value is between ancestral an current values
+                test = (selected_value - ancestral)  *  (current - selected_value) #code taken from "https://stat.ethz.ch/pipermail/r-help/2008-August/170749.html". The order is irrelevant, ancestral can be higher or lower than current value. Idem for the sign of numbers, it works with only negative, only positive and negative-positive numbers.  
+
+                #if test is not zero 
+                if(!test == 0){
+
+                    #test if test is lower or higher than zero to know is the [v] cell value is between current and ancestral values. then save
+                    result = append(result, test > 0)
+
+                } else { #if not, then [v] cell value is equal to the current or ancestral value, but we only want TRUE if the value is equal to the current value. 
+
+                    #If the [v] cell value is equal to the current value
+                    if(current == selected_value){
+
+                        #result is TRUE
+                        result = append(result, TRUE)
+                    } else { #if not
+
+                        #if the [v] cell value is equal to ancestral value
+                        if(ancestral == selected_value){
+
+                            #result is FALSE
+                            result = append(result, FALSE)
+
+                        } else {
+
+                            #result is NA, problem
+                            result = append(result, NA)
+
+                        }
+                    }
+                }
+            }
+
+            #return results
+            return(result)
+        } #Is very important to add ancestral first, and second current value, becuase TRUE will be returned if the cell_values is equal to "current" (second argument), but FALSE if it is equal to ancestral (first argument)
+
+        #set function to covert the suitibalityi phylo correct to a proportion from 0 to 1
+        phylo_proportion = function(x, ancestral_value, current_value){
+
+            #calculate the maximum distance to the ancestal value (i.e the current value)
+            range_length = abs(current_value - ancestral_value)
+
+            #calculate between the cell value and the ancestral value
+            distance_to_ancestral = abs(x - ancestral_value)
+
+            #if range_length is the 1, distance_to_ancestral will be x; so x = (distance_to_ancestral*1)/range_length 
+            distance_to_ancestral/range_length
+        } #Like in the latter function, the order is key. The proportion will have 1 as value is close to the second argument (current value).
+
+        #load bio4 and bio17
+        bio4_raw = raster("./datos/finals/bio4.asc")
+        bio17_raw = raster("./datos/finals/bio17.asc")
+
+        #load ancestral reconstruction
+        final_anc_ou_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_ou_bio4.csv", sep=",", header=TRUE)
+        final_anc_ou_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_ou_bio17.csv", sep=",", header=TRUE)
+        final_anc_bm_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_bm_bio4.csv", sep=",", header=TRUE)
+        final_anc_bm_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_bm_bio17.csv", sep=",", header=TRUE)
+
+        #remove the areas inside the PA buffer
+        #we have selected naturalized occurrences outside the PA buffer, see occurrences script for further details
+        raster_pa_buffer = raster(paste("./results/pseudo_absences/", species, "_PA_buffer.asc", sep=""))
+
+        #convert to polygon 
+        polygon_raster_pa_buffer = rasterToPolygons(raster_pa_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
+
+        #IMPORTANT STEP: do an inverse mask of the environmental variable using the PA buffer as mask. This will give us all areas outside of the PA buffer.
+        bio4=mask(bio4_raw, polygon_raster_pa_buffer, inverse=TRUE)
+        bio17=mask(bio17_raw, polygon_raster_pa_buffer, inverse=TRUE)
+            #we do not need the area inside the PA buffer, as we have removed all occurrences occurring there. We do not want to use regions considered during the modeling.
+            #also, the boyce index (evaluation metric for presence-only data) uses the whole raster of predictions, considering as absences everything that does not have a presence. It would consider as absences the PA buffer if we do not remove this area because we have removed the occurrences inside that buffer in these exsitu analyses.
+
+        #load ensamble of binary suitability
+        system(paste("tar --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " -zxvf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz ./prediction_rasters/nigra_ensemble.grd ./prediction_rasters/nigra_ensemble.gri", sep=""))
+            #--directory has to go first
+
+        ensamble_suitability = raster(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_ensemble.grd", sep=""))
+
+
+
+        ##you could apply the correction to 25-75 and to the whole area, and compare the boyce index, we are already comparing with random!!
+        ##we can also compare phylo scaling or not
+
+    }
 
     #load the phylogenetic range for the species
     #calculate the probability for both variables in the whole world except for PA buffer and combine to get a phylo probability
@@ -1045,6 +1216,8 @@ predict_eval_phylo = function(species){
             #if you do this, be very careful with the calculation. the expected ratio is calculated just with the number of pixels in the bin divided by the total number of pixels of the study area. It does not count repeated presences in this proportion, these are considered just in the predicted ratio.
     #calculate the boyce index with the new probability
     #compare the average boyce index with and without phylo and then check cases with important differences
+
+    #make ensemble using a phylo threshold the same used in the manuscript, 0.75 I think.
 }
 
 #took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
