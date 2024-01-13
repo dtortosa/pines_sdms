@@ -1180,6 +1180,12 @@ predict_eval_phylo = function(species){
         final_anc_ou_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_ou_bio17.csv", sep=",", header=TRUE)
         final_anc_bm_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_bm_bio4.csv", sep=",", header=TRUE)
         final_anc_bm_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_bm_bio17.csv", sep=",", header=TRUE)
+        
+        #list of evolution models: ONLY BM
+        #list_models_bio4 = c("final_anc_ou_bio4", "final_anc_bm_bio4")
+        #list_models_bio17 = c("final_anc_ou_bio17", "final_anc_bm_bio17")
+        list_models_bio4 = c("final_anc_bm_bio4")
+        list_models_bio17 = c("final_anc_bm_bio17")
 
         #remove the areas inside the PA buffer
         #we have selected naturalized occurrences outside the PA buffer, see occurrences script for further details
@@ -1195,11 +1201,85 @@ predict_eval_phylo = function(species){
             #also, the boyce index (evaluation metric for presence-only data) uses the whole raster of predictions, considering as absences everything that does not have a presence. It would consider as absences the PA buffer if we do not remove this area because we have removed the occurrences inside that buffer in these exsitu analyses.
 
         #load ensamble of binary suitability
-        system(paste("tar --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " -zxvf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz ./prediction_rasters/nigra_ensemble.grd ./prediction_rasters/nigra_ensemble.gri", sep=""))
+        system(paste("tar --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " -zxvf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz ./prediction_rasters/", species, "_ensemble.grd ./prediction_rasters/", species, "_ensemble.gri", sep=""))
             #--directory has to go first
-
         ensamble_suitability = raster(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_ensemble.grd", sep=""))
 
+        #for each env variable
+        #env_var="bio4"
+        for(env_var in c("bio4", "bio17")){
+
+            #get the selected variable
+            selected_env_var=get(env_var)
+
+            #create a empty raster with the same extent and resolution of the raster layer of the [s] IPCC scenario
+            raster_subsetted = raster(extent(selected_env_var), resolution=res(selected_env_var))
+
+            #add to the empty raster those cells of the [s] IPCC raster in which the habitat suitability is higher than 25 and lower than 75
+            raster_subsetted[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] <- selected_env_var[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)]
+                #suitability map has the same resolution and extent than IPCC maps because the suitability map was obtained from these raster of ICPP scenarios. 
+
+            #create also a raster with all values of the variable, so we can apply the correction across the whole world
+            raster_no_subsetted = selected_env_var
+
+            #for each evolution model
+            #m=1
+            for(m in 1:length(list_models_bio17)){
+
+                #select the [m] evolution model 
+                selected_model = list_models_bio17[m]
+
+                #extract data of [m] model
+                model = get(selected_model)
+
+                #select the row of the corresponding species
+                model = model[which(model$species == paste("Pinus_", species, sep="")),]
+
+                #extract all cell values from the raster with climatic data of the selected varaible only in those areas with uncertainty (raster_subsetted)
+                cell_values_subset = getValues(raster_subsetted)
+                #extract ID of those cells without NA
+                cells_withot_NA_subset = which(!is.na(cell_values_subset))
+
+                #do the same but considering all cells independenlty of suitability
+                cell_values_no_subset = getValues(raster_no_subsetted)
+                #extract ID of those cells without NA
+                cells_withot_NA_no_subset = which(!is.na(cell_values_no_subset))
+
+                #extract, from all cells withput NA, those whose value is inside the phylogenetic range (including the current value but not including the ancestral). For that we used is.between function, created by me. 
+                cell_inside_phylo_range_subset = which(is.between(cell_value = na.omit(getValues(raster_subsetted)), ancestral = model$ace, current = model$current_value))
+                cell_inside_phylo_range_no_subset = which(is.between(cell_value = na.omit(getValues(raster_no_subsetted)), ancestral = model$ace, current = model$current_value))
+
+                #from ID of cells without NA, select the ID of those whose vale is inside of the phylo range
+                final_cells_subset = cells_withot_NA_subset[cell_inside_phylo_range_subset]
+                final_cells_no_subset = cells_withot_NA_no_subset[cell_inside_phylo_range_no_subset]
+
+                #create a empty raster with the same extent and resolution than the selected env variable
+                final_raster_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
+                final_raster_proportion_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
+                final_raster_no_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
+                final_raster_proportion_no_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
+
+
+                ###por aquiii
+
+
+                #fill the raster with zeros
+                final_raster[] <- 0
+                final_raster_proportion[] <- 0
+
+                #add to these final cells a value of suitability without and with proportion
+                final_raster[final_cells] <- 1
+                final_raster_proportion[final_cells] <- phylo_proportion(x=raster_subsetted[final_cells], ancestral_value=model$ace, current_value=model$current_value)
+
+                #add the name of the raster
+                names(final_raster) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")
+                names(final_raster_proportion) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")        
+
+                #save the raster into a stack
+                phylo_rasters_bio17 = stack(phylo_rasters_bio17, final_raster)
+                phylo_rasters_bio17_proportion = stack(phylo_rasters_bio17_proportion, final_raster_proportion)
+            }
+        }
 
 
         ##you could apply the correction to 25-75 and to the whole area, and compare the boyce index, we are already comparing with random!!
