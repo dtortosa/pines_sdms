@@ -1108,69 +1108,6 @@ predict_eval_phylo = function(species){
     if(pred_raster_check & boyce_table_check){
         
         ##perform the phylogenetic correction
-        #set function to check if cell values is between ancestral and current value
-        is.between <- function(cell_value, ancestral, current) {
-            
-            #empty vector to save results
-            result = NULL
-
-            #loop for extractinb results
-            for(v in 1:length(cell_value)){ #for each value of cell_value vector
-
-                #select the [v] cell_value
-                selected_value = cell_value[v]
-
-                #test if the [v] cell value is between ancestral an current values
-                test = (selected_value - ancestral)  *  (current - selected_value) #code taken from "https://stat.ethz.ch/pipermail/r-help/2008-August/170749.html". The order is irrelevant, ancestral can be higher or lower than current value. Idem for the sign of numbers, it works with only negative, only positive and negative-positive numbers.  
-
-                #if test is not zero 
-                if(!test == 0){
-
-                    #test if test is lower or higher than zero to know is the [v] cell value is between current and ancestral values. then save
-                    result = append(result, test > 0)
-
-                } else { #if not, then [v] cell value is equal to the current or ancestral value, but we only want TRUE if the value is equal to the current value. 
-
-                    #If the [v] cell value is equal to the current value
-                    if(current == selected_value){
-
-                        #result is TRUE
-                        result = append(result, TRUE)
-                    } else { #if not
-
-                        #if the [v] cell value is equal to ancestral value
-                        if(ancestral == selected_value){
-
-                            #result is FALSE
-                            result = append(result, FALSE)
-
-                        } else {
-
-                            #result is NA, problem
-                            result = append(result, NA)
-
-                        }
-                    }
-                }
-            }
-
-            #return results
-            return(result)
-        } #Is very important to add ancestral first, and second current value, becuase TRUE will be returned if the cell_values is equal to "current" (second argument), but FALSE if it is equal to ancestral (first argument)
-
-        #set function to covert the suitibalityi phylo correct to a proportion from 0 to 1
-        phylo_proportion = function(x, ancestral_value, current_value){
-
-            #calculate the maximum distance to the ancestal value (i.e the current value)
-            range_length = abs(current_value - ancestral_value)
-
-            #calculate between the cell value and the ancestral value
-            distance_to_ancestral = abs(x - ancestral_value)
-
-            #if range_length is the 1, distance_to_ancestral will be x; so x = (distance_to_ancestral*1)/range_length 
-            distance_to_ancestral/range_length
-        } #Like in the latter function, the order is key. The proportion will have 1 as value is close to the second argument (current value).
-
         #load bio4 and bio17
         bio4_raw = raster("./datos/finals/bio4.asc")
         bio17_raw = raster("./datos/finals/bio17.asc")
@@ -1205,6 +1142,12 @@ predict_eval_phylo = function(species){
             #--directory has to go first
         ensamble_suitability = raster(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_ensemble.grd", sep=""))
 
+        #open stacks to save rasters
+        phylo_rasters_subset = stack()
+        phylo_rasters_proportion_subset = stack()
+        phylo_rasters_no_subset = stack()
+        phylo_rasters_proportion_no_subset = stack()
+
         #for each env variable
         #env_var="bio4"
         for(env_var in c("bio4", "bio17")){
@@ -1222,12 +1165,15 @@ predict_eval_phylo = function(species){
             #create also a raster with all values of the variable, so we can apply the correction across the whole world
             raster_no_subsetted = selected_env_var
 
+            #get the list of models
+            list_selected_models=get(paste("list_models_", env_var, sep=""))
+
             #for each evolution model
             #m=1
-            for(m in 1:length(list_models_bio17)){
+            for(m in 1:length(list_selected_models)){
 
                 #select the [m] evolution model 
-                selected_model = list_models_bio17[m]
+                selected_model = list_selected_models[m]
 
                 #extract data of [m] model
                 model = get(selected_model)
@@ -1245,9 +1191,54 @@ predict_eval_phylo = function(species){
                 #extract ID of those cells without NA
                 cells_withot_NA_no_subset = which(!is.na(cell_values_no_subset))
 
-                #extract, from all cells withput NA, those whose value is inside the phylogenetic range (including the current value but not including the ancestral). For that we used is.between function, created by me. 
-                cell_inside_phylo_range_subset = which(is.between(cell_value = na.omit(getValues(raster_subsetted)), ancestral = model$ace, current = model$current_value))
-                cell_inside_phylo_range_no_subset = which(is.between(cell_value = na.omit(getValues(raster_no_subsetted)), ancestral = model$ace, current = model$current_value))
+                #extract, from all cells withput NA, those whose value is inside the phylogenetic range (including the current value but not including the ancestral). For that we used is.between function, created by me.
+                #set function to check if cell values is between ancestral and current value
+                is.between <- function(cell_value, ancestral, current) {
+                    
+                    #select the [v] cell_value
+                    selected_value = cell_value
+
+                    #test if the [v] cell value is between ancestral an current values
+                    test = (selected_value - ancestral)  *  (current - selected_value) #code taken from "https://stat.ethz.ch/pipermail/r-help/2008-August/170749.html". The order is irrelevant, ancestral can be higher or lower than current value. Idem for the sign of numbers, it works with only negative, only positive and negative-positive numbers.  
+
+                    #if test is not zero 
+                    if(!test == 0){
+
+                        #test if test is lower or higher than zero to know is the [v] cell value is between current and ancestral values. then save
+                        result = test > 0
+
+                    } else { #if not, then [v] cell value is equal to the current or ancestral value, but we only want TRUE if the value is equal to the current value. 
+
+                        #If the [v] cell value is equal to the current value
+                        if(current == selected_value){
+
+                            #result is TRUE
+                            result = TRUE
+                        } else { #if not
+
+                            #if the [v] cell value is equal to ancestral value
+                            if(ancestral == selected_value){
+
+                                #result is FALSE
+                                result = FALSE
+
+                            } else {
+
+                                #result is NA, problem
+                                result = NA
+                            }
+                        }
+                    }
+
+                    #return results
+                    return(result)
+                } 
+                    #Is very important to add ancestral first, and second current value, becuase TRUE will be returned if the cell_values is equal to "current" (second argument), but FALSE if it is equal to ancestral (first argument)
+                cell_inside_phylo_range_subset=which(apply(X=array(na.omit(getValues(raster_subsetted))), MARGIN=1, FUN=is.between, ancestral=model$ace, current=model$current_value))
+                cell_inside_phylo_range_no_subset=which(sapply(X=array(na.omit(getValues(raster_no_subsetted))), MARGIN=1, FUN=is.between, ancestral=model$ace, current=model$current_value))
+                    #apply the function over a vector with the value of selected cells
+                        #you have to convert to array the vector in order to use it as input for apply. I have checked this does not change the values.
+                        #you could parallelize here if needed
 
                 #from ID of cells without NA, select the ID of those whose vale is inside of the phylo range
                 final_cells_subset = cells_withot_NA_subset[cell_inside_phylo_range_subset]
@@ -1259,28 +1250,51 @@ predict_eval_phylo = function(species){
                 final_raster_no_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
                 final_raster_proportion_no_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
 
-
-                ###por aquiii
-
-
                 #fill the raster with zeros
-                final_raster[] <- 0
-                final_raster_proportion[] <- 0
+                final_raster_subset[] <- 0
+                final_raster_proportion_subset[] <- 0
+                final_raster_no_subset[] <- 0
+                final_raster_proportion_no_subset[] <- 0
 
-                #add to these final cells a value of suitability without and with proportion
-                final_raster[final_cells] <- 1
-                final_raster_proportion[final_cells] <- phylo_proportion(x=raster_subsetted[final_cells], ancestral_value=model$ace, current_value=model$current_value)
+                #add to these final cells a value of suitability without proportion
+                final_raster_subset[final_cells_subset] <- 1
+                final_raster_no_subset[final_cells_no_subset] <- 1
+
+                #add value of suitability with proportion
+                #set function to covert the suitibalityi phylo correct to a proportion from 0 to 1
+                #x=raster_subsetted[final_cells_subset][1]; ancestral_value=model$ace; current_value=model$current_value
+                phylo_proportion = function(x, ancestral_value, current_value){
+
+                    #calculate the maximum distance to the ancestal value (i.e the current value)
+                    range_length = abs(current_value - ancestral_value)
+
+                    #calculate between the cell value and the ancestral value
+                    distance_to_ancestral = abs(x - ancestral_value)
+
+                    #if range_length is the 1, distance_to_ancestral will be x; so x = (distance_to_ancestral*1)/range_length 
+                    proportion=distance_to_ancestral/range_length
+                    return(proportion)
+                } 
+                    #Like in the latter function, the order is key. The proportion will have 1 as value is close to the second argument (current value).
+                final_raster_proportion_subset[final_cells_subset] = apply(X=array(raster_subsetted[final_cells_subset]), MARGIN=1, FUN=phylo_proportion, ancestral_value=model$ace, current_value=model$current_value)
+                final_raster_proportion_no_subset[final_cells_no_subset] = apply(X=array(raster_no_subsetted[final_cells_no_subset]), MARGIN=1, FUN=phylo_proportion, ancestral_value=model$ace, current_value=model$current_value)
 
                 #add the name of the raster
-                names(final_raster) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")
-                names(final_raster_proportion) <- paste(selected_scenario, "_", strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")        
+                layer_name=paste(strsplit(selected_model, split="_")[[1]][3], "_", strsplit(selected_model, split="_")[[1]][4], sep="")
+                names(final_raster_subset) <- layer_name
+                names(final_raster_proportion_subset) <- layer_name      
+                names(final_raster_no_subset) <- layer_name
+                names(final_raster_proportion_no_subset) <- layer_name
 
                 #save the raster into a stack
-                phylo_rasters_bio17 = stack(phylo_rasters_bio17, final_raster)
-                phylo_rasters_bio17_proportion = stack(phylo_rasters_bio17_proportion, final_raster_proportion)
+                phylo_rasters_subset = stack(phylo_rasters_subset, final_raster_subset)
+                phylo_rasters_proportion_subset = stack(phylo_rasters_proportion_subset, final_raster_proportion_subset)
+                phylo_rasters_no_subset = stack(phylo_rasters_no_subset, final_raster_no_subset)
+                phylo_rasters_proportion_no_subset = stack(phylo_rasters_proportion_no_subset, final_raster_proportion_no_subset)
             }
         }
 
+        #check aftetr using apply for the first time? is.between is already checked, and indeed also the second function....
 
         ##you could apply the correction to 25-75 and to the whole area, and compare the boyce index, we are already comparing with random!!
         ##we can also compare phylo scaling or not
