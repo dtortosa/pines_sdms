@@ -1055,10 +1055,12 @@ predict_eval_no_phylo = function(species){
         ##prepare ensemble
         #stack all binary predictions 
         binary_predictions = stack(predictions_bin_glm, predictions_bin_gam, predictions_bin_rf)   
+        n_layers_binary_predictions=nlayers(binary_predictions)
 
         #calculate the percentage of models for which a pixel is suitable
-        ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
-
+        ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/n_layers_binary_predictions)
+            #ensamble_predictions_bin2 = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
+            #identical(getValues(ensamble_predictions_bin), getValues(ensamble_predictions_bin2))
 
         ##save the results
         #save predictions
@@ -1155,9 +1157,12 @@ predict_eval_phylo = function(species){
         phylo_rasters_no_subset = stack()
         phylo_rasters_proportion_no_subset = stack()
 
-        #for each env variable
+        #vector with env variable names
+        environmental_variables=c("bio4", "bio17")
+
+        #check what cells fall within the phylogenetic range for bio4 and bio17 and save the result as a stack (with and without proportion)
         #env_var="bio4"
-        for(env_var in c("bio4", "bio17")){
+        for(env_var in environmental_variables){
 
             #get the selected variable
             selected_env_var=get(env_var)
@@ -1168,8 +1173,8 @@ predict_eval_phylo = function(species){
 
             #add to the empty raster those cells of the [s] IPCC raster in which the habitat suitability is higher than 25 and lower than 75
             raster_subsetted[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] <- selected_env_var[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)]
-                #suitability map has the same resolution and extent than IPCC maps because the suitability map was obtained from these raster of ICPP scenarios. 
-
+                #it is ok to select only regions 25-75 considering all models (ensemble) and then apply the phylo-correction in these regions within the prediction of a single model (e.g., glm). We need regions with uncertainty and you can detect uncertainty when combining different partitions and models.
+ 
             #create also a raster with all values of the variable, so we can apply the correction across the whole world
             raster_no_subsetted = selected_env_var
 
@@ -1322,9 +1327,7 @@ predict_eval_phylo = function(species){
             }
         }
 
-        #CHECK FROM HERE, COMPARING WITH THE ORIGINAL SCRIPT
-
-        #check we have correct number of layers
+        #check we have correct number of layers, i.e., 2 because we have 2 environmental variables.
         if(
             (nlayers(phylo_rasters_subset)!=2) | 
             (nlayers(phylo_rasters_proportion_subset)!=2) | 
@@ -1333,71 +1336,109 @@ predict_eval_phylo = function(species){
             stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL VARIABLES-MODELS FOR ", species, sep=""))
         }
 
-        #check the names
+        #check we have the correct names in each phylo stack
         if(
-            (FALSE %in% grepl("_subset", names(phylo_rasters_subset), fixed=TRUE)) |
-            (FALSE %in% grepl("_proportion_subset", names(phylo_rasters_proportion_subset), fixed=TRUE)) |
-            (FALSE %in% grepl("_no_subset", names(phylo_rasters_no_subset), fixed=TRUE)) |
-            (FALSE %in% grepl("_proportion_no_subset", names(phylo_rasters_proportion_no_subset), fixed=TRUE))){
+            (FALSE %in% grepl(pattern="_subset", x=names(phylo_rasters_subset), ignore.case=FALSE, fixed=TRUE)) |
+            (FALSE %in% grepl(pattern="_proportion_subset", x=names(phylo_rasters_proportion_subset), ignore.case=FALSE, fixed=TRUE)) |
+            (FALSE %in% grepl(pattern="_no_subset", x=names(phylo_rasters_no_subset), ignore.case=FALSE, fixed=TRUE)) |
+            (FALSE %in% grepl(pattern="_proportion_no_subset", x=names(phylo_rasters_proportion_no_subset), ignore.case=FALSE, fixed=TRUE))){
             stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL VARIABLES-MODELS FOR ", species, sep=""))
         }
+            #grepl
+                #pattern: string containing regular expression or just a string if "fixed=TRUE"
+                #fixed: if TRUE, the pattern is a string to matched, not regular expression.
+                    #we want to look for a string, not regular expression
+                #x: a character vector where we look for matches
+                #ignore.case: if "TRUE", case is ignored. Default is FALSE.
 
-
-
+        #combine the phylogenetic correction of all env variables into one single ensemble (excluding and not excluding the areas inside the phylogenetic range of one variable but outside of the other phylo-ranges)
+        #open stack to save the ensembles (i.e., considering all env variables) but across different phylo-approaches (e.g., with and without proportion...)
         ensamble_phylo_no_inter=list()
         ensamble_phylo_inter=list()
-
+        #create a vector with the names of the input phylo stacks
         stack_name=c("phylo_rasters_subset", "phylo_rasters_proportion_subset", "phylo_rasters_no_subset", "phylo_rasters_proportion_no_subset")
-
+        #for each phylo-stack
         #k=1
         for(k in 1:length(stack_name)){
 
+            #extract the name of the selected stack
             selected_stack_name=stack_name[k]
+
+            #get the actuals stack
             selected_stack=get(selected_stack_name)
+            
+            #check the name of the layers matches the name of the stack we are working with
+            if(!identical(names(selected_stack), paste("bm_", environmental_variables, "_", strsplit(selected_stack_name, split="phylo_rasters_")[[1]][2], sep=""))){
+                stop("ERROR! FALSE! WE HAVE A PROBLEM DOING THE STACK OF PHYLO CORRECTIONS, WE ARE NOT SELECTING THE CORRECT PHYLO APPROACH")
+            }
 
-            ensamble_phylo = calc(selected_stack, function(x) sum(x)/nlayers(selected_stack))
+            #count the number of layers in the stack
+            n_layers_stack=nlayers(selected_stack)
+            if(n_layers_stack!=2){
+                stop("ERROR! FALSE! WE HAVE MORE ENVIRONMENTAL PHYLO RASTERS THAT WE SHOULD")
+            }
 
+            #calculate the average phylo-suitability per cell, i.e., sum the result of the phylo-correction for a cell across environmental variables (phylo correction of all variables) and then divided by the total of layers
+            ensamble_phylo = calc(selected_stack, function(x) sum(x)/n_layers_stack)
+                #it is much faster if we previously calculate the number of layers. I guess that it calculates the number of layers for each cell otherwise, but this is not necessary, because the number of layers is constant within the stack. A stack has rasters with the same ext, all cells have the same number of layers.
+                #ensamble_phylo2 = calc(selected_stack, function(x) (sum(x))/nlayers(selected_stack))
+                #identical(getValues(ensamble_phylo), getValues(ensamble_phylo2))
+                #TRUE
+
+            #add the name of the layer indicating that we are NOT excluding areas that do not fall within all phylogenetic ranges and save
             names(ensamble_phylo) = paste(selected_stack_name, "_no_inter", sep="")
             ensamble_phylo_no_inter[[k]] = ensamble_phylo
 
-
-            #make intersection
-
+            #calculate the intersection between the phylogenetic correction of all variables
+            #get a stack with the rasters of each variable separated
             bio4_raster=selected_stack[[which(grepl("bio4", names(selected_stack), fixed=TRUE))]]
             bio17_raster=selected_stack[[which(grepl("bio17", names(selected_stack), fixed=TRUE))]]
 
+            #stop if we do NOT have 1 layer in each stack, as we should have only 1 model
             if(nlayers(bio4_raster)!=1 | nlayers(bio17_raster)!=1){
                 stop(paste("ERROR! FALSE! WE HAVE A PROBLEM MAKING THE INTERSTCION OF BIO17 AND BIO4, WE HAVE MORE THAN 1 LAYER PER VARIABLE, BUT THIS SCRIPT ONLY CAN DEAL WITH 1 PER VARIABLE. ERROR IN ", species, sep=""))
             }
 
+            #multiply both stacks to get the intersection
             intersection=bio4_raster*bio17_raster
+                #a cell being zero in any of the raster will be zero in the rest as zeros propagates
 
+            #those cases with zero in the intersection, i.e., areas outside of the phylo range in at least one phylogenetic range
             ensamble_phylo[intersection == 0] <- 0
 
+            #rename the ensemble phylo now indicating that we have selected only regions within the intersection of all env variables, then save
             names(ensamble_phylo) = paste(selected_stack_name, "_inter", sep="")
             ensamble_phylo_inter[[k]] = ensamble_phylo
+        }
+
+        #check we have the correct names in the new rasters, having one for each type of phylo-approach
+        if(
+            !identical(sapply(ensamble_phylo_no_inter, {function(x){names(x)}}), paste(stack_name, "_no_inter", sep="")) |
+            !identical(sapply(ensamble_phylo_inter, {function(x){names(x)}}), paste(stack_name, "_inter", sep=""))
+            ){
+            stop("ERROR! FALSE! WE HAVE A PROBLEM GENERATING THE STACK OF PHYLO CORRECTIONS")
         }
 
         #create stacks
         ensamble_phylo_no_inter_stack=stack(ensamble_phylo_no_inter)
         ensamble_phylo_inter_stack=stack(ensamble_phylo_inter)
 
+        #open folder to save the stacks
         system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/" , sep=""))
 
+        #save them
         writeRaster(ensamble_phylo_no_inter_stack, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_stacks_no_inter", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
             #ensamble_phylo_no_inter_stack=stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_stacks_no_inter", sep=""))
         writeRaster(ensamble_phylo_inter_stack, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_stacks_inter", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
             #ensamble_phylo_inter_stack=stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_stacks_inter", sep=""))
 
 
-
-
-
-
-
+        ##evaluate predictions with phylo-correction
+        #decompress the predictions of glm, gam and rf
         system(paste("tar --wildcards --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " -zxvf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz ./prediction_rasters/", species, "_predictions_glm* ./prediction_rasters/", species, "_predictions_gam* ./prediction_rasters/", species, "_predictions_rf* ./prediction_rasters/", species, "_predictions_bin_rf*", sep=""))
-        
+            #--wildcards: wildcards accepted???      
 
+        #POR AQUIII
 
 
         #load presences
@@ -1418,13 +1459,16 @@ predict_eval_phylo = function(species){
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_glm_threshold.rda", sep=""))
         load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_gam_threshold.rda", sep=""))
 
-        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", sep=""))
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", sep=""))
 
 
 
         glm_phylo_list=list()
         gam_phylo_list=list()
         rf_phylo_list=list()
+        glm_phylo_bin_list=list()
+        gam_phylo_bin_list=list()
+        rf_phylo_bin_list=list()
 
         #l=1
         for(l in 1:length(phylo_models)){
@@ -1451,41 +1495,81 @@ predict_eval_phylo = function(species){
                     #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
 
 
-
-
-
-                #for now summing, it is not exactly the same, but it is close
-                #THINK
-                glm_phylo=glm_predict+selected_ensemble_phylo
-                glm_phylo[which(getValues(glm_phylo)>1)]=1
-                gam_phylo=gam_predict+selected_ensemble_phylo
-                gam_phylo[which(getValues(gam_phylo)>1)]=1
-                rf_phylo=rf_predict+selected_ensemble_phylo
-                rf_phylo[which(getValues(rf_phylo)>1)]=1
+                #phylo-conversion of the models
+                glm_phylo=glm_predict
+                glm_phylo[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                gam_phylo=gam_predict
+                gam_phylo[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                rf_phylo=rf_predict
+                rf_phylo[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    #IMPORTANT: if you change this step, the way to combine phylo and models, then maybe you have to change the way you calculate the binary RF phylo below because you just directly take the binary RF prediction and convert to 1 those cells with phylo-suit above 0.1
+                    #We are increasing to 1 the suitability of those cells with a phylo-suitability higher than 0.1.
+                    #Therefore, we are moving cells from bins of intermediate suitability to bins with max suitability. If these cells have presence points, boyce index will increase, but if they don't, then the boyce index will decrease. In that latter case, we are putting noise in the correlation between suitability and the probability of presence because now more cells with high suitability do not have points. 
+                    #we are not completely binarizying as we will still have intermediate values, which are required to calculate a correlation between suitability and number of presence points
+                    #this is also the closest thing to what we do in the analyses of the MS
+                        #remember that we cannot just calculate the average because we have zero for most of the regions in the phylo, so the average would be very low in almost every place. 
+                        #also, phylo-suitability is not the same than the SDMs suitability! Here, a value above 0 means that the climate is inside the phylogenetic range! yes, maybe far away from the current status, but still after the first split with the closest sister species.
 
                 names(glm_phylo)=paste("glm_", selected_phylo_model, "_part_", k, sep="")
                 names(gam_phylo)=paste("gam_", selected_phylo_model, "_part_", k, sep="")
                 names(rf_phylo)=paste("rf_", selected_phylo_model, "_part_", k, sep="")
 
 
-                ##calculate the binary predictions for ensemble
-                #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
-                #glm
-                glm_phylo_bin = glm_phylo #copy the raster 
-                glm_phylo_bin[glm_phylo_bin>=(glm_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
-                glm_phylo_bin[glm_phylo_bin<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
+                ##calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIMES
+                if(selected_phylo_model=="phylo_rasters_subset_inter"){
+                    #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
+                    #glm
+                    glm_phylo_bin = glm_phylo #copy the raster 
+                    glm_phylo_bin[glm_phylo_bin>=(glm_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
+                    glm_phylo_bin[glm_phylo_bin<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
 
-                #gam
-                gam_phylo = gam_phylo #copy the raster 
-                gam_phylo[gam_phylo>=(gam_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
-                gam_phylo[gam_phylo<(gam_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
+                    #gam
+                    gam_phylo_bin = gam_phylo #copy the raster 
+                    gam_phylo_bin[gam_phylo_bin>=(gam_threshold[[k]][2,2]),] <- 1
+                    gam_phylo_bin[gam_phylo_bin<(gam_threshold[[k]][2,2]),] <- 0
 
-                rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
+                    #rf
+                    rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
+                    rf_phylo_bin = rf_predict_bin
+                    rf_phylo_bin[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    
 
-                ####por aquii, preparing binary for ensemble, but RF we do not have threshold!!
-                    #you could do it using evaluation data???
-                    #think if worth, we could avoid showing the phylo plots and just show the effect on boyce 
-                    #if they ask, ok, we will do it...
+
+                    #IMPORTANT HERE:
+                        #We are directly using the binary prediction of RF and this is ok.
+                        #think what we do with glm.
+                            #take the continuous prediction, convert to 1 those cells with phylo-suitability > 0.75
+                            #then apply the threshold to binarize
+                            #the cells converted to 1 are going to be considered 1 in any case because the maximum value of the threshold is 1
+                            #therefore, it is the same than if we binarize glm and then convert to 1 those cells with phylo-suitability > 0.75
+                    check_glm_raster=glm_phylo
+                    check_glm_raster[check_glm_raster>=(glm_threshold[[k]][2,2]),] <- 1
+                    check_glm_raster[check_glm_raster<(glm_threshold[[k]][2,2]),] <- 0
+                    check_glm_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    check_gam_raster=gam_phylo
+                    check_gam_raster[check_gam_raster>=(gam_threshold[[k]][2,2]),] <- 1
+                    check_gam_raster[check_gam_raster<(gam_threshold[[k]][2,2]),] <- 0
+                    check_gam_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+
+                    if(!identical(getValues(glm_phylo_bin), getValues(check_glm_raster)) | 
+                    !identical(getValues(gam_phylo_bin), getValues(check_gam_raster))){
+                        stop("ERROR! FALSE! WE HAVE A PROBLEM DURING THE BINARIZATION OF PHYLO-MODELS")
+                    }
+
+
+                    names(glm_phylo_bin)=paste("glm_", selected_phylo_model, "_bin_part_", k, sep="")
+                    names(gam_phylo_bin)=paste("gam_", selected_phylo_model, "_bin_part_", k, sep="")
+                    names(rf_phylo_bin)=paste("rf_", selected_phylo_model, "_bin_part_", k, sep="")
+
+                    glm_phylo_list[[((l-1)*length(data_partitions))+k]]=glm_phylo
+                    gam_phylo_list[[((l-1)*length(data_partitions))+k]]=gam_phylo
+                    rf_phylo_list[[((l-1)*length(data_partitions))+k]]=rf_phylo
+
+                    glm_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=glm_phylo_bin
+                    gam_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=gam_phylo_bin
+                    rf_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=rf_phylo_bin
+                }
+
 
 
 
@@ -1504,9 +1588,6 @@ predict_eval_phylo = function(species){
                 gam_phylo_boyce$partition=k
                 rf_phylo_boyce$partition=k
 
-                glm_phylo_list[[((l-1)*length(data_partitions))+k]]=glm_phylo
-                gam_phylo_list[[((l-1)*length(data_partitions))+k]]=gam_phylo
-                rf_phylo_list[[((l-1)*length(data_partitions))+k]]=rf_phylo
 
                 glm_phylo_boyce_list[[k]]=glm_phylo_boyce
                 gam_phylo_boyce_list[[k]]=gam_phylo_boyce
@@ -1564,28 +1645,48 @@ predict_eval_phylo = function(species){
         }
 
 
-        glm_phylo_list_final=
+
+        if(
+            !identical(sapply(glm_phylo_list, {function(x) names(x)}), paste("glm_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(sapply(gam_phylo_list, {function(x) names(x)}), paste("gam_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(sapply(rf_phylo_list, {function(x) names(x)}), paste("rf_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(sapply(glm_phylo_bin_list, {function(x) names(x)}), paste("glm_phylo_rasters_subset_inter_bin_part_", c(1:12), sep="")) |
+            !identical(sapply(gam_phylo_bin_list, {function(x) names(x)}), paste("gam_phylo_rasters_subset_inter_bin_part_", c(1:12), sep="")) |
+            !identical(sapply(rf_phylo_bin_list, {function(x) names(x)}), paste("rf_phylo_rasters_subset_inter_bin_part_", c(1:12), sep=""))
+        ){
+            stop("ERROR! FALSE! THIS SCRIPT IS PREPARED TO DEAL WITH ONLY 1 PHYLO MODEL, SPECIFICALLY 'phylo_rasters_subset_inter'")
+        }
 
 
         ##make stacks
         predictions_glm=stack(glm_phylo_list[grep("glm_phylo_rasters_subset_inter_part_", sapply(glm_phylo_list, {function(x) names(x)}), fixed=TRUE)])
-        predictions_gam=stack(gam_predict)
-        predictions_rf =stack(rf_predict)
-        predictions_bin_glm =stack(glm_bin_predict)   
-        predictions_bin_gam =stack(gam_bin_predict)    
-        predictions_bin_rf =stack(rf_bin_predict)   
+        predictions_gam=stack(gam_phylo_list[grep("gam_phylo_rasters_subset_inter_part_", sapply(gam_phylo_list, {function(x) names(x)}), fixed=TRUE)])
+        predictions_rf =stack(rf_phylo_list[grep("rf_phylo_rasters_subset_inter_part_", sapply(rf_phylo_list, {function(x) names(x)}), fixed=TRUE)])
+
+        predictions_glm_bin=stack(glm_phylo_bin_list[grep("glm_phylo_rasters_subset_inter_bin_part_", sapply(glm_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
+        predictions_gam_bin=stack(gam_phylo_bin_list[grep("gam_phylo_rasters_subset_inter_bin_part_", sapply(gam_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
+        predictions_rf_bin=stack(rf_phylo_bin_list[grep("rf_phylo_rasters_subset_inter_bin_part_", sapply(rf_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
+
 
 
         ##prepare ensemble
         #stack all binary predictions 
-        binary_predictions = stack(predictions_bin_glm, predictions_bin_gam, predictions_bin_rf)   
+        binary_predictions = stack(predictions_glm_bin, predictions_gam_bin, predictions_rf_bin)   
+        n_layers_binary_predictions=nlayers(binary_predictions)
 
         #calculate the percentage of models for which a pixel is suitable
-        ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
+        ensamble_predictions_bin = calc(binary_predictions, function(x) (sum(x)*100)/n_layers_binary_predictions)
+            #ensamble_predictions_bin2 = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
+            #identical(getValues(ensamble_predictions_bin), getValues(ensamble_predictions_bin2))
 
-        writeRaster(stack(glm_phylo_list), filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(stack(gam_phylo_list), filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(stack(rf_phylo_list), filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/phylo_stacks/", species, "_phylo_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+
+        writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_glm_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_glm_bin", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_gam_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_gam_bin", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_rf_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_rf_bin", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
 
 
@@ -1672,6 +1773,11 @@ predict_eval_phylo = function(species){
         write.table(merged_boyce_transponse, gzfile(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
 
 
+
+        #compress and remove folders
+
+        #phylo_Stacks
+        #threholds
         system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", sep=""))
 
         #final output
@@ -1734,6 +1840,8 @@ master_processor=function(species){
 unique(naturalized_occurrences$species)
 
 n_points_before_resampling=master_processor
+
+##RUN 10 SPECIES IN EACH BATCH USING EXTERNAL ARGUMENTS
 
 
 #create table across species with boyce
