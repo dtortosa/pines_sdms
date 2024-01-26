@@ -27,6 +27,19 @@
 ##### BEGIN SCRIPT #####
 ########################
 
+#pass command line arguments
+library(optparse)
+option_list = list(
+    make_option(opt_str=c("-s", "--species"), type="character", default="halepensis,radiata", help="species to be analyzed [default= %default]", metavar="character"),
+    make_option(opt_str=c("-b", "--batch"), type="character", default="batch_1", help="name of the batch [default= %default]", metavar="character")) 
+opt_parser = OptionParser(option_list=option_list)
+opt = parse_args(opt_parser)
+#get a vector with the species to analyze
+species_to_analyze=strsplit(opt$species, split=",")[[1]]
+
+#packages
+require(raster)
+
 #set the seed for reproducibility
 set.seed(56756)
 
@@ -842,7 +855,7 @@ predict_eval_no_phylo = function(species){
             jpeg(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
             par(mfcol=c(3,2))
             glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
-            mtext(paste("radiata - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
+            mtext(paste(species, " - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
             gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
             rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
             glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
@@ -1103,6 +1116,12 @@ predict_eval_no_phylo = function(species){
 ##### PREDICT AND EVALUATE WITH PHYLO #####
 ###########################################
 
+#packages
+require(modEvA)
+require(terra)
+require(raster)
+require(gtools)
+
 #species="radiata"
 predict_eval_phylo = function(species){
 
@@ -1174,6 +1193,9 @@ predict_eval_phylo = function(species){
             #add to the empty raster those cells of the [s] IPCC raster in which the habitat suitability is higher than 25 and lower than 75
             raster_subsetted[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)] <- selected_env_var[which(getValues(ensamble_suitability) > 25 & getValues(ensamble_suitability) < 75)]
                 #it is ok to select only regions 25-75 considering all models (ensemble) and then apply the phylo-correction in these regions within the prediction of a single model (e.g., glm). We need regions with uncertainty and you can detect uncertainty when combining different partitions and models.
+                #In other words, we have areas of disagreement between partitions, so we use the phylogenetic correction to solve the conflict.
+                #Regions within the phylogenetic correction are considered suitable independently of the algorithm. This is useful because we can see what happens with RF and GLM when applying the phylogenetic correction separately. Maybe the correction is not useful for some algorithms, but it could be for others. Maybe, for GLM there is an area that is not suitable but the correction makes it suitable, improving a lot boyce, while that area is already suitable in RF, or RF has very low correlation in other areas so this change does not have impact.
+                #As a final step after running all the analyses, we are going to model non-phylo boyce MINUS phylo boyce as a function of algorithm type, partition and species, so we will be able to see the impact of each of these factors on performance of the models. For example, an interaction of species X algorithm would mean that the phylogenetic correction has an impact for some combinations of species and algorithms but not for others. Maybe it is more difficult to see the impact if only look for main effects, without separating between algorithm types.
  
             #create also a raster with all values of the variable, so we can apply the correction across the whole world
             raster_no_subsetted = selected_env_var
@@ -1396,10 +1418,11 @@ predict_eval_phylo = function(species){
 
             #stop if we do NOT have 1 layer in each stack, as we should have only 1 model
             if(nlayers(bio4_raster)!=1 | nlayers(bio17_raster)!=1){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM MAKING THE INTERSTCION OF BIO17 AND BIO4, WE HAVE MORE THAN 1 LAYER PER VARIABLE, BUT THIS SCRIPT ONLY CAN DEAL WITH 1 PER VARIABLE. ERROR IN ", species, sep=""))
+                stop("ERROR! FALSE! WE HAVE A PROBLEM MAKING THE INTERSTCION OF BIO17 AND BIO4, WE HAVE MORE THAN 1 LAYER PER VARIABLE, BUT THIS SCRIPT ONLY CAN DEAL WITH 1 PER VARIABLE. ERROR. YOU HAVE TO SUM ALL RASTERS OF EACH ENV BIO STACK SO YOU HAVE ONE VALUE PER CELL AND KNOW WHAT CELLS ARE ZERO FOR ALL CLIMATIC PROJECTIONS FOR THAT ENV VARIABLE")
             }
 
             #multiply both stacks to get the intersection
+            #IMPORTANT: if having several rasters of the same env variable (e.g., future climate projections), then you should sum all rasters of the env bio stack (e.g., bio4)
             intersection=bio4_raster*bio17_raster
                 #a cell being zero in any of the raster will be zero in the rest as zeros propagates
 
@@ -1419,6 +1442,29 @@ predict_eval_phylo = function(species){
             stop("ERROR! FALSE! WE HAVE A PROBLEM GENERATING THE STACK OF PHYLO CORRECTIONS")
         }
 
+        #check that non-proportion rasters are indeed not proportion, i.e., they only have two values for intersection (0 and 1) or three values for non-intersection (0, 0.5 and 1). This is because:
+            #with intersection, regions with zero for at least one raster of bio4 or bio17 are removed. Given that we only have one raster for bio17 and one for bio4, if a cell falls withing the phylo-range of bio4, it will also fall within the range of bio17. In other words, we do bio4*bio17, so cells with zero in any of the two rasters are going to be zero. Therefore, the result will be 1 or 0, fall in both rasters o in no one.
+            #without intersection, we can have a cell falling within one range but not in other. In that case, the phylo-suitability will be the average of 1 and 0, i.e., 0.5. Therefore, we can have 0, 1 and 0.5
+        #raster_layer=ensamble_phylo_no_inter[[1]]
+        #raster_layer=ensamble_phylo_inter[[1]]
+        fun_check_data_range=function(raster_layer){
+            not_proportion=!grepl("proportion", names(raster_layer), fixed=TRUE)
+            not_inter=grepl("no_inter", names(raster_layer), fixed=TRUE)
+            if(not_proportion){
+                if(not_inter){
+                    if(FALSE %in% (unique(getValues(raster_layer)) %in% c(0, 0.5, 1))){
+                        stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PHYLOGENETIC CORRECTION ACROSS ENV VARIABLES")
+                    }
+                } else {
+                    if(FALSE %in% (unique(getValues(raster_layer)) %in% c(0, 1))){
+                        stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PHYLOGENETIC CORRECTION ACROSS ENV VARIABLES")
+                    }   
+                }
+            }
+        }
+        sapply(ensamble_phylo_no_inter, fun_check_data_range)
+        sapply(ensamble_phylo_inter, fun_check_data_range)
+
         #create stacks
         ensamble_phylo_no_inter_stack=stack(ensamble_phylo_no_inter)
         ensamble_phylo_inter_stack=stack(ensamble_phylo_inter)
@@ -1435,34 +1481,60 @@ predict_eval_phylo = function(species){
 
         ##evaluate predictions with phylo-correction
         #decompress the predictions of glm, gam and rf
-        system(paste("tar --wildcards --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " -zxvf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz ./prediction_rasters/", species, "_predictions_glm* ./prediction_rasters/", species, "_predictions_gam* ./prediction_rasters/", species, "_predictions_rf* ./prediction_rasters/", species, "_predictions_bin_rf*", sep=""))
-            #--wildcards: wildcards accepted???      
-
-        #POR AQUIII
-
+        system(paste(" \\
+            tar \\
+                --verbose \\
+                --wildcards \\
+                --directory ./results/global_test_phylo_current/predict_eval_phylo/", species, " \\
+                --file ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz \\
+                --gunzip \\
+                --extract \\
+                ./prediction_rasters/", species, "_predictions_glm* \\
+                ./prediction_rasters/", species, "_predictions_gam* \\
+                ./prediction_rasters/", species, "_predictions_rf* \\
+                ./prediction_rasters/", species, "_predictions_bin_rf*", sep=""))
+            #--verbose: Verbosely list files processed
+            #--wildcards: use wildcards
+                #we are going to decompress the grd and gri files for each model (e.g., glm*...)
+            #--directory: select where to decompress
+            #--file: Use archive file
+            #--gunzip: filter through gunzip
+            #--extract: Extract files from an archive. Arguments are optional. When given, they specify names of the archive members to be extracted.
+                #https://www.man7.org/linux/man-pages/man1/tar.1.html
 
         #load presences
         presences=read.table(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_env_predictors.tsv.gz", sep=""), sep="\t", header=TRUE)
 
+        #make folders to save results
         system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", sep=""))
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/boyce_partitions", sep=""))
+        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", sep=""))
 
+        #load the thresholds used to binarize GLM and GAM
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_glm_threshold.rda", sep=""))
+        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_gam_threshold.rda", sep=""))
 
+        #create a vector with the names of all phylo-approaches
         phylo_models=c(
             paste(stack_name, "_inter", sep=""),
             paste(stack_name, "_no_inter", sep="")
             )
+        if(length(phylo_models)!=8){
+            stop("ERROR! FALSE! WE ARE NOT ANALYZING THE CORRECT NUMBER OF PHYLO-APPROACHES")
+        }
+
+        #set a sequence with the number of partitions
         data_partitions=1:12
 
-        final_boyce_results=data.frame(partition=c(seq(1,12,1), "percentile_2.5", "percentile_50", "percentile_97.5") )
+        #open DF to save boyce results. First column is partition:
+        final_boyce_results=data.frame(
+            partition=c(
+                seq(1,12,1), 
+                "percentile_2.5", 
+                "percentile_50", 
+                "percentile_97.5") )
 
-        #load the thresholds
-        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_glm_threshold.rda", sep=""))
-        load(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", species, "_gam_threshold.rda", sep=""))
-
-        system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", sep=""))
-
-
-
+        #empty lists for raster predictions
         glm_phylo_list=list()
         gam_phylo_list=list()
         rf_phylo_list=list()
@@ -1470,30 +1542,34 @@ predict_eval_phylo = function(species){
         gam_phylo_bin_list=list()
         rf_phylo_bin_list=list()
 
+        #for each phylo-approach
         #l=1
         for(l in 1:length(phylo_models)){
 
+            #select the [l] phylo-approach
             selected_phylo_model=phylo_models[l]
             
+            #extract the corresponding raster layer
             if(grepl("no_inter", selected_phylo_model, fixed=TRUE)){
                 selected_ensemble_phylo=ensamble_phylo_no_inter_stack[[which(names(ensamble_phylo_no_inter_stack)==selected_phylo_model)]]
             } else {
                 selected_ensemble_phylo=ensamble_phylo_inter_stack[[which(names(ensamble_phylo_inter_stack)==selected_phylo_model)]]  
             }
 
-
+            #empty list to save the results of boyce for each model
             glm_phylo_boyce_list=list()
             gam_phylo_boyce_list=list()
             rf_phylo_boyce_list=list()
 
+            #for each data partition
             #k=1
             for(k in data_partitions){
+                
                 #we have the same order of partitions here as we created predictions_ iterating over the list of partitions from 1 to 12
                 glm_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_glm.grd", sep=""), bands=k)[[1]]
                 gam_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_gam.grd", sep=""), bands=k)[[1]]
                 rf_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_rf.grd", sep=""), bands=k)[[1]]
                     #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
-
 
                 #phylo-conversion of the models
                 glm_phylo=glm_predict
@@ -1510,13 +1586,14 @@ predict_eval_phylo = function(species){
                         #remember that we cannot just calculate the average because we have zero for most of the regions in the phylo, so the average would be very low in almost every place. 
                         #also, phylo-suitability is not the same than the SDMs suitability! Here, a value above 0 means that the climate is inside the phylogenetic range! yes, maybe far away from the current status, but still after the first split with the closest sister species.
 
+                #add the names of the rasters
                 names(glm_phylo)=paste("glm_", selected_phylo_model, "_part_", k, sep="")
                 names(gam_phylo)=paste("gam_", selected_phylo_model, "_part_", k, sep="")
                 names(rf_phylo)=paste("rf_", selected_phylo_model, "_part_", k, sep="")
 
-
-                ##calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIMES
+                #calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIMES
                 if(selected_phylo_model=="phylo_rasters_subset_inter"){
+                    
                     #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
                     #glm
                     glm_phylo_bin = glm_phylo #copy the raster 
@@ -1524,7 +1601,7 @@ predict_eval_phylo = function(species){
                     glm_phylo_bin[glm_phylo_bin<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
 
                     #gam
-                    gam_phylo_bin = gam_phylo #copy the raster 
+                    gam_phylo_bin = gam_phylo 
                     gam_phylo_bin[gam_phylo_bin>=(gam_threshold[[k]][2,2]),] <- 1
                     gam_phylo_bin[gam_phylo_bin<(gam_threshold[[k]][2,2]),] <- 0
 
@@ -1532,80 +1609,86 @@ predict_eval_phylo = function(species){
                     rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
                     rf_phylo_bin = rf_predict_bin
                     rf_phylo_bin[which(getValues(selected_ensemble_phylo)>=0.1)]=1
-                    
-
-
                     #IMPORTANT HERE:
                         #We are directly using the binary prediction of RF and this is ok.
                         #think what we do with glm.
-                            #take the continuous prediction, convert to 1 those cells with phylo-suitability > 0.75
+                            #take the continuous prediction, convert to 1 those cells with phylo-suitability > 0.1
                             #then apply the threshold to binarize
                             #the cells converted to 1 are going to be considered 1 in any case because the maximum value of the threshold is 1
                             #therefore, it is the same than if we binarize glm and then convert to 1 those cells with phylo-suitability > 0.75
-                    check_glm_raster=glm_phylo
+                    
+                    #check that the order of adding the phylo-correction (before or after binarization) does not matter
+                    check_glm_raster=glm_predict
                     check_glm_raster[check_glm_raster>=(glm_threshold[[k]][2,2]),] <- 1
                     check_glm_raster[check_glm_raster<(glm_threshold[[k]][2,2]),] <- 0
                     check_glm_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
-                    check_gam_raster=gam_phylo
+                    check_gam_raster=gam_predict
                     check_gam_raster[check_gam_raster>=(gam_threshold[[k]][2,2]),] <- 1
                     check_gam_raster[check_gam_raster<(gam_threshold[[k]][2,2]),] <- 0
                     check_gam_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
-
                     if(!identical(getValues(glm_phylo_bin), getValues(check_glm_raster)) | 
                     !identical(getValues(gam_phylo_bin), getValues(check_gam_raster))){
                         stop("ERROR! FALSE! WE HAVE A PROBLEM DURING THE BINARIZATION OF PHYLO-MODELS")
                     }
 
-
+                    #add names to the rasters
                     names(glm_phylo_bin)=paste("glm_", selected_phylo_model, "_bin_part_", k, sep="")
                     names(gam_phylo_bin)=paste("gam_", selected_phylo_model, "_bin_part_", k, sep="")
                     names(rf_phylo_bin)=paste("rf_", selected_phylo_model, "_bin_part_", k, sep="")
 
+                    #save the rasters the corresponding lists
                     glm_phylo_list[[((l-1)*length(data_partitions))+k]]=glm_phylo
                     gam_phylo_list[[((l-1)*length(data_partitions))+k]]=gam_phylo
                     rf_phylo_list[[((l-1)*length(data_partitions))+k]]=rf_phylo
-
                     glm_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=glm_phylo_bin
                     gam_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=gam_phylo_bin
                     rf_phylo_bin_list[[((l-1)*length(data_partitions))+k]]=rf_phylo_bin
+                        #for the first phylo approach (l=1), 1-1=0, thus length(data_partitions) is zero. We add rasters from 1 to 12
+                        #for the second phylo-approach (l=2), 2-1=1, length(data_partitions) is 12, so we add 12 to k, giving 13 for the first layer, 14 for the second, and so on...
                 }
 
-
-
-
-                require(modEvA)
-                require(terra)
-
+                #calculate the boyce index (see previous major step for further details)
                 jpeg(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_", selected_phylo_model, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
                 par(mfcol=c(2,2))
                 glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
-                mtext(paste("radiata - part ", k, " - ", selected_phylo_model, sep=""), side=3, line=-1.6, outer=TRUE, cex=1, font=2)
+                mtext(paste(species, " - part ", k, " - ", selected_phylo_model, sep=""), side=3, line=-1.6, outer=TRUE, cex=1, font=2)
                 gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
                 rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
                 dev.off()
                 
+                #add the partition to the boyce results
                 glm_phylo_boyce$partition=k
                 gam_phylo_boyce$partition=k
                 rf_phylo_boyce$partition=k
 
-
+                #save the boyce results
                 glm_phylo_boyce_list[[k]]=glm_phylo_boyce
                 gam_phylo_boyce_list[[k]]=gam_phylo_boyce
                 rf_phylo_boyce_list[[k]]=rf_phylo_boyce
             }
-
-            #make the median per algorithm within the selected phylo model
             
+            #check
+            if(
+                (length(glm_phylo_boyce_list)!=12) |
+                (length(gam_phylo_boyce_list)!=12) |
+                (length(rf_phylo_boyce_list)!=12)){
+                stop("ERROR! FALSE! WE DO NOT HAVE BOYCE INDEX FOR ALL PARTITIONS")
+            }
 
+            #save evaluations
+            save(glm_phylo_boyce_list, file=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/boyce_partitions/", species, "_", selected_phylo_model, "_glm_boyce.rda", sep=""))
+            save(gam_phylo_boyce_list, file=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/boyce_partitions/", species, "_", selected_phylo_model, "_gam_boyce.rda", sep=""))
+            save(rf_phylo_boyce_list, file=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/boyce_partitions/", species, "_", selected_phylo_model, "_rf_boyce.rda", sep=""))
+
+            #check we have the same partitions in all lists
             glm_partitions=sapply(glm_phylo_boyce_list, function(x){return(x[[3]])})
             gam_partitions=sapply(gam_phylo_boyce_list, function(x){return(x[[3]])})
             rf_partitions=sapply(rf_phylo_boyce_list, function(x){return(x[[3]])})
-
             if((!identical(glm_partitions, gam_partitions)) | (!identical(glm_partitions, rf_partitions))){
                 stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF BOYCE ACROSS PARTITIONS")
             }
 
-            ##calculate a table with boyce index across models and partitions
+            #calculate a table with boyce index across models and partitions
             #add the boyce index of each combination as a row
             boyce_table=cbind.data.frame(
                 cbind.data.frame(glm_partitions),
@@ -1625,7 +1708,7 @@ predict_eval_phylo = function(species){
                 #calculate the median of each column (excluding the first one with the number of the partition)
                 #margin lets you select if you want to apply the function across columns (2) or rows (1)
 
-            #add them as new rows. Do it in two steps to avoid converting numeric into string
+            #add them as new rows. Do it in two steps to avoid converting numeric into string, as we have to add a string ("percentile_XX") and numbers (the actual percentile value)
             boyce_table[nrow(boyce_table) + 1, 1]="percentile_2.5"
             boyce_table[nrow(boyce_table), 2:ncol(boyce_table)]=low_interval_boyce
             boyce_table[nrow(boyce_table) + 1, 1]="percentile_50"
@@ -1634,18 +1717,35 @@ predict_eval_phylo = function(species){
             boyce_table[nrow(boyce_table), 2:ncol(boyce_table)]=high_interval_boyce
                 #https://stackoverflow.com/a/44150746
 
-            final_boyce_results=merge(final_boyce_results, boyce_table)
+            #check
+            if(
+                (ncol(boyce_table)!=4) |
+                (nrow(boyce_table)!=length(data_partitions)+3)){
+                stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE BOYCE TABLE")
+            }
+
+            #merge the boyce table with the empty data.frame to save results across phylo-approaches
+            final_boyce_results=merge(final_boyce_results, boyce_table, by="partition")
         }
 
+        #check we have generated all boyce plots
+        n_boyce_plots=as.numeric(system(paste("ls ./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/ | awk 'END{print NR}'", sep=""), intern=TRUE))
+        if(n_boyce_plots!=length(phylo_models)*length(data_partitions)){
+            stop("ERRRO! FALSE! WE HAVE NOT ALL THE BOYCE PLOTS WE SHOULD HAVE")
+        }
+
+        #check we have the correct number of rasters in all lists. It should be only 12, because we are saving rasters only for the first phylo model, so 12 partitions, 12 rasters
         if(
-            length(glm_phylo_list)!=length(phylo_models)*length(data_partitions) |
-            length(gam_phylo_list)!=length(phylo_models)*length(data_partitions) |
-            length(rf_phylo_list)!=length(phylo_models)*length(data_partitions)){
+            length(glm_phylo_list)!=length(data_partitions) |
+            length(gam_phylo_list)!=length(data_partitions) |
+            length(rf_phylo_list)!=length(data_partitions) |
+            length(glm_phylo_bin_list)!=length(data_partitions) |
+            length(gam_phylo_bin_list)!=length(data_partitions) |
+            length(rf_phylo_bin_list)!=length(data_partitions)){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS")
         }
 
-
-
+        #check that we have only selected the first phylo-approach (i.e., the one used in the MS) and we have analyzed all 12 partitions
         if(
             !identical(sapply(glm_phylo_list, {function(x) names(x)}), paste("glm_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
             !identical(sapply(gam_phylo_list, {function(x) names(x)}), paste("gam_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
@@ -1657,21 +1757,29 @@ predict_eval_phylo = function(species){
             stop("ERROR! FALSE! THIS SCRIPT IS PREPARED TO DEAL WITH ONLY 1 PHYLO MODEL, SPECIFICALLY 'phylo_rasters_subset_inter'")
         }
 
-
-        ##make stacks
+        #make stacks
         predictions_glm=stack(glm_phylo_list[grep("glm_phylo_rasters_subset_inter_part_", sapply(glm_phylo_list, {function(x) names(x)}), fixed=TRUE)])
         predictions_gam=stack(gam_phylo_list[grep("gam_phylo_rasters_subset_inter_part_", sapply(gam_phylo_list, {function(x) names(x)}), fixed=TRUE)])
         predictions_rf =stack(rf_phylo_list[grep("rf_phylo_rasters_subset_inter_part_", sapply(rf_phylo_list, {function(x) names(x)}), fixed=TRUE)])
-
         predictions_glm_bin=stack(glm_phylo_bin_list[grep("glm_phylo_rasters_subset_inter_bin_part_", sapply(glm_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
         predictions_gam_bin=stack(gam_phylo_bin_list[grep("gam_phylo_rasters_subset_inter_bin_part_", sapply(gam_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
         predictions_rf_bin=stack(rf_phylo_bin_list[grep("rf_phylo_rasters_subset_inter_bin_part_", sapply(rf_phylo_bin_list, {function(x) names(x)}), fixed=TRUE)])
 
+        #check
+        if(
+            !identical(names(predictions_glm), paste("glm_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(names(predictions_gam), paste("gam_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(names(predictions_rf), paste("rf_phylo_rasters_subset_inter_part_", c(1:12), sep="")) |
+            !identical(names(predictions_glm_bin), paste("glm_phylo_rasters_subset_inter_bin_part_", c(1:12), sep="")) |
+            !identical(names(predictions_gam_bin), paste("gam_phylo_rasters_subset_inter_bin_part_", c(1:12), sep="")) |
+            !identical(names(predictions_rf_bin), paste("rf_phylo_rasters_subset_inter_bin_part_", c(1:12), sep=""))
+        ){
+            stop("ERROR! FALSE! THIS SCRIPT IS PREPARED TO DEAL WITH ONLY 1 PHYLO MODEL, SPECIFICALLY 'phylo_rasters_subset_inter'")
+        }
 
-
-        ##prepare ensemble
+        #prepare ensemble
         #stack all binary predictions 
-        binary_predictions = stack(predictions_glm_bin, predictions_gam_bin, predictions_rf_bin)   
+        binary_predictions = stack(predictions_glm_bin, predictions_gam_bin, predictions_rf_bin)
         n_layers_binary_predictions=nlayers(binary_predictions)
 
         #calculate the percentage of models for which a pixel is suitable
@@ -1679,7 +1787,16 @@ predict_eval_phylo = function(species){
             #ensamble_predictions_bin2 = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
             #identical(getValues(ensamble_predictions_bin), getValues(ensamble_predictions_bin2))
 
+        #plot ensembles with and without phylo
+        pdf(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/", species, "_ensembles_plot.pdf", sep=""), width=12, height=12)
+        par(mfcol=c(2,1), mar=c(3, 4, 3, 2) + 0.1)
+        plot(ensamble_suitability, main="Without phylo")
+        points(presences[,c("longitude", "latitude")], pch=20, col="red", cex=0.5)
+        plot(ensamble_predictions_bin, main="With phylo")
+        points(presences[,c("longitude", "latitude")], pch=20, col="red", cex=0.5)
+        dev.off()
 
+        #save stacks
         writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
         writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
         writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
@@ -1688,67 +1805,132 @@ predict_eval_phylo = function(species){
         writeRaster(predictions_rf_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_rf_bin", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
         writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters_phylo/", species, "_phylo_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
-
-
-        if(ncol(final_boyce_results)!=length(phylo_models)*3+1 | nrow(final_boyce_results)==length(data_partitions)+3){
+        #prepare final boyce table
+        #sort by numerical order in partition to avoid problems when comparing with non-phylo results
+        final_boyce_results=final_boyce_results[mixedorder(final_boyce_results$partition),]
+        rownames(final_boyce_results)=1:nrow(final_boyce_results)
+            #this applies natural sorting
+            #mixedsort(final_boyce_results$partition)
+                #https://stackoverflow.com/a/2778060
+        #check we have the correct number of columns and rows
+        if(ncol(final_boyce_results)!=length(phylo_models)*3+1 | nrow(final_boyce_results)!=length(data_partitions)+3){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS")
         }
+        #check for each algorithm and phylo-approach that proportion and non-proportion is the same
+        #model_type="glm"
+        for(model_type in c("glm", "gam", "rf")){
+            
+            #phylo_option="subset_inter"
+            for(phylo_option in c("subset_inter", "no_subset_inter", "subset_no_inter", "no_subset_no_inter")){
 
-        final_boyce_results_reduced=final_boyce_results[, which(colnames(final_boyce_results)=="partition" | grepl("phylo_rasters_subset_inter_", colnames(final_boyce_results), fixed=TRUE) | grepl("phylo_rasters_proportion_subset_inter_", colnames(final_boyce_results), fixed=TRUE))]
+                #extract the proportion and non-proportion columns for the selected algorithm and phylo-approach
+                non_proportion_column=final_boyce_results[
+                    which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
+                    which(colnames(final_boyce_results)==paste("phylo_rasters_", phylo_option, "_", model_type, "_boyce", sep=""))]
+                proportion_column=final_boyce_results[
+                    which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
+                    which(colnames(final_boyce_results)==paste("phylo_rasters_proportion_", phylo_option, "_", model_type, "_boyce", sep=""))]
+                
+                #calculate the correlation
+                correlation=cor.test(non_proportion_column, proportion_column, method="spearman")
 
+                #
+                if(correlation$estimate<0.99){
+                    stop("ERROR! FALSE! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED")
+                }
+            }
+        }
+
+        #make a reduced version of the table with only the first two phylo-approaches
+        final_boyce_results_reduced=final_boyce_results[,which(
+            colnames(final_boyce_results)=="partition" | 
+            grepl("phylo_rasters_subset_inter_", colnames(final_boyce_results), fixed=TRUE) | 
+            grepl("phylo_rasters_proportion_subset_inter_", colnames(final_boyce_results), fixed=TRUE))]
+        #reorder columns by algorithm
         final_boyce_results_reduced=final_boyce_results_reduced[,c(
             which(colnames(final_boyce_results_reduced)=="partition"),
-            which(grepl("glm", colnames(final_boyce_results_reduced), fixed=TRUE)), 
-            which(grepl("gam", colnames(final_boyce_results_reduced), fixed=TRUE)), 
+            which(grepl("glm", colnames(final_boyce_results_reduced), fixed=TRUE)),
+            which(grepl("gam", colnames(final_boyce_results_reduced), fixed=TRUE)),
             which(grepl("rf", colnames(final_boyce_results_reduced), fixed=TRUE)))]
-
+        #make a version with phylo-approaches as rows and partitions as columns
         final_boyce_results_transponse=as.data.frame(t(final_boyce_results[,which(colnames(final_boyce_results)!="partition")]))
         colnames(final_boyce_results_transponse)=final_boyce_results$partition
         final_boyce_results_transponse$model=row.names(final_boyce_results_transponse)
         row.names(final_boyce_results_transponse)=NULL
-
         final_boyce_results_transponse = final_boyce_results_transponse[, c(
             which(colnames(final_boyce_results_transponse)=="model"),
             which(colnames(final_boyce_results_transponse)!="model"))]
-
-
-
-        ###comprueba proporiton y no proportion is the same
-
-
 
         #save median boyce
         write.table(final_boyce_results_transponse, gzfile(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
         write.table(final_boyce_results_reduced, gzfile(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_reduced.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
 
-
         #calculate the difference with non-phylo
+        #load non-phylo boyce
         non_phylo_boyce=read.table(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep=""), sep="\t", header=TRUE)
-
-        merged_boyce=merge(non_phylo_boyce, final_boyce_results)
-
+        #merge phylo and non-phylo
+        merged_boyce=merge(non_phylo_boyce, final_boyce_results, by="partition", sort=FALSE)
+            #avoid sort because we have already sorted the rows using the partition and follwoing natural sorting, 1,2,3....
+        #remove percentile rows
         merged_boyce=merged_boyce[which(!merged_boyce$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),]
-
+        if(nrow(merged_boyce)!=12){
+            stop("ERROR! FALSE! WE HAVE A PROBLE WHEN MERGING THE BOYCE TABLES WITH PHYLO AND NON-PHYLO")
+        }
+        #calculate the difference phylo vs non-phylo for each phylo-approach and algorithm
         #selected_phylo_model=phylo_models[1]
         for(selected_phylo_model in phylo_models){
 
             #algorithm="glm"
             for(algorithm in c("glm", "gam", "rf")){
 
-                phylo_vs_non_phylo=eval(parse(text=paste("merged_boyce$", algorithm, "_eval", sep="")))-as.numeric(merged_boyce[,which(grepl(paste(selected_phylo_model, "_", algorithm, sep=""), colnames(merged_boyce), fixed=TRUE))])
+                #extract boyce values without phylo
+                boyce_without_phylo=merged_boyce[,which(colnames(merged_boyce)==paste(algorithm, "_eval", sep=""))]
+
+                #extract boyce values with phylo
+                boyce_with_phylo=merged_boyce[,which(colnames(merged_boyce)==paste(selected_phylo_model, "_", algorithm, "_boyce", sep=""))]
+
+                #calculate the difference
+                phylo_vs_non_phylo=boyce_without_phylo-boyce_with_phylo
                 
-                merged_boyce[, paste(algorithm, "_", selected_phylo_model, "_diff", sep="")] = phylo_vs_non_phylo
+                #save the difference
+                merged_boyce[, paste(selected_phylo_model, "_", algorithm, "_diff", sep="")] = phylo_vs_non_phylo
             }
         }
 
+        #check we have correctly calculated the difference between phylo and non-phylo
+        #algorithm="glm"
+        for(algorithm in c("glm", "gam", "rf")){
 
+            #extract the boyce index for non-phylo
+            non_phylo_selected=non_phylo_boyce[
+                which((!non_phylo_boyce$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")) & (non_phylo_boyce$partition %in% final_boyce_results$partition)),
+                which(colnames(non_phylo_boyce)==paste(algorithm, "_eval", sep=""))]
+                #avoid percentiles and select those partitions present in phylo boyce
 
+            #extract the boyce index for phylo
+            phylo_selected=final_boyce_results[
+                which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
+                which(grepl(paste(algorithm, sep=""), colnames(final_boyce_results), fixed=TRUE))]
+                #select all phylo approaches for the selected algorithm
+
+            #extract the difference non-phylo vs phylo previously calculated
+            diff_selected=merged_boyce[
+                which(!merged_boyce$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
+                which(grepl(paste(algorithm, "_diff", sep=""), colnames(merged_boyce), fixed=TRUE))]
+                #select all phylo approaches for the selected algorithm
+
+            #calculate again the difference and check
+            if(FALSE %in% c(diff_selected==non_phylo_selected-phylo_selected)){
+                stop("ERROR! FALSE! WE HAVE NOT PROPERLY CALCULATED THE DIFFERENCE BETWEEN PHYLO AND NON-PHYLO")
+            }
+        }
+
+        #calculate percentiles
         low_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.025)
         median_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.5)
         high_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.975)
             #calculate the median of each column (excluding the first one with the number of the partition)
             #margin lets you select if you want to apply the function across columns (2) or rows (1)
-
 
         #add them as new rows. Do it in two steps to avoid converting numeric into string
         merged_boyce[nrow(merged_boyce) + 1, 1]="percentile_2.5"
@@ -1759,58 +1941,49 @@ predict_eval_phylo = function(species){
         merged_boyce[nrow(merged_boyce), 2:ncol(merged_boyce)]=high_interval_phylo_diff
             #https://stackoverflow.com/a/44150746
 
-
+        #put the phylo-models as rows and partitions as columns
         merged_boyce_transponse=as.data.frame(t(merged_boyce[,which(colnames(merged_boyce)!="partition")]))
         colnames(merged_boyce_transponse)=final_boyce_results$partition
         merged_boyce_transponse$model=row.names(merged_boyce_transponse)
         row.names(merged_boyce_transponse)=NULL
-
-        merged_boyce_transponse = merged_boyce_transponse[, c(
+        merged_boyce_transponse=merged_boyce_transponse[, c(
             which(colnames(merged_boyce_transponse)=="model"),
             which(colnames(merged_boyce_transponse)!="model"))]
 
-
+        #save
         write.table(merged_boyce_transponse, gzfile(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
 
-
-
         #compress and remove folders
-
-        #phylo_Stacks
-        #threholds
-        system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/thresholds/", sep=""))
-
-        #final output
-            #figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
-                #if they are the same, the points will follow the diagonal
-                #if phylo (Y) is lower than non-phylo, points will be below diagonal
-            #glmm with species as random factor (the 12 points of each species are not independent, are obtained with models fitted using data from the same source). Phylo and algorithm as factors. We can see an overall effect of phylo and if it works for some but not for other model, we will see an interaction
-                #you have to do this after running all the analyses
-            #table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
-
-
+        system(paste(" \\
+            cd ./results/global_test_phylo_current/predict_eval_phylo/", species, "/; 
+            tar \\
+                --verbose \\
+                --create ./phylo_stacks \\
+                --file ./", species, "_phylo_stacks.tar.gz \\
+                --gzip; \\
+            rm -rf ./phylo_stacks", sep=""))
+            #verbose: list files being compressed
+            #create: create an archive from the files in XXX
+            #file: store the output as a file named as XXX
+            #use gzip to compres
+                #https://unix.stackexchange.com/a/93158
+        system(paste(" \\
+            cd ./results/global_test_phylo_current/predict_eval_phylo/", species, "/; 
+            tar \\
+                --verbose \\
+                --create ./prediction_rasters_phylo \\
+                --file ./", species, "_prediction_rasters_phylo.tar.gz \\
+                --gzip; \\
+            rm -rf ./prediction_rasters_phylo", sep=""))
+        system(paste(" \\
+            cd ./results/global_test_phylo_current/predict_eval_phylo/", species, "/; 
+            rm -rf ./prediction_rasters", sep=""))
     }
-
-    #you have two options to combine the predicted probability of a model (e.g., glm) and the phylo probability, being both from 0 to 1
-        #make an average of the two probability predictions as Nick in page 284 of the book
-        #sum both probability and cap up to 1
-            #this is similar to what we did by calculating range loss/change with cells falling within the phylo range
-        #manually calculate the boyce index adding new presences that fall within the bin of probability of the phylo-map
-            #you could calculate the "obs" object, i.e., presences- absences, and the "pred" object manually using "ptsrast2obspred", see boyce function docs.
-            #if you do this, be very careful with the calculation. the expected ratio is calculated just with the number of pixels in the bin divided by the total number of pixels of the study area. It does not count repeated presences in this proportion, these are considered just in the predicted ratio.
-    
-
-    #just compare the phylo with proportions between 25-75 if the impact is very limited, but the other types of correction work much better, you have several options
-        #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset
-            #if you just select the best option performing in the whole Perret dataset, then you are not testing independently, and there is risk of overfitting.
-        #combine all phylo approaches into a single ensemble and use it as correction
-    #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
 }
 
-#took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
-
-#check the thing about glm non binary!
-    #mira pagina 284 Nivk's book, he seems to do as we
+#run it for one species
+#predict_eval_phylo("radiata")
+  
 
 
 
@@ -1818,9 +1991,16 @@ predict_eval_phylo = function(species){
 ##### RUN EVERYTHING #####
 ##########################
 
-#run all the functions
+#make folder to save outputs of species
+system("mkdir -p ./results/global_test_phylo_current/species_output_files")
+
+##prepare master function
 #better this way, so if a species is too slow it will not get the other species stuck in the first step, as the other ones will continue running
 master_processor=function(species){
+
+    zz <- file(paste("./results/global_test_phylo_current/species_output_files/", species, ".txt", sep=""), open = "wt")
+    sink(zz ,type = "output")
+    sink(zz, type = "message")
 
     #occurrences preparation
     n_points_before_resampling=exsitu_occurrences(species)
@@ -1833,15 +2013,67 @@ master_processor=function(species){
 
     #return the number of points before resampling
     return(n_points_before_resampling)
+
+    #stop writing to the file
+    sink(type="message")
+    sink(type="output")
 }
 
+##POR AQUII
+#PREPARING PARALLELIZATION
+#YOU CAN HAVE SYSTEM() OUTPUT USING INTERN=TRUE, 
 
-#run in parallel across species with naturalized occurrences
-unique(naturalized_occurrences$species)
 
-n_points_before_resampling=master_processor
+
+##parallelize the function
+#load packages
+require(foreach)
+require(doParallel)
+
+#set up cluster
+clust <- makeCluster(length(species_to_analyze), outfile="")
+    #5 less cores to avoid memory explosion
+    #You can usually figure out why the worker died by using the makeCluster "outfile" option so that the error message generated by the worker isn't thrown away. I usually recommend using outfile=""
+        #https://stackoverflow.com/a/24352032
+registerDoParallel(clust)
+
+#packages
+packages_parallel=c("raster", "sf", "randomForest", "gam", "modEvA", "gtools")
+
+#run the function in parallel
+n_points_before_resampling = foreach(i=species_to_analyze, .packages=packages_parallel) %dopar% {
+    master_processor(species=i)
+}
+
+#stop the cluster 
+stopCluster(clust)
+
+
+##create table with number of occurences before resampling
+#convert to DF the list with the number of data.points
+n_points_before_resampling_df=do.call(rbind.data.frame, n_points_before_resampling)
+    #do.call pass elements of your_list as arguments to rbind. It's equivalent of rbind(your_list[[1]], your_list[[2]], your_list[[3]], ....., your_list[[length of your_list]])
+        #https://stackoverflow.com/a/4227483
+
+#add column with species
+n_points_before_resampling_df$species=species_to_analyze
+
+#put species column first
+n_points_before_resampling_df=n_points_before_resampling_df[,c(
+    which(colnames(n_points_before_resampling_df)=="species"), 
+    which(colnames(n_points_before_resampling_df)!="species"))]
+print(n_points_before_resampling_df)
+
+#save
+system("mkdir -p ./results/global_test_phylo_current/n_points_before_resampling/")
+write.table(n_points_before_resampling_df, paste("./results/global_test_phylo_current/n_points_before_resampling/n_points_before_resampling_", batch_number, ".tsv", sep=""), sep="\t", row.names=FALSE)
+
+
+
 
 ##RUN 10 SPECIES IN EACH BATCH USING EXTERNAL ARGUMENTS
+
+##separate the text output file of each species like in python
 
 
 #create table across species with boyce
@@ -1849,20 +2081,59 @@ n_points_before_resampling=master_processor
 
 #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
 
+
+#took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
+
+#check the thing about glm non binary!
+    #mira pagina 284 Nivk's book, he seems to do as we
+
+
+
+
+###############
+##### RUN #####
+###############
+
+#mkdir -p ./scripts/global_test_phylo_current_outputs/
+#Rscript --vanilla ./scripts/global_test_phylo_current_v1.R "halepensis radiata" "batch_1" 2>&1 ./scripts/global_test_phylo_current_outputs/global_test_phylo_current_batch_1.Rout
+
+
+
 ######################
 ##### NEXT STEPS #####
 ######################
-##STEPS
 
-    #evaluate again, but this time considering also as suitable regions fully within the phylogenetic range. 
-        #evaluation with presence only!!!
-            #This refined Boyce evaluation approach was, for instance, used in a study assessing our ability to project niche models into new territories to predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investi- gating colonizing species.
-                #Nick's book
+#final output
+    #table with n_points_before_resampling_df
+        #combine all species and check we do not have so many invasive points inside natural ranges
+    #figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
+        #if they are the same, the points will follow the diagonal
+        #if phylo (Y) is lower than non-phylo, points will be below diagonal
+    #glmm
+        #Response: 
+            #the difference in boyce index between phylo and non-phylo.
+            #slope different from zero for factors means that the correction has an impact
+        #Main effects
+            #species
+            #algorithm
+            #invaded region?
+                #maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
+                #like in "Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders"
+        #interactions
+            #species*algorithms
+                #we are interested in knowing whether the phylogenetic correction has an impact on some species and algorithms but not in others
+                #maybe an overall effect is not visible, but we can see impact in specific cases.
+        #random factor: partition of the species
+            #partition_1_halepensis, partition_2_halepensis!!!
+            #the first partition of halepensis is not the same than the first partition of sylvestris!!!
+            #we need to control for this factor but we are not interested to know its effect. Maybe a partition is more difficult to predict than other. We have to control for that.
+            #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
+            #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species.
+                #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
+    #table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
 
-    #we can do this for all species, then compare the median TSS with and without phylo, also look for species where phylo improves a lot
-
-#maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
-    #Models were calibrated with 70% of the data in the native range (training dataset) and then projected onto the remaining 30% of the native range (evaluation dataset), the reciprocal Holarctic invaded range (EU or NA) and the Australian range (AU). For each technique, presences and pseudo-absences used to calibrate the model were weighted such as to ensure neutral (0.5) prevalence. The procedure was replicated 10 times, with random training and evaluation datasets, such that we obtained 40 models (10 replicates x 4 techniques) per species
-    #We used the Boyce index (51, 52) to assess model performance. Contrary to common evaluation measures for presence-absence data, like AUC (53) or TSS (54) which present problems for presence-only data or for comparisons between species when the extents of calibration area differ (see 49, 55, 56), the Boyce index only requires presences and measures how much model predictions differ from random distribution of the observed presences across the prediction gradients (51). It is thus the most appropriate metric in the case of presence-only models. It is continuous and varies between -1 and +1. Positive values indicate a model which present predictions are consistent with the distribution of presences in the evaluation dataset, values close to zero mean that the model is not different from a random model, negative values indicate counter predictions, i.e., predicting poor quality areas where presences are more frequent (52). We calculated the Boyce index for each of the 40 models per species and averaged the values to obtain a final evaluation for the 30% left-out data in the native range (Bnat), in the invaded range in Holarctic (i.e. EU or NA, B inv ) and in AU when data were available (Bau
-    #Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders
-        #from the suple
+#If the other phylo-approaches work much better, you have several options
+    #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset
+        #if you just select the best option performing in the whole Perret dataset, then you are not testing independently, and there is risk of overfitting.
+    #combine all phylo approaches into a single ensemble and use it as correction
+    #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
