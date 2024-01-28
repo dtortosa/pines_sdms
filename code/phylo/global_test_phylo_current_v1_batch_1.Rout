@@ -19,8 +19,6 @@ Loading required package: sp
    Mode    TRUE 
 logical     114 
 [1] TRUE TRUE TRUE
-Archive:  ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip
- extracting: ./results/global_test_phylo_current/exsitu_occurrences/pinus_occurrences_fordryad_exoticonly.csv  
    species            longitude             latitude         
  Length:597         Min.   :-176.60774   Min.   :-46.343000  
  Class :character   1st Qu.: -75.02140   1st Qu.:-37.966255  
@@ -136,56 +134,22 @@ Loading required package: gtools
 Loading required package: doParallel
 Loading required package: iterators
 Loading required package: parallel
-[1][1] FALSE
- FALSEWarning message:
-
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
 [1] FALSE
 Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
-               used   used (Mb) (Mb) gc trigger gc trigger (Mb) (Mb) max used max used (Mb) (Mb)
-Ncells
-Ncells 127726 127726  6.9  6.9     350000     350000 18.7 18.7   197086   197086 10.6 10.6
-Vcells
-Vcells 251237 251237  2.0  2.0    8388608    8388608 64.0 64.0  1031617  1031617  7.9  7.9      
-
-   used (Mb) gc trigger (Mb) max used (Mb)
+         used (Mb) gc trigger (Mb) max used (Mb)
 Ncells 127726  6.9     350000 18.7   197086 10.6
 Vcells 251237  2.0    8388608 64.0  1031617  7.9
 Loading required package: colorout
-Loading required package: colorout
-Loading required package: colorout
-Warning message:
-Warning message:
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- 
- 
-  there is no package called 'colorout'
- there is no package called 'colorout'
- there is no package called 'colorout'
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Warning message:
-Warning message:
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
-
- 
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
- there is no package called 'SystWrapper'
-starting worker pid=8761 on localhost:11378 at 13:45:38.202
-starting worker pid=8762 on localhost:11378 at 13:45:38.204
-starting worker pid=8763 on localhost:11378 at 13:45:38.204
-Loading required package: sp
-Loading required package: sp
+starting worker pid=16089 on localhost:11244 at 11:09:57.937
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -194,22 +158,6 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-     species total_points points_outside points_inside
-1 halepensis           53             52             1
-2 sylvestris           53             52             1
-3   pinaster           40             39             1
+  species total_points points_outside points_inside
+1  clausa            7              1             6
 [1] "## FINISH ##"

@@ -36,14 +36,13 @@ require(optparse)
     #we are going to use the pythonic way thanks to optparse, but you can also use base for this by using "commandArgs" 
         #https://www.r-bloggers.com/2015/09/passing-arguments-to-an-r-script-from-command-lines/
 option_list = list(
-    make_option(opt_str=c("-s", "--species"), type="character", default="halepensis,radiata", help="species to be analyzed [default= %default]", metavar="character"),
-    make_option(opt_str=c("-b", "--batch"), type="character", default="batch_1", help="name of the batch [default= %default]", metavar="character"))
+    make_option(opt_str=c("-s", "--species"), type="character", default="halepensis,radiata", help="species to be analyzed [default=%default]", metavar="character"),
+    make_option(opt_str=c("-b", "--batch"), type="character", default="batch_1", help="name of the batch [default=%default]", metavar="character"))
     #opt_str: string indicating the short and long flags for the argument
     #type: string indicating if integer, logical, character...
-    #POR AQUIII CHECKING, check parallelizacion and passing commands, then make bash script and script for checking outputzs, and then check fast the script
-    #check if problem for running several times the first part of the script with occurrence files from perret in each batch
-    #add start stop print within each function
-    #also problem with clausa, very few points, get stuck
+    #default: default value
+    #help: A character string describing the option to be used by 'print_help' in generating a usage message.
+        #run the script with the flag --help
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
 #get a vector with the arguments
@@ -141,7 +140,14 @@ if((round(res(elev)[1], 7) != round(res(environment_var)[1], 7)) | (round(res(el
     #Naturalized distributions show that climatic disequilibrium is structured by niche size in pines (Pinus L.)
 
 #extract and load the naturalized occurrences from zip file
-system(paste("unzip -o ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip pinus_occurrences_fordryad_exoticonly.csv -d ./results/global_test_phylo_current/exsitu_occurrences/", sep=""))
+if(!file.exists("./results/global_test_phylo_current/exsitu_occurrences/pinus_occurrences_fordryad_exoticonly.csv")){
+    system(paste(" \\
+        unzip \\
+            -o \\
+                ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
+                pinus_occurrences_fordryad_exoticonly.csv \\
+            -d ./results/global_test_phylo_current/exsitu_occurrences/", sep="")) 
+}
 naturalized_occurrences=read.csv("./results/global_test_phylo_current/exsitu_occurrences/pinus_occurrences_fordryad_exoticonly.csv", header=TRUE)
 summary(naturalized_occurrences)
 #check
@@ -151,6 +157,17 @@ if(nrow(naturalized_occurrences)!=597){
 if(sum(unique(naturalized_occurrences$species) %in% epithet_species_list)!= length(unique(naturalized_occurrences$species))){
     stop("ERROR! FALSE! WE DO NOT HAVE THE SAME SPECIES NAMES IN PERRET DATA")
 }
+
+#plot minimum number of naturalized occurrences vs number of species retained
+##POR AQUII
+#unique_species=unique(naturalized_occurrences$species)[1]
+n_naturalized=list()
+for(unique_species in unique(naturalized_occurrences$species)){
+
+    append(n_naturalized, list(unique_species, length(which(naturalized_occurrences$species==unique_species))))
+
+}
+
 
 #NOTE: In general, I have used extract to obtain any information about the points: elevation, environmental data and number of cell. Extract only consider that a point falls inside a cell if its center is inside that cell. It is important consider this. 
 
@@ -167,6 +184,9 @@ require(sf)
 
 #species="radiata"
 exsitu_occurrences=function(species){
+
+    #start
+    print(paste("STARTING exsitu_occurrences FOR ", species), sep="")
 
     ##stop if pumila, just in case, because this species has part of its distribution in a corner and we should check it carefully
     if(species=="pumila"){
@@ -268,7 +288,7 @@ exsitu_occurrences=function(species){
     n_points_in_out_pa_buffer=cbind.data.frame(nrow(points_and_values_outside_pa_buffer), length(points_outside_pa_buffer), length(points_inside_pa_buffer))
     names(n_points_in_out_pa_buffer)=c("total_points", "points_outside", "points_inside")
     if(n_points_in_out_pa_buffer$points_inside > (n_points_in_out_pa_buffer$total_points*0.1)){
-        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES ", species, sep=""))
+        print(paste("WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES ", species, sep=""))
     }
         #we can have occurrences inside the PA buffer as this buffer is a large area around the natural distribution of pines. It is the whole area used for modeling, including, not only presences but also pseudoabsences.
 
@@ -632,6 +652,9 @@ exsitu_occurrences=function(species){
 
     #return the number of points before resampling
     return(n_points_in_out_pa_buffer)
+
+    #end
+    print(paste("ENDING exsitu_occurrences FOR ", species), sep="")
 }
 
 #run it for one species
@@ -651,14 +674,23 @@ require(gam)
 #species="radiata"
 predict_eval_no_phylo = function(species){
 
+    #starting
+    print(paste("STARTING predict_eval_no_phylo FOR ", species), sep="")
+
     #open folder
     system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
 
     #check if we have output from the previous step
     presence_file_exist=file.exists(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""))
 
-    #do stuff if we have the presence file
-    if(presence_file_exist){
+    #check if the number of presences is higher than 10 naturalized occurrences
+    check_n_presences=nrow(read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE))>=10
+        #We are going to lose about 10 species having less than 10 naturalized occurrences, but it is necessary.
+        #Remember that the boyce index (phylo vs non-phylo) of all species is going to be analyzed as a function of algorithm*species to test whether the phylo correction has an impact overall. Also we want to calculate overall median boyce per for all species. If we include boyce values calculated with very low number of data.points, we are going to mix solid with un-solid data points.
+        #Also, removing these species, it is more likely that remove cases like clausa. Species with low number of occurrences in their distribution, i.e., small distributions, that have low suitability across the whole globe, i.e., outside their natural range. For theses species, the bins with high suitability are to have a very low number of pixels because high suitable regions are scarce. This can impact boyce index calculation, so we have to avoid calculations with cells having a low number of pixels. See boyce index calculation for further details.
+
+    #do stuff if we have the presence file and more than 10 naturalized occurrences
+    if(presence_file_exist & check_n_presences){
 
         ###obtain environmental predictors
         ##obtain the list of variables for the selected species
@@ -1008,8 +1040,8 @@ predict_eval_no_phylo = function(species){
             min_bin_n_gam=min(gam_boyce[[1]]$bin.N) 
             min_bin_n_rf=min(rf_boyce[[1]]$bin.N) 
                 #calculate the min number of points across bins in each model. You can have different sample size between models because these are bins based on suitability, and the suitability is differently predicted by each model
-            if((min_bin_n_glm<100) | (min_bin_n_gam<100) | (min_bin_n_rf<100)){
-                stop(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 100 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+            if((min_bin_n_glm<30) | (min_bin_n_gam<30) | (min_bin_n_rf<30)){
+                stop(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 30 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
             }
 
 
@@ -1118,6 +1150,9 @@ predict_eval_no_phylo = function(species){
             rm -rf ./prediction_rasters", sep=""), intern=TRUE))
             #https://unix.stackexchange.com/a/93158
     }
+
+    #ending
+    print(paste("ENDING predict_eval_no_phylo FOR ", species), sep="")
 }
 
 #run it for one species
@@ -1138,6 +1173,9 @@ require(gtools)
 
 #species="radiata"
 predict_eval_phylo = function(species){
+
+    #staring
+    print(paste("STARTING predict_eval_phylo FOR ", species), sep="")
 
     #open folder
     system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", species, "/", sep=""))
@@ -1993,6 +2031,9 @@ predict_eval_phylo = function(species){
             cd ./results/global_test_phylo_current/predict_eval_phylo/", species, "/; 
             rm -rf ./prediction_rasters", sep=""))
     }
+
+    #ending
+    print(paste("ENDING predict_eval_phylo FOR ", species), sep="")
 }
 
 #run it for one species
@@ -2018,16 +2059,16 @@ master_processor=function(species){
     sink(output_file, type="message")
         #https://stackoverflow.com/a/75991645
 
+    #start
+    print(paste("STARTING ", species), sep="")
+
     #occurrences preparation
-    print(paste("STARTING exsitu_occurrences FOR ", species), sep="")
     n_points_before_resampling=exsitu_occurrences(species)
     
     #predict and evaluate without phylo
-    print(paste("STARTING predict_eval_no_phylo FOR ", species), sep="")
     predict_eval_no_phylo(species)
 
     #predict and evaluate with phylo
-    print(paste("STARTING predict_eval_phylo FOR ", species), sep="")
     predict_eval_phylo(species)
 
     #return the number of points before resampling
@@ -2083,6 +2124,11 @@ n_points_before_resampling_df=n_points_before_resampling_df[,c(
     which(colnames(n_points_before_resampling_df)!="species"))]
 print(n_points_before_resampling_df)
 
+#check
+if(FALSE %in% (n_points_before_resampling_df$total_points==n_points_before_resampling_df$points_outside+n_points_before_resampling_df$points_inside)){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE NUMBER OF OCCURENCES INSIDE AND OUTSIDE THE PA BUFFER")
+}
+
 #save
 system("mkdir -p ./results/global_test_phylo_current/n_points_before_resampling/")
 write.table(n_points_before_resampling_df, paste("./results/global_test_phylo_current/n_points_before_resampling/n_points_before_resampling_", batch_number, ".tsv", sep=""), sep="\t", row.names=FALSE)
@@ -2098,7 +2144,7 @@ write.table(n_points_before_resampling_df, paste("./results/global_test_phylo_cu
 print("## FINISH ##")
 
 #mkdir -p ./scripts/global_test_phylo_current_outputs/
-#Rscript --vanilla ./scripts/global_test_phylo_current_v1.R "halepensis radiata" "batch_1" 2>&1 ./scripts/global_test_phylo_current_outputs/global_test_phylo_current_batch_1.Rout
+#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./scripts/global_test_phylo_current_v1.R --species="halepensis,radiata" --batch="batch_1" 2>&1 ./scripts/global_test_phylo_current_outputs/global_test_phylo_current_batch_1.Rout
 
 
 
@@ -2107,20 +2153,23 @@ print("## FINISH ##")
 ##### NEXT STEPS #####
 ######################
 
-#CHECK THE LAST CHANGES ABOUT PARALLELIZATION
-#PREPARE THE BASH TO RUN THE BATCHES
-#CHECK THE WHOLE THING FAST
-
 #took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
 
 #check the thing about glm non binary!
     #mira pagina 284 Nivk's book, he seems to do as we
 
-
-#check in each species cor proportion vs non-proportion
-    #WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS
-#table with n_points_before_resampling_df
-    #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
+#check problem species with low number of occurrences and low number of points in bins of suitability
+    #plot min number of occurrences vs number of species
+#check last things about parallelization
+#check global_test_phylo_current_v1.R
+#bash script to run batches
+#script to check general output and outputs per species
+    #warnings
+        #WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES
+        #WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS
+            #check in each species cor proportion vs non-proportion
+    #table with n_points_before_resampling_df
+        #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
 #figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
     #if they are the same, the points will follow the diagonal
     #if phylo (Y) is lower than non-phylo, points will be below diagonal
