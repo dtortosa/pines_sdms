@@ -117,6 +117,48 @@ logical     114
  Mean   :1055.672   Mean   :0.053596171   Mean   : 767.0852  
  3rd Qu.:1266.000   3rd Qu.:0.062251449   3rd Qu.: 908.9467  
  Max.   :1836.000   Max.   :0.108179358   Max.   :3139.9146  
+   unique_species n_nat_occurrences
+8        jeffreyi                 1
+2     canariensis                 2
+3        caribaea                 2
+18       resinosa                 2
+23     thunbergii                 2
+12        oocarpa                 3
+10       muricata                 4
+19         rigida                 4
+24      torreyana                 5
+4          clausa                 7
+15          pinea                10
+16      ponderosa                10
+1       banksiana                13
+25     virginiana                14
+9            mugo                21
+22          taeda                25
+13         patula                30
+14       pinaster                40
+20        strobus                47
+6       elliottii                48
+21     sylvestris                53
+7      halepensis                54
+5        contorta                57
+11          nigra                66
+17        radiata                77
+   threshold_value species_remaining
+1                1                25
+2                2                24
+3                3                20
+4                4                19
+5                5                17
+6                6                16
+7                7                16
+8                8                15
+9                9                15
+10              10                15
+11              11                13
+12              12                13
+13              13                13
+14              14                12
+15              15                11
 Loading required package: sf
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 Loading required package: randomForest
@@ -149,7 +191,7 @@ Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=16089 on localhost:11244 at 11:09:57.937
+starting worker pid=20207 on localhost:11351 at 07:45:30.193
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1

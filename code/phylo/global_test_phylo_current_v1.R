@@ -159,15 +159,68 @@ if(sum(unique(naturalized_occurrences$species) %in% epithet_species_list)!= leng
 }
 
 #plot minimum number of naturalized occurrences vs number of species retained
-##POR AQUII
+#calculate the number of occurrences per species
 #unique_species=unique(naturalized_occurrences$species)[1]
-n_naturalized=list()
+n_naturalized=data.frame(unique_species=NA, n_nat_occurrences=NA)
 for(unique_species in unique(naturalized_occurrences$species)){
 
-    append(n_naturalized, list(unique_species, length(which(naturalized_occurrences$species==unique_species))))
+    #calculate the number of occurrences of the selected species
+    n_nat_occurrences=nrow(naturalized_occurrences[which(naturalized_occurrences$species==unique_species),])
 
+    #save with the species name
+    n_naturalized=rbind.data.frame(n_naturalized, cbind.data.frame(unique_species, n_nat_occurrences))
 }
+#remove first row with NA
+n_naturalized=n_naturalized[which(apply(is.na(n_naturalized), 1, sum)!=ncol(n_naturalized)),]
+    #remove row for which the sum of TRUEs of is.na() is equal to the number of columns, i.e., row with NA for all columns
+#update the number of rows
+row.names(n_naturalized)=1:nrow(n_naturalized)
+#reorder base on the number of occurrences
+n_naturalized=n_naturalized[order(n_naturalized$n_nat_occurrences, decreasing=FALSE),]
+print(n_naturalized)
 
+#plot the threshold of number of occurrences against the remaining number of species
+threshold=1:15
+    #number of thresholds to test
+plot(1, type="n", xlab="", ylab="", xlim=c(0, length(threshold)), ylim=c(0, nrow(n_naturalized)), xaxt="n", yaxt="n")
+    #open empty plot
+        #https://stackoverflow.com/a/23409042
+axis(1, at=seq(0, length(threshold), by=1), las=2)
+axis(2, at=seq(0, nrow(n_naturalized), by=1), las=2)
+    #add x and y ticks
+threshold_results=data.frame(threshold_value=NA, species_remaining=NA)
+    #open DF to save results
+#threshold_value=threshold[1]
+for(threshold_value in threshold){
+
+    #count number of species remaining after applying the threshold
+    species_remaining=nrow(n_naturalized[which(n_naturalized$n_nat_occurrences>=threshold_value),])
+
+    #plot
+    points(x=threshold_value, y=species_remaining)
+
+    #save results
+    threshold_results=rbind.data.frame(threshold_results, cbind.data.frame(threshold_value,species_remaining))
+}
+threshold_results=threshold_results[which(apply(is.na(threshold_results), 1, sum)!=ncol(threshold_results)),]
+    #remove first row with NAs
+row.names(threshold_results)=1:nrow(threshold_results)
+    #update row names
+print(threshold_results)
+    #Great decrease from 1 to 5, but then from 5 to 7 only 2 species lost, while from 8 to 10 only one specie more lost. We will select 10.
+    #We have to bear in mind that the final number of occurrences can be lower because we do resampling and also remove occurrences inside the PA buffer, even if they are outside of the natural distribution to avoid using any area considered during modeling.
+        #remember we should use new data not seen by the model. An occurrence point within the PA buffer could fall on a pseudo-absence, i.e., a spatial point already considered by the model. It do not think we should consider that are for an independent evaluation, better to go to other continents.
+        #also, doing this we avoid any potential risk of considering a real natural population that is not included in the natural range for any reason. We are being here more stringent, selecting occurrences naturalized for sure.
+    #Therefore, we could also lose more species.
+
+#set the threshold of FINAL number of naturalized occurrences we have
+nat_threshold=1
+    #we are going to avoid filtering for this.
+    #the boyce index is specially well suited to dataset where absences are not reliable, so I understand we can use it even if we have very few presences.
+    #if only 1 presence exits and from the whole globe it fall exactly in a place with high suitability, it is telling you something. it is not so strong than having 50 positive hits, but it is something. Maybe, other occurrences would not fall within high suitability but this one did among many many other pixels that are not suitable
+    #The same applies for the opposite. If you only have 1 presence and it falls in low-suitability bin, for now you cannot be confidence about your model.
+    #Once the analyses are done, we will check the final number of occurrences, and take that in consideration when discussing the results.
+    #Note that the aspect directly mentioned about boyce that can be problematic, i.e., the existence of suitability bins with low number of pixels, IS CONSIDERED. If a bin has less than 60 pixels (30 is the default threshold for the boyce function), we will stop the analyses (see below).
 
 #NOTE: In general, I have used extract to obtain any information about the points: elevation, environmental data and number of cell. Extract only consider that a point falls inside a cell if its center is inside that cell. It is important consider this. 
 
@@ -683,11 +736,8 @@ predict_eval_no_phylo = function(species){
     #check if we have output from the previous step
     presence_file_exist=file.exists(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""))
 
-    #check if the number of presences is higher than 10 naturalized occurrences
-    check_n_presences=nrow(read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE))>=10
-        #We are going to lose about 10 species having less than 10 naturalized occurrences, but it is necessary.
-        #Remember that the boyce index (phylo vs non-phylo) of all species is going to be analyzed as a function of algorithm*species to test whether the phylo correction has an impact overall. Also we want to calculate overall median boyce per for all species. If we include boyce values calculated with very low number of data.points, we are going to mix solid with un-solid data points.
-        #Also, removing these species, it is more likely that remove cases like clausa. Species with low number of occurrences in their distribution, i.e., small distributions, that have low suitability across the whole globe, i.e., outside their natural range. For theses species, the bins with high suitability are to have a very low number of pixels because high suitable regions are scarce. This can impact boyce index calculation, so we have to avoid calculations with cells having a low number of pixels. See boyce index calculation for further details.
+    #check if the number of presences is higher than the threshold of naturalized occurrences
+    check_n_presences=nrow(read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE))>=nat_threshold
 
     #do stuff if we have the presence file and more than 10 naturalized occurrences
     if(presence_file_exist & check_n_presences){
@@ -836,6 +886,9 @@ predict_eval_no_phylo = function(species){
         glm_eval_no_dup=list()
         gam_eval_no_dup=list()
         rf_eval_no_dup=list()
+
+        #set the check about min sample size in the bins of suitability as TRUE. It will be changed to FALSE if we have suitability bins with less than 30 pixels (see below)
+        check_min_bin_sample_size=TRUE
 
         #run a loop using the models trained on the 12 data partitions
         #k=1
@@ -1034,14 +1087,16 @@ predict_eval_no_phylo = function(species){
 
 
             ##check we do not have a low number of pixels in any bin
-            #They say the following: "In bins with overly small sample sizes, the comparison between median prediction and random expectation may not be meaningful, although these bins will equally contribute to the overall Boyce index. When there are bins with less than 30 values, a warning is emitted and their points are plotted in red, but mind that 30 is a largely arbitrary number. See the $bins$bin.N section of the console output, and use the 'bin.width' argument to enlarge the bins."
-            #we have a veeery large study area, so the number of cells in each bin is always relatively high. We are going to check that just in case
+            #In the docs of "modEvA::Boyce", they say the following: "In bins with overly small sample sizes, the comparison between median prediction and random expectation may not be meaningful, although these bins will equally contribute to the overall Boyce index. When there are bins with less than 30 values, a warning is emitted and their points are plotted in red, but mind that 30 is a largely arbitrary number. See the $bins$bin.N section of the console output, and use the 'bin.width' argument to enlarge the bins."
+            #For species with a small natural range, it would be possible that no pixel has high suitability values, making a low sample size for high suitability bins. But this should not be very problematic in our case, because we are predicting across the whole world, increasing the probability to find enough pixels with low and high suitability. For example, clausa has a small range but its minimum pixel number per bin is 70. We are going to check that just in case
             min_bin_n_glm=min(glm_boyce[[1]]$bin.N) 
             min_bin_n_gam=min(gam_boyce[[1]]$bin.N) 
             min_bin_n_rf=min(rf_boyce[[1]]$bin.N) 
                 #calculate the min number of points across bins in each model. You can have different sample size between models because these are bins based on suitability, and the suitability is differently predicted by each model
-            if((min_bin_n_glm<30) | (min_bin_n_gam<30) | (min_bin_n_rf<30)){
-                stop(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 30 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+            #we are going stop the analyses if the minimum number of pixels per bin is 60, which is the double of the default value set by "modEvA::Boyce" to print a warning (i.e., 30)
+            if((min_bin_n_glm<60) | (min_bin_n_gam<60) | (min_bin_n_rf<60)){
+                print(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+                check_min_bin_sample_size=FALSE
             }
 
 
@@ -1121,34 +1176,38 @@ predict_eval_no_phylo = function(species){
             #ensamble_predictions_bin2 = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
             #identical(getValues(ensamble_predictions_bin), getValues(ensamble_predictions_bin2))
 
-        ##save the results
-        #save predictions
-        writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(predictions_bin_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(predictions_bin_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(predictions_bin_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-        writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-
-        #save evaluations
-        save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
-        save(gam_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce.rda", sep=""))
-        save(rf_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce.rda", sep=""))
-        save(glm_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce_no_dup.rda", sep=""))
-        save(gam_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce_no_dup.rda", sep=""))
-        save(rf_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce_no_dup.rda", sep=""))
-
-        #save median boyce
-        write.table(boyce_table, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
-
-        #compress and remove files
+        #remove folder with decompressed models
         system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""))
-        print(system(paste("
-            cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
-            tar -zcvf ", species, "_prediction_rasters.tar.gz ./prediction_rasters; 
-            rm -rf ./prediction_rasters", sep=""), intern=TRUE))
-            #https://unix.stackexchange.com/a/93158
+
+        ##save the results only if we have at least 30 pixels in each suitability bin. If the boyce table is not saved, then the next step (i.e., function) will do nothing
+        if(check_min_bin_sample_size){
+            #save predictions
+            writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(predictions_bin_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(predictions_bin_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(predictions_bin_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+            writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+
+            #save evaluations
+            save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
+            save(gam_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce.rda", sep=""))
+            save(rf_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce.rda", sep=""))
+            save(glm_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce_no_dup.rda", sep=""))
+            save(gam_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce_no_dup.rda", sep=""))
+            save(rf_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce_no_dup.rda", sep=""))
+
+            #save median boyce
+            write.table(boyce_table, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
+
+            #compress and remove files
+            print(system(paste("
+                cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
+                tar -zcvf ", species, "_prediction_rasters.tar.gz ./prediction_rasters; 
+                rm -rf ./prediction_rasters", sep=""), intern=TRUE))
+                #https://unix.stackexchange.com/a/93158
+        }
     }
 
     #ending
@@ -2166,9 +2225,13 @@ print("## FINISH ##")
 #script to check general output and outputs per species
     #warnings
         #WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES
+        #ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 30 DATA.POINTS FOR SPECIES clausa. THIS 
+            #Species with this should skip the last function!!
         #WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS
             #check in each species cor proportion vs non-proportion
     #table with n_points_before_resampling_df
+        #CHECK SPECIES WITH LOW OCCURRENCES (e.g., clausa)
+            #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
         #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
 #figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
     #if they are the same, the points will follow the diagonal
