@@ -43,8 +43,14 @@ option_list = list(
     #default: default value
     #help: A character string describing the option to be used by 'print_help' in generating a usage message.
         #run the script with the flag --help
+    #metavar: A character string that stands in for the option argument when printing help text
+        #this changes the type of the argument when printing the help
+    #dest: indicates the name of the field of the output list storing the value of the argument. By default, it uses the name of the long flag
+        #for example, "batch" will store the batch number
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
+    #this takes a "OptionParser" instance as input and generates as output a list with the values of the arguments
+    #there are options to deal with positional arguments, etc..
 #get a vector with the arguments
 species_to_analyze=strsplit(opt$species, split=",")[[1]]
 batch_number=opt$batch
@@ -211,14 +217,15 @@ print(threshold_results)
     #We have to bear in mind that the final number of occurrences can be lower because we do resampling and also remove occurrences inside the PA buffer, even if they are outside of the natural distribution to avoid using any area considered during modeling.
         #remember we should use new data not seen by the model. An occurrence point within the PA buffer could fall on a pseudo-absence, i.e., a spatial point already considered by the model. It do not think we should consider that are for an independent evaluation, better to go to other continents.
         #also, doing this we avoid any potential risk of considering a real natural population that is not included in the natural range for any reason. We are being here more stringent, selecting occurrences naturalized for sure.
-    #Therefore, we could also lose more species.
+    #Therefore, we could also lose more species. Using a threshold of five, we would likely lose muricata, rigida, torreyana and clausa, having a total 15 species.
 
 #set the threshold of FINAL number of naturalized occurrences we have
-nat_threshold=1
+nat_threshold=5
     #we are going to avoid filtering for this.
     #the boyce index is specially well suited to dataset where absences are not reliable, so I understand we can use it even if we have very few presences.
-    #if only 1 presence exits and from the whole globe it fall exactly in a place with high suitability, it is telling you something. it is not so strong than having 50 positive hits, but it is something. Maybe, other occurrences would not fall within high suitability but this one did among many many other pixels that are not suitable
-    #The same applies for the opposite. If you only have 1 presence and it falls in low-suitability bin, for now you cannot be confidence about your model.
+        #if only 5 presence exits and from the whole globe it fall exactly in a place with high suitability, it is telling you something. it is not so strong than having 50 positive hits, but it is something. Maybe, other occurrences would not fall within high suitability but this one did among many many other pixels that are not suitable
+        #The same applies for the opposite. If you only have 50 presences and it falls in low-suitability bin, for now you cannot be confidence about your model.
+    #I still want to avoid those cases with just 1 or 2 occurrences, because the number is extremely low and these cases give me strange errors in the code. 5 seems to be a good balance.
     #Once the analyses are done, we will check the final number of occurrences, and take that in consideration when discussing the results.
     #Note that the aspect directly mentioned about boyce that can be problematic, i.e., the existence of suitability bins with low number of pixels, IS CONSIDERED. If a bin has less than 60 pixels (30 is the default threshold for the boyce function), we will stop the analyses (see below).
 
@@ -240,6 +247,10 @@ exsitu_occurrences=function(species){
 
     #start
     print(paste("STARTING exsitu_occurrences FOR ", species), sep="")
+
+    ##momentarily set the flag for the next step as FALSE
+    next_step=FALSE
+        #it will change to TRUE if the whole script runs
 
     ##stop if pumila, just in case, because this species has part of its distribution in a corner and we should check it carefully
     if(species=="pumila"){
@@ -338,8 +349,8 @@ exsitu_occurrences=function(species){
     points_inside_pa_buffer = which(is.na(points_and_values_outside_pa_buffer$outside_pa_buffer_values_of_points)) #obtain rows in which values of the distribution buffer raster is NA, thus points inside the buffer
 
     #create DF with the number of occurrences in and outside of the PA buffer before the resampling
-    n_points_in_out_pa_buffer=cbind.data.frame(nrow(points_and_values_outside_pa_buffer), length(points_outside_pa_buffer), length(points_inside_pa_buffer))
-    names(n_points_in_out_pa_buffer)=c("total_points", "points_outside", "points_inside")
+    n_points_in_out_pa_buffer=cbind.data.frame(nrow(points_and_values_outside_pa_buffer), length(points_inside_pa_buffer), length(points_outside_pa_buffer))
+    names(n_points_in_out_pa_buffer)=c("total_points", "points_inside", "points_outside")
     if(n_points_in_out_pa_buffer$points_inside > (n_points_in_out_pa_buffer$total_points*0.1)){
         print(paste("WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES ", species, sep=""))
     }
@@ -703,11 +714,21 @@ exsitu_occurrences=function(species){
         }
     }
 
-    #return the number of points before resampling
-    return(n_points_in_out_pa_buffer)
+    #add the number of occurrences (outside PA buffer) after resampling in the counting file
+    if(exists("ultimate_ocurrences")){
+        n_points_in_out_pa_buffer$points_outside_after_resampling=nrow(ultimate_ocurrences)
+    } else {
+        n_points_in_out_pa_buffer$points_outside_after_resampling=0
+    }
+
+    #change the status of the flag for the next step to TRUE
+    next_step=TRUE
 
     #end
     print(paste("ENDING exsitu_occurrences FOR ", species), sep="")
+
+    #return the flag for the next step and the number of points before resampling
+    return(list(next_step, n_points_in_out_pa_buffer))
 }
 
 #run it for one species
@@ -725,7 +746,7 @@ require(randomForest)
 require(gam)
 
 #species="radiata"
-predict_eval_no_phylo = function(species){
+predict_eval_no_phylo = function(species, status_previous_step){
 
     #starting
     print(paste("STARTING predict_eval_no_phylo FOR ", species), sep="")
@@ -733,14 +754,24 @@ predict_eval_no_phylo = function(species){
     #open folder
     system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
 
+    #momentarily set the flag for the next step as NO
+    next_step=FALSE
+        #it will change to TRUE if the whole script is run and everything is OK
+
     #check if we have output from the previous step
     presence_file_exist=file.exists(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""))
 
     #check if the number of presences is higher than the threshold of naturalized occurrences
-    check_n_presences=nrow(read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE))>=nat_threshold
+    #do it only if we have a presence file indeed
+    if(presence_file_exist){
+        check_n_presences=nrow(read.table(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", sep=""), sep="\t", header=TRUE))>=nat_threshold
+    } else{
+        #if no file is present, just set the check as FALSE
+        check_n_presences=FALSE
+    }
 
-    #do stuff if we have the presence file and more than 10 naturalized occurrences
-    if(presence_file_exist & check_n_presences){
+    #do stuff if we have the presence file and more than 10 naturalized occurrences. Also we need green light from the previous step
+    if(presence_file_exist & check_n_presences & status_previous_step){
 
         ###obtain environmental predictors
         ##obtain the list of variables for the selected species
@@ -1176,42 +1207,52 @@ predict_eval_no_phylo = function(species){
             #ensamble_predictions_bin2 = calc(binary_predictions, function(x) (sum(x)*100)/nlayers(binary_predictions))
             #identical(getValues(ensamble_predictions_bin), getValues(ensamble_predictions_bin2))
 
-        #remove folder with decompressed models
+
+        ##save the results
+        #save predictions
+        writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(predictions_bin_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+        writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
+
+        #save evaluations
+        save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
+        save(gam_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce.rda", sep=""))
+        save(rf_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce.rda", sep=""))
+        save(glm_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce_no_dup.rda", sep=""))
+        save(gam_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce_no_dup.rda", sep=""))
+        save(rf_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce_no_dup.rda", sep=""))
+
+        #save median boyce
+        write.table(boyce_table, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
+
+        #compress and remove files
         system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/decompressed_models/", sep=""))
-
-        ##save the results only if we have at least 30 pixels in each suitability bin. If the boyce table is not saved, then the next step (i.e., function) will do nothing
+        print(system(paste("
+            cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
+            tar -zcvf ", species, "_prediction_rasters.tar.gz ./prediction_rasters; 
+            rm -rf ./prediction_rasters", sep=""), intern=TRUE))
+            #https://unix.stackexchange.com/a/93158
+    
+        #if we have passed the check about min sample size in suitability bins
         if(check_min_bin_sample_size){
-            #save predictions
-            writeRaster(predictions_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(predictions_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(predictions_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(predictions_bin_glm, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(predictions_bin_gam, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(predictions_bin_rf, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
-            writeRaster(ensamble_predictions_bin, filename=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/prediction_rasters/", species, "_ensemble", sep=""), options="COMPRESS=LZW", overwrite=TRUE)
 
-            #save evaluations
-            save(glm_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce.rda", sep=""))
-            save(gam_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce.rda", sep=""))
-            save(rf_eval, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce.rda", sep=""))
-            save(glm_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_glm_boyce_no_dup.rda", sep=""))
-            save(gam_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_gam_boyce_no_dup.rda", sep=""))
-            save(rf_eval_no_dup, file=paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/boyce_partitions/", species, "_rf_boyce_no_dup.rda", sep=""))
-
-            #save median boyce
-            write.table(boyce_table, gzfile(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
-
-            #compress and remove files
-            print(system(paste("
-                cd ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/; 
-                tar -zcvf ", species, "_prediction_rasters.tar.gz ./prediction_rasters; 
-                rm -rf ./prediction_rasters", sep=""), intern=TRUE))
-                #https://unix.stackexchange.com/a/93158
+            #green light for the next step
+            next_step=TRUE
         }
+    } else {
+        #if we cannot do stuff, remove the folder of the species
+        system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", sep=""))
     }
 
     #ending
     print(paste("ENDING predict_eval_no_phylo FOR ", species), sep="")
+
+    #return flag for the next step
+    return(next_step)
 }
 
 #run it for one species
@@ -1231,7 +1272,7 @@ require(raster)
 require(gtools)
 
 #species="radiata"
-predict_eval_phylo = function(species){
+predict_eval_phylo = function(species, status_previous_step){
 
     #staring
     print(paste("STARTING predict_eval_phylo FOR ", species), sep="")
@@ -1243,8 +1284,8 @@ predict_eval_phylo = function(species){
     pred_raster_check=file.exists(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters.tar.gz", sep=""))
     boyce_table_check=file.exists(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep=""))
 
-    #if the outputs exists, do operations
-    if(pred_raster_check & boyce_table_check){
+    #if the previous outputs exists and we have green light from the previous step, do operations
+    if(pred_raster_check & boyce_table_check & status_previous_step){
         
         ##perform the phylogenetic correction
         #load bio4 and bio17
@@ -2089,6 +2130,9 @@ predict_eval_phylo = function(species){
         system(paste(" \\
             cd ./results/global_test_phylo_current/predict_eval_phylo/", species, "/; 
             rm -rf ./prediction_rasters", sep=""))
+    } else {
+        #if we cannot do stuff, remove the folder of the species
+        system(paste("rm -rf ./results/global_test_phylo_current/predict_eval_phylo/", species, "/", sep=""))
     }
 
     #ending
@@ -2121,20 +2165,27 @@ master_processor=function(species){
     #start
     print(paste("STARTING ", species), sep="")
 
+    #check species
+    if(!species %in% unique(naturalized_occurrences$species)){
+        stop(paste("ERROR! FALSE! WE HAVE USED A WRONG SPECIES NAME: ", species, sep=""))
+    }
+
     #occurrences preparation
-    n_points_before_resampling=exsitu_occurrences(species)
-    
+    output_first_step=exsitu_occurrences(species)
+    status_step_1=output_first_step[[1]]
+    n_points_before_resampling=output_first_step[[2]]
+
     #predict and evaluate without phylo
-    predict_eval_no_phylo(species)
+    status_step_2=predict_eval_no_phylo(species, status_step_1)
 
     #predict and evaluate with phylo
-    predict_eval_phylo(species)
+    predict_eval_phylo(species, status_step_2)
+
+    #finish
+    print(paste("ENDING ", species), sep="")
 
     #return the number of points before resampling
     return(n_points_before_resampling)
-
-    #finish
-    print(paste("FINISHED ", species), sep="")
 
     #stop writing to the file
     sink(type="message")
@@ -2217,11 +2268,9 @@ print("## FINISH ##")
 #check the thing about glm non binary!
     #mira pagina 284 Nivk's book, he seems to do as we
 
-#check problem species with low number of occurrences and low number of points in bins of suitability
-    #plot min number of occurrences vs number of species
-#check last things about parallelization
-#check global_test_phylo_current_v1.R
-#bash script to run batches
+#do R script for slurm
+#do bash script to send slurm files
+#check global_test_phylo_current_v1.R and the other two scripts
 #script to check general output and outputs per species
     #warnings
         #WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES
