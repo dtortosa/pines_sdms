@@ -1,0 +1,311 @@
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127726  6.9     350000 18.7   197038 10.6
+Vcells 251233  2.0    8388608 64.0  1031544  7.9
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+Loading required package: optparse
+Loading required package: raster
+Loading required package: sp
+   Mode    TRUE 
+logical     114 
+[1] TRUE TRUE TRUE
+   species            longitude             latitude         
+ Length:597         Min.   :-176.60774   Min.   :-46.343000  
+ Class :character   1st Qu.: -75.02140   1st Qu.:-37.966255  
+ Mode  :character   Median :  18.42403   Median :-27.606871  
+                    Mean   :  37.88816   Mean   : -4.309209  
+                    3rd Qu.: 152.03385   3rd Qu.: 41.271718  
+                    Max.   : 177.72000   Max.   : 65.316637  
+   country               bio1                bio2                bio3          
+ Length:597         Min.   : 1.490532   Min.   : 5.156926   Min.   :0.1934991  
+ Class :character   1st Qu.: 8.364948   1st Qu.: 9.138652   1st Qu.:0.3210652  
+ Mode  :character   Median :11.971340   Median :10.460750   Median :0.4667305  
+                    Mean   :12.097151   Mean   :10.649353   Mean   :0.4394006  
+                    3rd Qu.:15.265280   3rd Qu.:12.131520   3rd Qu.:0.5064614  
+                    Max.   :25.367550   Max.   :16.774160   Max.   :0.7192236  
+      bio4                  bio5               bio6            
+ Min.   :0.003494829   Min.   :15.29030   Min.   :-18.0548000  
+ 1st Qu.:0.012166640   1st Qu.:21.94840   1st Qu.: -4.8419399  
+ Median :0.014736500   Median :25.73230   Median :  0.6400000  
+ Mean   :0.018283075   Mean   :25.28394   Mean   : -0.3525403  
+ 3rd Qu.:0.024200330   3rd Qu.:28.03230   3rd Qu.:  4.6387100  
+ Max.   :0.043937229   Max.   :37.02000   Max.   : 15.2200003  
+      bio7               bio8                bio9               bio10          
+ Min.   :11.78710   Min.   : 1.139167   Min.   :-9.938290   Min.   : 9.748548  
+ 1st Qu.:19.83000   1st Qu.: 7.491362   1st Qu.: 2.388658   1st Qu.:16.022699  
+ Median :23.87806   Median :12.688520   Median :12.984740   Median :18.979080  
+ Mean   :25.63648   Mean   :12.929547   Mean   :10.867309   Mean   :18.638272  
+ 3rd Qu.:29.04517   3rd Qu.:18.562660   3rd Qu.:17.892990   3rd Qu.:20.787230  
+ Max.   :47.07320   Max.   :26.731890   Max.   :24.300350   Max.   :27.898861  
+     bio11                 bio12               bio13         
+ Min.   :-10.3233500   Min.   : 141.0000   Min.   : 4.35383  
+ 1st Qu.:  0.1234554   1st Qu.: 701.0003   1st Qu.:20.05100  
+ Median :  6.3774490   Median : 924.0000   Median :26.50740  
+ Mean   :  5.3362965   Mean   :1015.5461   Mean   :29.13631  
+ 3rd Qu.: 10.3054104   3rd Qu.:1254.0000   3rd Qu.:34.97200  
+ Max.   : 24.1667404   Max.   :4017.0000   Max.   :93.86670  
+     bio14              bio15                bio16           
+ Min.   : 0.00000   Min.   :0.04242603   Min.   :  48.60827  
+ 1st Qu.: 6.53220   1st Qu.:0.13286020   1st Qu.: 240.42050  
+ Median : 9.66931   Median :0.23314850   Median : 314.96021  
+ Mean   :11.04940   Mean   :0.31684201   Mean   : 348.75834  
+ 3rd Qu.:15.87460   3rd Qu.:0.40580571   3rd Qu.: 423.47021  
+ Max.   :50.26150   Max.   :1.06166696   Max.   :1173.93701  
+     bio17                bio18                bio19          
+ Min.   :  2.780044   Min.   :  6.554994   Min.   : 23.64753  
+ 1st Qu.: 98.731956   1st Qu.:145.689301   1st Qu.:153.04620  
+ Median :149.073700   Median :245.585403   Median :237.89320  
+ Mean   :169.685669   Mean   :248.460903   Mean   :263.53957  
+ 3rd Qu.:238.559006   3rd Qu.:313.477203   3rd Qu.:335.00760  
+ Max.   :848.384705   Max.   :877.085388   Max.   :940.21503  
+     bio20               bio21              bio22          
+ Min.   : 87.09377   Min.   :143.2000   Min.   :  1.46067  
+ 1st Qu.:129.68449   1st Qu.:199.9940   1st Qu.: 51.92270  
+ Median :142.42529   Median :217.2460   Median : 67.98770  
+ Mean   :147.89258   Mean   :219.5116   Mean   : 73.18749  
+ 3rd Qu.:170.72050   3rd Qu.:236.6240   3rd Qu.: 93.82190  
+ Max.   :209.84560   Max.   :299.5850   Max.   :159.42000  
+     bio23                bio24               bio25          
+ Min.   :0.07948121   Min.   : 37.49825   Min.   : 41.24715  
+ 1st Qu.:0.30824020   1st Qu.: 99.60302   1st Qu.: 93.18342  
+ Median :0.36867869   Median :138.86360   Median :166.30051  
+ Mean   :0.36189944   Mean   :142.66447   Mean   :154.88748  
+ 3rd Qu.:0.42803699   3rd Qu.:191.23540   3rd Qu.:199.66130  
+ Max.   :0.81556833   Max.   :240.24271   Max.   :275.94891  
+     bio26              bio27               bio28               bio29         
+ Min.   :130.6174   Min.   : 16.87410   Min.   :0.2576124   Min.   :0.431326  
+ 1st Qu.:185.1339   1st Qu.: 66.86153   1st Qu.:0.7458318   1st Qu.:1.037533  
+ Median :200.4654   Median : 83.65874   Median :0.8713113   Median :1.110317  
+ Mean   :202.8808   Mean   : 89.01115   Mean   :0.8618132   Mean   :1.103440  
+ 3rd Qu.:219.5287   3rd Qu.:108.98660   3rd Qu.:0.9984369   3rd Qu.:1.183280  
+ Max.   :278.3310   Max.   :182.40990   Max.   :1.6481990   Max.   :1.809114  
+     bio30               bio31                bio32          
+ Min.   :0.0653549   Min.   :0.01728809   Min.   :0.4236863  
+ 1st Qu.:0.3853040   1st Qu.:0.10989940   1st Qu.:1.0145180  
+ Median :0.5660620   Median :0.19769390   Median :1.0845460  
+ Mean   :0.5761024   Mean   :0.23901085   Mean   :1.0735209  
+ 3rd Qu.:0.7392230   3rd Qu.:0.31088999   3rd Qu.:1.1561090  
+ Max.   :1.3401411   Max.   :0.80281037   Max.   :1.7745370  
+     bio33                bio34               bio35          
+ Min.   :0.08139588   Min.   :0.1089182   Min.   :0.2353032  
+ 1st Qu.:0.42306560   1st Qu.:0.4818078   1st Qu.:0.9557521  
+ Median :0.62984109   Median :0.7019497   Median :1.0457810  
+ Mean   :0.62548916   Mean   :0.6900052   Mean   :1.0165620  
+ 3rd Qu.:0.78866100   3rd Qu.:0.9369955   3rd Qu.:1.1364260  
+ Max.   :1.50377500   Max.   :1.5121860   Max.   :1.6334800  
+    min.minT              max.maxT             aet            
+ Min.   :-182.000000   Min.   :153.0000   Min.   :  8.643969  
+ 1st Qu.: -49.000000   1st Qu.:220.0000   1st Qu.: 41.937290  
+ Median :   6.000000   Median :258.0000   Median : 54.686791  
+ Mean   :  -4.284757   Mean   :253.3266   Mean   : 56.022645  
+ 3rd Qu.:  46.000000   3rd Qu.:281.0000   3rd Qu.: 69.288069  
+ Max.   : 151.000000   Max.   :372.0000   Max.   :102.056050  
+      pet           aet.pet.ratio         not.hot.precip     
+ Min.   : 473.000   Min.   :0.008018524   Min.   : 123.7206  
+ 1st Qu.: 858.000   1st Qu.:0.044439816   1st Qu.: 529.4635  
+ Median :1032.000   Median :0.051589038   Median : 705.1490  
+ Mean   :1055.672   Mean   :0.053596171   Mean   : 767.0852  
+ 3rd Qu.:1266.000   3rd Qu.:0.062251449   3rd Qu.: 908.9467  
+ Max.   :1836.000   Max.   :0.108179358   Max.   :3139.9146  
+   unique_species n_nat_occurrences
+8        jeffreyi                 1
+2     canariensis                 2
+3        caribaea                 2
+18       resinosa                 2
+23     thunbergii                 2
+12        oocarpa                 3
+10       muricata                 4
+19         rigida                 4
+24      torreyana                 5
+4          clausa                 7
+15          pinea                10
+16      ponderosa                10
+1       banksiana                13
+25     virginiana                14
+9            mugo                21
+22          taeda                25
+13         patula                30
+14       pinaster                40
+20        strobus                47
+6       elliottii                48
+21     sylvestris                53
+7      halepensis                54
+5        contorta                57
+11          nigra                66
+17        radiata                77
+   threshold_value species_remaining
+1                1                25
+2                2                24
+3                3                20
+4                4                19
+5                5                17
+6                6                16
+7                7                16
+8                8                15
+9                9                15
+10              10                15
+11              11                13
+12              12                13
+13              13                13
+14              14                12
+15              15                11
+Loading required package: sf
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+Loading required package: randomForest
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: gam
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+Loading required package: modEvA
+Loading required package: terra
+terra 1.7.65
+Loading required package: gtools
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: parallel
+[1][1][1][1][1] FALSE FALSE FALSE FALSE
+ FALSE
+
+
+Warning message:
+
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :
+ In file.remove(".RData") :
+ In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+
+  cannot remove file '.RData', reason 'No such file or directory'
+
+  cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+ cannot remove file '.RData', reason 'No such file or directory'
+                                 used   used   used   used   used (Mb) (Mb) (Mb) (Mb) (Mb) gc trigger gc trigger gc trigger gc trigger gc trigger (Mb) (Mb) (Mb) (Mb) (Mb) max used max used max used max used max used (Mb) (Mb) (Mb) (Mb) (Mb)
+Ncells
+Ncells
+Ncells
+Ncells
+Ncells 127726 127726 127726  6.9 127726  6.9 127726  6.9     350000  6.9     350000  6.9     350000 18.7     350000 18.7     350000 18.7   197086 18.7   197086 18.7   197086 10.6   197086 10.6   197086 10.6
+Vcells 10.6
+Vcells 10.6
+Vcells 251237
+Vcells 251237
+Vcells 251237  2.0 251237  2.0 251237  2.0    8388608  2.0    8388608  2.0    8388608 64.0    8388608 64.0    8388608 64.0  1031617 64.0  1031617 64.0  1031617  7.9  1031617  7.9  1031617  7.9
+  7.9
+  7.9
+
+
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Loading required package: colorout
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+
+  there is no package called 'colorout'
+
+  there is no package called 'colorout'
+ there is no package called 'colorout'
+ there is no package called 'colorout'
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Loading required package: SystWrapper
+Warning message:
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ Warning message:
+Warning message:
+
+ In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+ 
+  there is no package called 'SystWrapper'
+ there is no package called 'SystWrapper'
+
+  there is no package called 'SystWrapper'
+starting worker pid=10110 on localhost:11647 at 05:46:58.861
+starting worker pid=10107 on localhost:11647 at 05:46:58.861
+starting worker pid=10111 on localhost:11647 at 05:46:58.861
+starting worker pid=10109 on localhost:11647 at 05:46:58.861
+starting worker pid=10108 on localhost:11647 at 05:46:58.863
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Loading required package: sp
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
+randomForest 4.7-1.1
+Type rfNews() to see new features/changes/bug fixes.
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.22-3
+
+     species total_points points_inside points_outside
+1 sylvestris           53             1             52
+2      taeda           25             7             18
+3 thunbergii            2             0              2
+4  torreyana            5             5              0
+5 virginiana           14            14              0
+  points_outside_after_resampling
+1                              51
+2                              18
+3                               2
+4                               0
+5                               0
+[1] "## FINISH ##"

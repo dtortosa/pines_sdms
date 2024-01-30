@@ -2270,6 +2270,11 @@ print("## FINISH ##")
 
 #do R script for slurm
 #do bash script to send slurm files
+#best option to see differences between phylo nonphylo?
+    #non_subset_inter seems to work better in sylvestris, which already has good boyce without phylo
+    #in halepensis not the same, and models are in general terrible
+    #check if other phylo-approach is consistently better than the one used in the paper
+#run already in the HPC to check no clear errors?
 #check global_test_phylo_current_v1.R and the other two scripts
 #script to check general output and outputs per species
     #warnings
