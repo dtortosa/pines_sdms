@@ -17,18 +17,18 @@
 #SBATCH --partition=albaicin
 ### REQUIRED. Set the number of cores and nodes that will be used for this job. It seems that each node has 56 cores, so you have to adjust accordingly
 #SBATCH --nodes=1
-#SBATCH --ntasks=10
-#SBATCH --ntasks-per-node=10
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
 ### OPTIONAL. You can set the number of cores per task. This can be useful for scripts in which inside the parallelized process there are other subprocesses. For example, you run 22 independent processes for each chromosome and then you also parallelize the calculations inside each chromosome (https://stackoverflow.com/a/51141287)
 #SBATCH --cpus-per-task=1
 ### REQUIRED. Set the memory required for this job. I will set 40GC per each of the 100 cores=4000GB; https://public.confluence.arizona.edu/display/UAHPC/Allocation+and+Limits
 ###SBATCH --mem=400gb
 ### REQUIRED. Set the gb per core. YOU HAVE TO SELECT --mem or --mem-per-cpu but NOT BOTH. If you get a .core file, this usually means that the program fails because it asked for too much memory, so it creates a record of the working memory at the time that can be used for debugging. MPI jobs will usually create a core file for each task. You should increase memory limits (https://researchcomputing.princeton.edu/support/knowledge-base/memory).
-#SBATCH --mem-per-cpu=15gb
+#SBATCH --mem-per-cpu=11gb
 ### set the constraint for high memory nodes in case you use a lot of memory per node. Normal nodes have a 512Gb limit.
 ###SBATCH --constraint=hi_mem
 ### REQUIRED. Specify the time required for this job, hhh:mm:ss
-#SBATCH --time=24:00:00
+#SBATCH --time=05:00:00
 
  
 # --------------------------------------------------------------
@@ -39,4 +39,4 @@ module load singularity
 cd /home/UGR002/dsalazar/phd/nicho_pinus
     #/home is the stable directory, while scratch is where results of analyses can be stored temporary, as stuff gets removed after 20 days
 ### Run your work
-singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_v1.R --species='banksiana,canariensis,caribaea,clausa,contorta,elliottii,halepensis,jeffreyi,mugo,muricata' --batch='batch_1' > ./code/phylo/global_test_phylo_current_v1_batch_1.Rout 2>&1
+singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_v1.R --species='banksiana' --batch='batch_1' > ./code/phylo/global_test_phylo_current_v1_batch_1.Rout 2>&1

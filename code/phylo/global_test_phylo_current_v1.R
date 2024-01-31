@@ -1126,7 +1126,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
                 #calculate the min number of points across bins in each model. You can have different sample size between models because these are bins based on suitability, and the suitability is differently predicted by each model
             #we are going stop the analyses if the minimum number of pixels per bin is 60, which is the double of the default value set by "modEvA::Boyce" to print a warning (i.e., 30)
             if((min_bin_n_glm<60) | (min_bin_n_gam<60) | (min_bin_n_rf<60)){
-                print(paste("ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+                print(paste("ERROR! FALSE! WE HAVE AT LEAST 1 NON-PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
                 check_min_bin_sample_size=FALSE
             }
 
@@ -1163,7 +1163,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
             cbind.data.frame(sapply(glm_eval, function(x){return(x[[2]])})), 
             cbind.data.frame(sapply(gam_eval, function(x){return(x[[2]])})),
             cbind.data.frame(sapply(rf_eval, function(x){return(x[[2]])})), 
-            cbind.data.frame(sapply(glm_eval_no_dup, function(x){return(x[[2]])})), 
+            cbind.data.frame(sapply(glm_eval_no_dup, function(x){return(x[[2]])})),
             cbind.data.frame(sapply(gam_eval_no_dup, function(x){return(x[[2]])})),
             cbind.data.frame(sapply(rf_eval_no_dup, function(x){return(x[[2]])})))
         names(boyce_table)=c("partition", "glm_eval", "gam_eval", "rf_eval", "glm_eval_no_dup", "gam_eval_no_dup", "rf_eval_no_dup")
@@ -1807,7 +1807,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
                 rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
                 dev.off()
-                
+
                 #add the partition to the boyce results
                 glm_phylo_boyce$partition=k
                 gam_phylo_boyce$partition=k
@@ -1817,6 +1817,19 @@ predict_eval_phylo = function(species, status_previous_step){
                 glm_phylo_boyce_list[[k]]=glm_phylo_boyce
                 gam_phylo_boyce_list[[k]]=gam_phylo_boyce
                 rf_phylo_boyce_list[[k]]=rf_phylo_boyce
+
+
+                ##check we do not have a low number of pixels in any bin
+                #In the docs of "modEvA::Boyce", they say the following: "In bins with overly small sample sizes, the comparison between median prediction and random expectation may not be meaningful, although these bins will equally contribute to the overall Boyce index. When there are bins with less than 30 values, a warning is emitted and their points are plotted in red, but mind that 30 is a largely arbitrary number. See the $bins$bin.N section of the console output, and use the 'bin.width' argument to enlarge the bins."
+                #For species with a small natural range, it would be possible that no pixel has high suitability values, making a low sample size for high suitability bins. But this should not be very problematic in our case, because we are predicting across the whole world, increasing the probability to find enough pixels with low and high suitability. For example, clausa has a small range but its minimum pixel number per bin is 70. We are going to check that just in case
+                min_bin_n_glm_phylo=min(glm_phylo_boyce[[1]]$bin.N) 
+                min_bin_n_gam_phylo=min(gam_phylo_boyce[[1]]$bin.N) 
+                min_bin_n_rf_phylo=min(rf_phylo_boyce[[1]]$bin.N) 
+                    #calculate the min number of points across bins in each model. You can have different sample size between models because these are bins based on suitability, and the suitability is differently predicted by each model
+                #we are going stop the analyses if the minimum number of pixels per bin is 60, which is the double of the default value set by "modEvA::Boyce" to print a warning (i.e., 30)
+                if((min_bin_n_glm_phylo<60) | (min_bin_n_gam_phylo<60) | (min_bin_n_rf_phylo<60)){
+                    print(paste("ERROR! FALSE! WE HAVE AT LEAST 1 PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR PHYLO MODEL ", selected_phylo_model, " AND SPECIES ", species, ". THIS CAN MAKE THAT THE COMPARISON BETWEEN MEDIAN PREDICTION AND RANDOM EXPECTATION MAY NOT BE MEANINGFUL", sep=""))
+                }
             }
             
             #check
@@ -1987,7 +2000,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 correlation=cor.test(non_proportion_column, proportion_column, method="spearman")
 
                 #check
-                if(correlation$estimate<0.95){
+                if(correlation$estimate<0.90){
                     print(paste("WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS ", correlation$estimate, " FOR SPECIES ", species, sep=""))
                 }
             }
@@ -2268,22 +2281,18 @@ print("## FINISH ##")
 #check the thing about glm non binary!
     #mira pagina 284 Nivk's book, he seems to do as we
 
-#do R script for slurm
-#do bash script to send slurm files
-#best option to see differences between phylo nonphylo?
+
+#run already in the HPC to check no clear errors
+    #it too slow, make more batches to have less cores in each batch
+
+#better option to see differences between phylo nonphylo?
     #non_subset_inter seems to work better in sylvestris, which already has good boyce without phylo
     #in halepensis not the same, and models are in general terrible
     #check if other phylo-approach is consistently better than the one used in the paper
-#run already in the HPC to check no clear errors?
-#check global_test_phylo_current_v1.R and the other two scripts
+
 #script to check general output and outputs per species
-    #warnings
-        #WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES
-        #ERROR! FALSE! WE HAVE AT LEAST 1 SUITABILITY BIN WITH LESS THAN 30 DATA.POINTS FOR SPECIES clausa. THIS 
-            #Species with this should skip the last function!!
-        #WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS
-            #check in each species cor proportion vs non-proportion
     #table with n_points_before_resampling_df
+        #count number of cases for which 10% occurrences are inside the PA buffer
         #CHECK SPECIES WITH LOW OCCURRENCES (e.g., clausa)
             #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
         #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
@@ -2312,6 +2321,11 @@ print("## FINISH ##")
         #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species.
             #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
 #table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
+
+
+#check global_test_phylo_current_v1.R and the other scripts
+
+
 
 #If the other phylo-approaches work much better, you have several options
     #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset

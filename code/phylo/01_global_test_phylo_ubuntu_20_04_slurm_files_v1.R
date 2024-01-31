@@ -16,7 +16,7 @@
 ####### CREATE SLURM FILES ####### 
 ##################################
 
-#create slurm files
+#create slurm and bash scripts
 
 
 
@@ -97,7 +97,7 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
 ###########################
 
 ##define the interval for each batch
-intervals_batches=c(seq(1,length(unique_species),10), length(unique_species))
+intervals_batches=c(seq(1,length(unique_species),1), length(unique_species))
     #sequence from 1 to the total number of species, but the end is not included
     #so we have to add the last species (total number of species) as the end
 
@@ -212,11 +212,11 @@ for(batch_index in 1:length(batches)){
         ### REQUIRED. Set the memory required for this job. I will set 40GC per each of the 100 cores=4000GB; https://public.confluence.arizona.edu/display/UAHPC/Allocation+and+Limits
         ###SBATCH --mem=400gb
         ### REQUIRED. Set the gb per core. YOU HAVE TO SELECT --mem or --mem-per-cpu but NOT BOTH. If you get a .core file, this usually means that the program fails because it asked for too much memory, so it creates a record of the working memory at the time that can be used for debugging. MPI jobs will usually create a core file for each task. You should increase memory limits (https://researchcomputing.princeton.edu/support/knowledge-base/memory).
-        #SBATCH --mem-per-cpu=15gb
+        #SBATCH --mem-per-cpu=11gb
         ### set the constraint for high memory nodes in case you use a lot of memory per node. Normal nodes have a 512Gb limit.
         ###SBATCH --constraint=hi_mem
         ### REQUIRED. Specify the time required for this job, hhh:mm:ss
-        #SBATCH --time=24:00:00
+        #SBATCH --time=05:00:00
 
          
         # --------------------------------------------------------------
@@ -276,18 +276,18 @@ fileConn<-file(description=bash_path, open="a")
 writeLines(text="#!/bin/bash", con=fileConn, sep="\n")
 
 #give rights to run the R script
-writeLines(text="chmod +x ../global_test_phylo_current_v1.R", con=fileConn, sep="\n")
+writeLines(text="chmod +x ../../global_test_phylo_current_v1.R", con=fileConn, sep="\n")
 
 #send slurm jobs
 #batch_name="batch_1"
 for(batch_name in names(batches)){
-    writeLines(text=paste("qsub slurm_global_test_", batch_name, ".slurm; ", sep=""), con=fileConn, sep="\n")   
+    writeLines(text=paste("sbatch slurm_global_test_", batch_name, ".slurm; ", sep=""), con=fileConn, sep="\n")   
 }
 
 #count the number of jobs on the queue
 writeLines(text="\nn_jobs=$(squeue -u dsalazar | awk '{if(NR!=1){count++}}END{print count}')", con=fileConn, sep="\n")
 writeLines(text="echo 'WE HAVE ' $n_jobs ' jobs'", con=fileConn, sep="\n")
-writeLines(text="#to stop all jobs #squeue -u dsalazar | awk '{if(NR!=1){print $1}}' | xargs qdel", con=fileConn, sep="\n")
+writeLines(text="#to stop all jobs #squeue -u dsalazar | awk '{if(NR!=1){print $1}}' | xargs scancel", con=fileConn, sep="\n")
 writeLines(text="#chmod +x 00_master_bash.sh; ./00_master_bash.sh > 00_master_bash.out 2>&1", con=fileConn, sep="\n")    
     #text: A character vector
     #con: A connection object or a character string.
@@ -303,8 +303,6 @@ close(fileConn)
 # check we have all files #
 ###########################
 
-##QUICK CHECK HERE
-
 #we should have 1 file per batch (3) plus the master bash script
 n_files=as.numeric(system("\\
     cd ./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files; \\
@@ -315,15 +313,15 @@ if(n_files!=length(batches)+1){
 }
 
 #check we have all batches in the master bash script
-qsub_appearance = system(paste("\
+sbatch_appearance = system(paste("\
     grep \\
-        'qsub' \\
+        'sbatch' \\
         --only-matching \\
         ", bash_path, sep=""), intern=TRUE)
     #--only-matching: show only nonempty parts of lines that match
-        #we get only "qsub" as many times as it appears even if it is repeated in the same row
+        #we get only "sbatch" as many times as it appears even if it is repeated in the same row
         #https://stackoverflow.com/a/3249761
-if(length(qsub_appearance)!=length(batches)){
+if(length(sbatch_appearance)!=length(batches)){
     stop("ERROR! FALSE! WE HAVE NOT OBTAINED JOB FILES FOR ALL BATCHES")
 }
 

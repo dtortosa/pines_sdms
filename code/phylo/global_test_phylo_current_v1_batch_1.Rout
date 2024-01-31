@@ -180,24 +180,9 @@ Loading required package: parallel
 Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
-[1] FALSE
-Warning message:
-In file.remove(".RData") :
-  cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
 Ncells 127726  6.9     350000 18.7   197086 10.6
 Vcells 251237  2.0    8388608 64.0  1031617  7.9
-Loading required package: colorout
-         used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127726  6.9     350000 18.7   197086 10.6
-Vcells 251237  2.0    8388608 64.0  1031617  7.9
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-Loading required package: SystWrapper
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'SystWrapper'
 Loading required package: colorout
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
@@ -206,9 +191,7 @@ Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=50197 on localhost:11800 at 16:12:45.035
-starting worker pid=50196 on localhost:11800 at 16:12:45.035
-Loading required package: sp
+starting worker pid=31432 on localhost:11861 at 15:48:03.126
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -217,17 +200,5 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
 
-      species total_points points_inside points_outside
-1 canariensis            2             0              2
-2      clausa            7             6              1
-  points_outside_after_resampling
-1                               2
-2                               1
-[1] "## FINISH ##"
+Execution halted
