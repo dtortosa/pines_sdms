@@ -65,6 +65,7 @@ set.seed(56756)
 system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
 system("mkdir -p ./results/global_test_phylo_current/env_predictors")
 system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", sep=""))
+system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", sep=""))
 
 #pre-defined functions
 plot_sin=function(input){
@@ -150,7 +151,7 @@ if(!file.exists("./results/global_test_phylo_current/exsitu_occurrences/pinus_oc
     system(paste(" \\
         unzip \\
             -o \\
-                ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
+                ./datos/phylo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
                 pinus_occurrences_fordryad_exoticonly.csv \\
             -d ./results/global_test_phylo_current/exsitu_occurrences/", sep="")) 
 }
@@ -2292,7 +2293,6 @@ print("## FINISH ##")
 
 #script to check general output and outputs per species
     #table with n_points_before_resampling_df
-        #count number of cases for which 10% occurrences are inside the PA buffer
         #CHECK SPECIES WITH LOW OCCURRENCES (e.g., clausa)
             #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
         #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.

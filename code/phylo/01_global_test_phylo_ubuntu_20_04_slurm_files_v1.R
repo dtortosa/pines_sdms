@@ -35,9 +35,6 @@
 #set the seed for reproducibility
 set.seed(56756)
 
-#create some folders
-system("mkdir -p ./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files")
-
 #load species names
 list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
 
@@ -74,7 +71,7 @@ if(!file.exists("./results/global_test_phylo_current/exsitu_occurrences/pinus_oc
     system(paste(" \\
         unzip \\
             -o \\
-                ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
+                ./datos/phylo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
                 pinus_occurrences_fordryad_exoticonly.csv \\
             -d ./results/global_test_phylo_current/exsitu_occurrences/", sep="")) 
 }
@@ -89,6 +86,19 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
     stop("ERROR! FALSE! WE DO NOT HAVE THE SAME SPECIES NAMES IN PERRET DATA")
 }
 
+#remove the folder with slurm and bash scripts if it exists
+if(dir.exists("./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files/")){
+    system(" \\
+        rm \\
+            -rf \\
+            ./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files/")
+}
+#create the folder
+system(" \\
+    mkdir \\
+        -p \\
+        ./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files/")
+
 
 
 
@@ -98,8 +108,18 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
 
 ##define the interval for each batch
 intervals_batches=c(seq(1,length(unique_species),1), length(unique_species))
-    #sequence from 1 to the total number of species, but the end is not included
-    #so we have to add the last species (total number of species) as the end
+    #sequence from 1 to the last species and add the last species just in cases in does enter due to the step size
+    #it is ok if it is already included because the next loop will do just last_position:last_position, which is the same than last position. Take for example:
+        #Batches with 2 species:
+            #The last batch ends at 25, but as we add the total number of species, we get another 25, having 23, 25, 25 as the last intervals.
+            #When doing 23, you get 23 and 24 positions
+            #when doing the first 25, you get 25 and 25 positions (i.e., current and next interval)
+            #when doing the second 25, there is nothing done
+        #Batches with 1 species:
+            #The last batch ends at 25, but as we add the total number of species, we get another 25, having 24, 25, 25 as the last intervals.
+            #When doing 24, you get 24 position
+            #when doing the first 25, you get 25 and 25 positions (i.e., current and next interval)
+            #when doing the second 25, there is nothing done
 
 
 ##run loop across batches
@@ -186,7 +206,7 @@ for(batch_index in 1:length(batches)){
     
     #create a string with the script
     slurm_script=paste(
-        "#!/bin/bash/
+        "#!/bin/bash
         # --------------------------------------------------------------
         ### PART 1: Requests resources to run your job.
         # --------------------------------------------------------------
@@ -212,11 +232,11 @@ for(batch_index in 1:length(batches)){
         ### REQUIRED. Set the memory required for this job. I will set 40GC per each of the 100 cores=4000GB; https://public.confluence.arizona.edu/display/UAHPC/Allocation+and+Limits
         ###SBATCH --mem=400gb
         ### REQUIRED. Set the gb per core. YOU HAVE TO SELECT --mem or --mem-per-cpu but NOT BOTH. If you get a .core file, this usually means that the program fails because it asked for too much memory, so it creates a record of the working memory at the time that can be used for debugging. MPI jobs will usually create a core file for each task. You should increase memory limits (https://researchcomputing.princeton.edu/support/knowledge-base/memory).
-        #SBATCH --mem-per-cpu=11gb
+        #SBATCH --mem-per-cpu=8gb
         ### set the constraint for high memory nodes in case you use a lot of memory per node. Normal nodes have a 512Gb limit.
         ###SBATCH --constraint=hi_mem
         ### REQUIRED. Specify the time required for this job, hhh:mm:ss
-        #SBATCH --time=05:00:00
+        #SBATCH --time=03:00:00
 
          
         # --------------------------------------------------------------

@@ -37,6 +37,7 @@ manuscript/
 presentaciones/
 questions/
 results/
+code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files/
 *.bib.sav
 *.jpg
 *.ppt

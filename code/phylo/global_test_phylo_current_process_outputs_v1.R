@@ -74,7 +74,7 @@ if(!file.exists("./results/global_test_phylo_current/exsitu_occurrences/pinus_oc
     system(paste(" \\
         unzip \\
             -o \\
-                ./datos/phlyo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
+                ./datos/phylo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip \\
                 pinus_occurrences_fordryad_exoticonly.csv \\
             -d ./results/global_test_phylo_current/exsitu_occurrences/", sep="")) 
 }
@@ -170,7 +170,30 @@ check_outputs_species=function(species){
 
     }
 
-    #print the finish
+
+    ##check we have run the boyce function the expected number of times
+    #count number of times we have output for this function
+    n_boyce=as.numeric(system(paste(" \\
+        grep \\
+            'Data include .* presences and .* absences\\.' \\
+            --extended-regexp \\
+            --count \\
+            ", path_output_file, sep=""), intern=TRUE))
+        #use regular expression to look for lines having Data include... and any character for the number of presences and absences except a new line character (.*). The string ends with an actual dot, so we have to scape "."
+            #https://stackoverflow.com/a/2912904
+
+    #check the number of outputs is the correct
+    if(n_boyce!=((((3*2)+2)*12)+(3*12*8))){
+        stop("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION")
+    }
+        #in non-phylo: ((3*2)+2)*12
+            #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run two times the internal function used by modeva::boyce to calculate the input presence/absence file
+            #this is repeated across the 12 partitions
+        #in phylo: 3*12*8
+            #we run boyce for 3 algorithms across 12 partitions and 8 phylo-approaches
+
+
+    ##print the finish
     return("FINISH")
 }
 
@@ -181,7 +204,7 @@ check_outputs_species=function(species){
 output_results=sapply(unique_species, check_outputs_species)
 
 #check we have run all species
-if(sum(output_results=="FINISH"))!=length(unique_species)){
+if(sum(output_results=="FINISH")!=length(unique_species)){
     stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH SPECIES")
 }
 
@@ -203,22 +226,22 @@ list_paths_batches=list.files(path="./code/phylo/recipes/01_global_test_phylo_ub
 #x=list_paths_batches[1]
 batch_names_check_output=sapply(list_paths_batches, {function(x) paste("batch_", strsplit(x, split="\\.|_")[[1]][15], sep="")})
     #for each path, split using "." (scape as "\\.") and "_". Then get the 15th element which is the bath number. Paste that number with "batch_" to have the batch number
+#the names of the vector should be the paths
 if(FALSE %in% (names(batch_names_check_output)==list_paths_batches)){
     stop("ERROR! FALSE! PROBLEM CHECKING OUTPUT BATCHES")
 }
-    #the names of the vector should be the paths
+#remove the names
 names(batch_names_check_output)=NULL
-    #remove the names
 
-
-##por aquii
 
 ##define function
 #batch=batch_names_check_output[1]
-check_outputs_species=function(batch){
+check_outputs_batch=function(batch){
 
+    #select the output file of the selected batch
     path_batch_output=paste("./code/phylo/global_test_phylo_current_v1_", batch, ".Rout", sep="")
 
+    #calculate the number of workers indicated in the output file
     n_workers=as.numeric(system(paste(" \\
         grep \\
             'starting worker' \\
@@ -226,8 +249,11 @@ check_outputs_species=function(batch){
             ", path_batch_output, " |
         awk \\
             'END{print NR}'", sep=""), intern=TRUE))
-        #we are going to use this numbre to calculate the accepted number of "false" we can have in the output file, as we have 1 false for each new worker started plus 1 when the general session is opened 
+        #--only-matching: show only nonempty parts of lines that match
+        #count the number of times 'starting worker' appears
+        #we are going to use this number to calculate the accepted number of "false" we can have in the output file, as we have 1 false for each new worker started plus 1 when the general session is opened 
 
+    #count number of error OR falses
     n_error_false=as.numeric(system(paste(" \\
         grep \\
             'error|false' \\
@@ -236,30 +262,38 @@ check_outputs_species=function(batch){
             --only-matching \\
             ", path_batch_output, " | \\
         awk 'END{print NR}'" ,sep=""), intern=TRUE))
-        #we can have falses when running each independent worker, so we can only use "error" as signal of problems
+        #look for "error" OR "false" using regular expression and ignoring case (e.g., error or ERROR is considered). Then show only nonempty parts of lines that match (--only-matching) and count the number of these cases.
 
-
+    #the number of error|false should be equal to the number of workers we have plus 1, i.e., we should have a FALSE after starting each R session, the general session and the parallel workers
     if(n_error_false!=(n_workers+1)){
-        stop(paste("ERROR! FALSE! WE HAVE AN ERROR IN THE OUTPUT OF ", batch, sep=""))
+        stop(paste("ERROR! FALSE! WE HAVE MORE THAN EXPECTED ERROR|FALSE IN THE OUTPUT OF ", batch, sep=""))
     }
 
-
-
+    #FINISH should appear 1 time, indicating the end of the script
     check_finish=as.numeric(system(paste(" \\
         grep \\
             '## FINISH ##' \\
             --count \\
             ", path_batch_output, sep=""), intern=TRUE))
-
+        #--count: print only a count of selected lines
     if(check_finish!=1){
         stop(paste("ERROR! FALSE! THERE IS NO FINISH IN THE SCRIPT OF ", batch, sep=""))
     }
 
-
+    #end this
+    return("FINISH")
 }
 
+#run on one batch
+#check_outputs_batch("batch_3")
 
+#run across species
+output_batch_results=sapply(batch_names_check_output, check_outputs_batch)
 
+#check we have run all species
+if(sum(output_batch_results=="FINISH")!=length(batch_names_check_output)){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH BATCH")
+}
 
 
 
@@ -275,38 +309,206 @@ list_paths_n_table=list.files(path="./results/global_test_phylo_current/n_points
     #pattern: an optional regular expression.
     #full.names: a logical value.  If 'TRUE', the directory path is prepended to the file names to give a relative file path.
 
-#get the name 
+#get the name of each table, i.e., the batch number
+#x=strsplit(list_paths_n_table[1], split="_|\\.")[[1]]
 batch_names=sapply(strsplit(list_paths_n_table, split="_|\\."), {function(x) paste(x[12], "_", x[13], sep="")})
-    #for each path
-        #split the path using "_" and "."
+    #split each path using "_" and "."
             #we have to use "\\" to use "."
-        #for the resulting split, get the 13th and 14th element and past them together, so you can have the batch name
+    #for each element in the resulting list, i.e., a vector with the split elements
+        #get the 13th and 14th element and past them together, so you can have the batch name
 
+#get a list with all the tables
 list_tables=lapply(list_paths_n_table, read.table, sep="\t", header=TRUE)
+if(length(list_tables)!=length(list_paths_n_table)){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM CREATING THE TABLE WITH NUMBER OF POINTS")
+}
 
+#add the names
 names(list_tables)=batch_names
 
+#bind all tables together as they have the same columns
 require(dplyr)
-
-
 n_points=bind_rows(list_tables, .id = "batch_name")
+    #Bind any number of data frames by row, making a longer result. This is similar to 'do.call(rbind, dfs)', but the output will contain all columns that appear in any of the inputs
 
-
+#calculate the percentage of points inside
 n_points$percent_points_inside=(n_points$points_inside/n_points$total_points)*100
 
-n_points
-
+#stop if we have many species with a percentage above 10%
 if(length(which(n_points$percent_points_inside>10))>6){
-    stop("ERROR! FALSE! WE HAVE MORE THAN 5 SPECIES WITH MORE THAN 10% OF THE NATURALIZED OCCURRENCES INSIDE THE PA BUFFER")
+    stop("ERROR! FALSE! WE HAVE MORE THAN 6 SPECIES WITH MORE THAN 10% OF THE NATURALIZED OCCURRENCES INSIDE THE PA BUFFER")
 }
 
 
-#compare median boyce vs number of occurrences
-    #you should get the median boyce across partitions just wihtout phylo and check correlation with number of occurrences
+##extract boyce non-phylo per species
+#species=unique(naturalized_occurrences$species)[1]
+get_boyce=function(species){
 
+    #check whether file exists
+    boyce_exists=file.exists(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep=""))
+    
+    #if boyce does exists
+    if(boyce_exists){
+
+        #read the boyce table
+        boyce_table=read.table(
+            paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/", species, "_boyce_table.tsv.gz", sep=""),
+            sep="\t",
+            header=TRUE)
+
+        #open empty DF to save results
+        boyce_rows=data.frame(species=NA, algorithm=NA, percentile_2.5=NA, percentile_50=NA, percentile_97.5=NA)
+
+        #for each algorithm
+        #algorithm="glm"
+        for(algorithm in c("glm", "gam", "rf")){
+
+            #extract the percentiles of the selected model and then transponse and convert to DF
+            boyce_row=data.frame(t(boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)==paste(algorithm, "_eval", sep=""))]))
+
+            #set the column names using the percentile names
+            colnames(boyce_row)=boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)=="partition")]
+                #we get the names of the percentile from the partition column to follow the same order we have in boyce_row
+
+            #bind the percentile to the algorithm and species names
+            boyce_row=cbind.data.frame(data.frame(species=species, algorithm=algorithm), boyce_row)
+
+            #bind to the previous data.frame
+            boyce_rows=rbind.data.frame(boyce_rows, boyce_row) 
+        }
+
+        #remove the first row with all NANs
+        boyce_rows=boyce_rows[which(apply(is.na(boyce_rows), 1, sum)!=ncol(boyce_rows)),]
+            #select only those rows for which the sum of is.na() is NOT equal to the total number of columns, i.e., rows without all NA
+
+        #return the table
+        return(boyce_rows)
+    }
+}
+
+#apply the function to one species
+#get_boyce("banksiana")
+
+#apply the function across all species
+list_results_boyce=lapply(unique(naturalized_occurrences$species), get_boyce)
+    #get a list with the cleaned boyce table per species
+
+#bind all tables as the have the same columns
+results_boyce=bind_rows(list_results_boyce, .id=NULL)
+
+
+##plot boyce against the number of occurrences after resampling
+#algorithms
+algorithms=c("glm", "gam", "rf")
+
+#open empty plot
+pdf(paste("./results/global_test_phylo_current/n_points_before_resampling/boyce_vs_n_occurrences.pdf", sep=""), width=12, height=8)
+plot(1, type="n", xlab="", ylab="", xlim=c(0, 100), ylim=c(-1, 1))
+    #the x axis is the number of points, we do not have species with more than 70-80 occurrences
+    #the y axis is the boyce index, which can go from -1 to 1
+
+#for each algorithm
+#algorithm_index=2
+for(algorithm_index in 1:length(algorithms)){
+
+    #select the algorithm
+    selected_algorithm=algorithms[algorithm_index]
+
+    #select rows of the selected algorithm
+    results_boyce_subset=results_boyce[which(results_boyce$algorithm==selected_algorithm), ]
+    
+    #merge with the number of occurrences
+    results_boyce_subset=merge(results_boyce_subset, n_points, by="species")
+
+    #create a sequence from 1 to the number of species for which we have data
+    species_shape=seq(1,length(results_boyce_subset$species),1)
+        #this will be used to get a different shape for each specie
+
+    #plot points
+    points(x=results_boyce_subset$points_outside_after_resampling, y=results_boyce_subset$percentile_50, col=algorithm_index, pch=species_shape)
+        #occurrences after resampling against the median boyce
+        #color 1,2,3... based on the index of the algorithm, i.e., 1 for all points of glm, 2 for all points of gam, and 3 for RF
+        #the shape will be different across species, as we are plotting here all species for a given model, we need a vector with all the shapes for these species
+
+    #add 95CI as error bars
+    arrows(
+        x0=results_boyce_subset$points_outside_after_resampling, 
+        y0=results_boyce_subset$percentile_2.5, 
+        x1=results_boyce_subset$points_outside_after_resampling, 
+        y1=results_boyce_subset$percentile_97.5, 
+        code=3, 
+        angle=90, 
+        length=0.02,
+        lwd=0.4,
+        col=algorithm_index)
+        #the bar is in the same X position, i.e., the number of occurrences
+        #the bar moves across the Y axis, from the percentile 2.5 to percentile 97.5
+        #select the type of arrow and the dimensions
+        #add the color of the algorithm
+}
+
+#add the legend
+legend(x="topright", legend=algorithms, fill=1:length(algorithms))
+    #using the name of the models and the same color for each algorithm as used in the points, i.e., from 1 to the total number of algorithms.
+dev.off()
+    #CHECK THE PLOT:
+        #the number of occurrences is biasing our results? If so, we should see a positive correlation between boyce and the number of occurrences. If we see that boyce decreases with the number of occurrences, then it is possible that we do not have ability to evaluate species with a low number of occurrences?
+
+
+
+
+###########################################
+###### PLOT BOYCE PHYLO VS. NON-PHYLO #####
+###########################################
+
+##define function to extract the phylo-boyce
+#species=unique(naturalized_occurrences$species)[1]
+get_boyce_phylo=function(species){
+
+    #check whether file exists
+    boyce_exists=file.exists(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""))
+    
+    #if boyce does exists
+    if(boyce_exists){
+
+        ###por aquiii
+
+        #read the boyce table
+        boyce_table=read.table(
+            paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""),
+            sep="\t",
+            header=TRUE)
+
+        #open empty DF to save results
+        boyce_rows=data.frame(species=NA, algorithm=NA, percentile_2.5=NA, percentile_50=NA, percentile_97.5=NA)
+
+        #for each algorithm
+        #algorithm="glm"
+        for(algorithm in c("glm", "gam", "rf")){
+
+            #extract the percentiles of the selected model and then transponse and convert to DF
+            boyce_row=data.frame(t(boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)==paste(algorithm, "_eval", sep=""))]))
+
+            #set the column names using the percentile names
+            colnames(boyce_row)=boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)=="partition")]
+                #we get the names of the percentile from the partition column to follow the same order we have in boyce_row
+
+                ###CHECK THIS CHANGE HERE, IF PROBLEM, ALSO CHAHNGE IN THE PREVIOUS get_boyce function
+
+            #bind the percentile to the algorithm and species names
+            boyce_row=cbind.data.frame(data.frame(species=species, algorithm=algorithm), boyce_row)
+
+            #bind to the previous data.frame
+            boyce_rows=rbind.data.frame(boyce_rows, boyce_row) 
+        }
+
+        #remove the first row with all NANs
+        boyce_rows=boyce_rows[which(apply(is.na(boyce_rows), 1, sum)!=ncol(boyce_rows)),]
+            #select only those rows for which the sum of is.na() is NOT equal to the total number of columns, i.e., rows without all NA
+
+        #return the table
+        return(boyce_rows)
+    }
+}
 ##SEND AGAIN NECESARRY FILES
 
-
-
-##halepensis has 97 otuptus of modEvA::Boyce, it should be 12 partitions * 3 algorithms * 2 dup vs non-dup
-    #CHECK THIS
