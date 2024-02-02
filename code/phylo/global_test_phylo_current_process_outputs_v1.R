@@ -159,17 +159,22 @@ check_outputs_species=function(species){
     #look for a line whit the warning
     warning_proporition_cor=system(paste("\\
         grep \\
-            'WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS' \\
+            --extended-regexp \\
+            'WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS .*' \\
             ", path_output_file, sep=""), intern=TRUE)
 
-    #if we indeed have the line
-    if(!is.na(warning_proporition_cor[1]) & warning_proporition_cor[1]<0.9){
+    #get the correlation value
+    cor_value=strsplit(warning_proporition_cor, split=" ")[[1]][12]
+
+    #stop only if we get a correlation value below 0.9
+    if(cor_value!="NA" & cor_value<0.9){
 
         #stop and check the correlation
-        stop(paste("CHECK THE CORRELATION BETWEEN PROPORTION AND NON-PROPORTION PHYLO APPROACHES FOR ", species, ". IT IS TOO LOW: ", strsplit(warning_proporition_cor, split=" ")[[1]][13], sep=""))
-
+        stop(paste("CHECK THE CORRELATION BETWEEN PROPORTION AND NON-PROPORTION PHYLO APPROACHES FOR ", species, ". IT IS TOO LOW: ", , sep=""))
     }
 
+        ###por aquiii
+            #problem here, what if other species besides elliotti has NA? we are not counting them...
 
     ##check we have run the boyce function the expected number of times
     #count number of times we have output for this function
@@ -371,7 +376,7 @@ get_boyce=function(species){
                 #we get the names of the percentile from the partition column to follow the same order we have in boyce_row
 
             #bind the percentile to the algorithm and species names
-            boyce_row=cbind.data.frame(data.frame(species=species, algorithm=algorithm), boyce_row)
+            boyce_row=cbind.data.frame(species=species, algorithm=algorithm, boyce_row)
 
             #bind to the previous data.frame
             boyce_rows=rbind.data.frame(boyce_rows, boyce_row) 
@@ -381,17 +386,28 @@ get_boyce=function(species){
         boyce_rows=boyce_rows[which(apply(is.na(boyce_rows), 1, sum)!=ncol(boyce_rows)),]
             #select only those rows for which the sum of is.na() is NOT equal to the total number of columns, i.e., rows without all NA
 
+        #update row names
+        rownames(boyce_rows)=1:nrow(boyce_rows)
+
         #return the table
         return(boyce_rows)
     }
 }
 
 #apply the function to one species
-#get_boyce("banksiana")
+#get_boyce("halepensis")
 
 #apply the function across all species
 list_results_boyce=lapply(unique(naturalized_occurrences$species), get_boyce)
     #get a list with the cleaned boyce table per species
+
+#check we have the correct rows and columns in each table
+#x=list_results_boyce[[1]]
+check_rows_boyce=FALSE %in% (sapply(list_results_boyce, {function(x) if(!is.null(rownames(x))){identical(rownames(x), c("1","2","3"))}}))
+check_cols_boyce=FALSE %in% (sapply(list_results_boyce, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "algorithm", "percentile_2.5", "percentile_50", "percentile_97.5"))}}))
+if(check_rows_boyce | check_cols_boyce){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE EXTRACTION OF BOYCE")
+}
 
 #bind all tables as the have the same columns
 results_boyce=bind_rows(list_results_boyce, .id=NULL)
@@ -471,8 +487,6 @@ get_boyce_phylo=function(species){
     #if boyce does exists
     if(boyce_exists){
 
-        ###por aquiii
-
         #read the boyce table
         boyce_table=read.table(
             paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""),
@@ -480,23 +494,47 @@ get_boyce_phylo=function(species){
             header=TRUE)
 
         #open empty DF to save results
-        boyce_rows=data.frame(species=NA, algorithm=NA, percentile_2.5=NA, percentile_50=NA, percentile_97.5=NA)
+        boyce_rows=data.frame(species=NA, algorithm=NA, no_phylo_percentile_2.5=NA, no_phylo_percentile_50=NA, no_phylo_percentile_97.5=NA, phylo_percentile_2.5=NA, phylo_percentile_50=NA, phylo_percentile_97.5=NA)
 
         #for each algorithm
         #algorithm="glm"
         for(algorithm in c("glm", "gam", "rf")){
 
-            #extract the percentiles of the selected model and then transponse and convert to DF
-            boyce_row=data.frame(t(boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)==paste(algorithm, "_eval", sep=""))]))
+            ##extract the percentiles of the selected model without phylo
+            #get the row
+            boyce_row_no_phylo=boyce_table[
+                which(boyce_table$model==paste(algorithm, "_eval", sep="")), 
+                which(colnames(boyce_table) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))]
 
-            #set the column names using the percentile names
-            colnames(boyce_row)=boyce_table[which(boyce_table$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")), which(colnames(boyce_table)=="partition")]
-                #we get the names of the percentile from the partition column to follow the same order we have in boyce_row
+            #check we have selected the correct model
+            if(boyce_row_no_phylo$model!=paste(algorithm, "_eval", sep="")){
+                stop(paste("ERROR! FALSE! PROBLEM EXTRACTING BOYCE PHYLO AND NON-PHYLO FOR ", species, sep=""))
+            } else { #if so, remove the model column
+                boyce_row_no_phylo$model=NULL
+            }
 
-                ###CHECK THIS CHANGE HERE, IF PROBLEM, ALSO CHAHNGE IN THE PREVIOUS get_boyce function
+            #add no-phylo to the column names
+            colnames(boyce_row_no_phylo)=paste("no_phylo_", colnames(boyce_row_no_phylo), sep="")
 
-            #bind the percentile to the algorithm and species names
-            boyce_row=cbind.data.frame(data.frame(species=species, algorithm=algorithm), boyce_row)
+
+            ##extract the percentiles of the selected model with phylo
+            #get the row
+            boyce_row_phylo=boyce_table[
+                which(boyce_table$model==paste("phylo_rasters_subset_inter_", algorithm, "_boyce", sep="")), 
+                which(colnames(boyce_table) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))]
+
+            #check we have selected the correct model
+            if(boyce_row_phylo$model!=paste("phylo_rasters_subset_inter_", algorithm, "_boyce", sep="")){
+                stop(paste("ERROR! FALSE! PROBLEM EXTRACTING BOYCE PHYLO AND NON-PHYLO FOR ", species, sep=""))
+            } else { #if so, remove the model column
+                boyce_row_phylo$model=NULL
+            }
+
+            #add phylo to the column names
+            colnames(boyce_row_phylo)=paste("phylo_", colnames(boyce_row_phylo), sep="")
+
+            #bind the phylo and no-phylo percentile to the algorithm and species names
+            boyce_row=cbind.data.frame(species=species, algorithm=algorithm, boyce_row_no_phylo, boyce_row_phylo)
 
             #bind to the previous data.frame
             boyce_rows=rbind.data.frame(boyce_rows, boyce_row) 
@@ -506,9 +544,53 @@ get_boyce_phylo=function(species){
         boyce_rows=boyce_rows[which(apply(is.na(boyce_rows), 1, sum)!=ncol(boyce_rows)),]
             #select only those rows for which the sum of is.na() is NOT equal to the total number of columns, i.e., rows without all NA
 
+        #update row names
+        rownames(boyce_rows)=1:nrow(boyce_rows)
+
         #return the table
         return(boyce_rows)
     }
 }
+
+#apply the function to one species
+#get_boyce_phylo("banksiana")
+
+#apply the function across all species
+list_results_boyce_phylo=lapply(unique(naturalized_occurrences$species), get_boyce_phylo)
+    #get a list with the cleaned boyce table per species
+
+#check we have the correct rows and columns in each table
+#x=list_results_boyce_phylo[[1]]
+check_rows_boyce_phylo=FALSE %in% (sapply(list_results_boyce_phylo, {function(x) if(!is.null(rownames(x))){identical(rownames(x), c("1","2","3"))}}))
+check_cols_boyce_phylo=FALSE %in% (sapply(list_results_boyce_phylo, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "algorithm", "no_phylo_percentile_2.5", "no_phylo_percentile_50", "no_phylo_percentile_97.5", "phylo_percentile_2.5", "phylo_percentile_50", "phylo_percentile_97.5"))}}))
+if(check_rows_boyce_phylo | check_cols_boyce_phylo){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE EXTRACTION OF PHYLO AND NON-PHYLO BOYCE")
+}
+
+#bind all tables as the have the same columns
+results_boyce_phylo=bind_rows(list_results_boyce_phylo, .id=NULL)
+
+#check we have the same non-phylo results than in the previous boyce table
+#get the percentile columns from both tables
+subset_boyce_no_phylo_1=results_boyce[,which(colnames(results_boyce) %in% c("percentile_2.5", "percentile_50", "percentile_97.5"))]
+subset_boyce_no_phylo_2=results_boyce_phylo[,which(grepl("no_phylo", colnames(results_boyce_phylo), fixed=TRUE))]
+#compare each column between the previous boyce table and the non-phylo data from the new table
+#i=1
+for(i in 1:ncol(subset_boyce_no_phylo_1)){
+
+    #if the difference of any algorithm*species combination between both tables is higher than <1e-15, we have a problem
+    if(FALSE %in% (subset_boyce_no_phylo_1[,i]-subset_boyce_no_phylo_2[,i])<1e-15){
+        stop("ERROR! FALSE! PROBLEM EXTRACTING BOYCE RESULTS")
+    }
+}
+
+
+
+#now plot phylo vs non-phylo
+
+
+
+
+
 ##SEND AGAIN NECESARRY FILES
 

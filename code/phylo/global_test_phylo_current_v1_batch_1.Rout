@@ -171,7 +171,7 @@ Loaded gam 1.22-3
 
 Loading required package: modEvA
 Loading required package: terra
-terra 1.7.65
+terra 1.7.71
 Loading required package: gtools
 Loading required package: doParallel
 Loading required package: iterators
@@ -191,7 +191,7 @@ Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=31432 on localhost:11861 at 15:48:03.126
+starting worker pid=188680 on localhost:11408 at 16:55:47.347
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -200,5 +200,6 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
-
+Error in { : task 1 failed - "missing value where TRUE/FALSE needed"
+Calls: %dopar% -> <Anonymous>
 Execution halted
