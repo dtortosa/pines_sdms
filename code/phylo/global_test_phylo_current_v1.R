@@ -59,7 +59,8 @@ batch_number=opt$batch
 require(raster)
 
 #set the seed for reproducibility
-set.seed(56756)
+set.seed(4357430)
+    #we have a random selection of occurrences within the 50x50km cells
 
 #create some folders
 system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
@@ -1112,8 +1113,8 @@ predict_eval_no_phylo = function(species, status_previous_step){
                 #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
 
             #check if we have too many points within the same 10x10 cells
-            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.2)){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 20% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
+            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.3)){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 30% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
             }
                 #the difference in points between obspred_dup and obspred_no_dup is the number of presences being in 10x10km cells with other presences, as the latter was created by removing these presences, in contrast with the former.
 
@@ -2287,13 +2288,14 @@ print("## FINISH ##")
     #mira pagina 284 Nivk's book, he seems to do as we
 
 
-#run already in the HPC to check no clear errors
-    #it too slow, make more batches to have less cores in each batch
-
 #better option to see differences between phylo nonphylo?
     #non_subset_inter seems to work better in sylvestris, which already has good boyce without phylo
     #in halepensis not the same, and models are in general terrible
     #check if other phylo-approach is consistently better than the one used in the paper
+
+
+
+
 
 #script to check general output and outputs per species
     #table with n_points_before_resampling_df
@@ -2301,8 +2303,10 @@ print("## FINISH ##")
             #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
         #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
 #figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
-    #if they are the same, the points will follow the diagonal
-    #if phylo (Y) is lower than non-phylo, points will be below diagonal
+    #if they are the same, the points will follow the diagonal. Also the 95CI bars will be the same between phylo and non-phylo
+    #if phylo (Y) is lower than non-phylo (X), points will be below diagonal
+    #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
+#table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
 #glmm
     #Response: 
         #the difference in boyce index between phylo and non-phylo.
@@ -2324,7 +2328,6 @@ print("## FINISH ##")
         #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
         #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species.
             #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
-#table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
 
 
 #check global_test_phylo_current_v1.R and the other scripts

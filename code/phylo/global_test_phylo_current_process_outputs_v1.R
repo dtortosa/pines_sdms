@@ -102,25 +102,146 @@ check_outputs_species=function(species){
     #output file path
     path_output_file=paste("./results/global_test_phylo_current/species_output_files/", species, ".txt", sep="")
 
+    #check whether the output file exists
+    output_file_exists=file.exists(path_output_file)
 
-    ##check warnings about suitability bin sample size
-    #check whether we have the warning about suitability bin size
-    count_non_phylo_error_bin = system(paste(" \\
-        grep \\
-            --count \\
-            'ERROR! FALSE! WE HAVE AT LEAST 1 NON-PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR SPECIES ", species, "' \\
+    #if the file exits do stuff
+    if(output_file_exists){
+
+        ##check warnings about suitability bin sample size
+        #check whether we have the warning about suitability bin size
+        count_non_phylo_error_bin = system(paste(" \\
+            grep \\
+                --count \\
+                'ERROR! FALSE! WE HAVE AT LEAST 1 NON-PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR SPECIES ", species, "' \\
+                ", path_output_file, sep=""), intern=TRUE)
+            #--count: print only a count of selected lines
+
+        #if the check appears 1 or several times
+        #we can have several times the same error because this is checked for each partition
+        if(count_non_phylo_error_bin[1]>0){
+
+            #get the line number where eval_phylo starts
+            first_line_eval_phylo=as.numeric(system(paste(" \\
+                grep \\
+                    --line-number \\
+                    'STARTING predict_eval_phylo FOR  ", species, "' \\
+                    ", path_output_file, "| \\
+                cut \\
+                    --delimiter : \\
+                    --fields 1", sep=""), intern=TRUE))
+                #get line number with grep and, from the output, get the first element before :, which is the line number
+                #https://stackoverflow.com/a/21412398
+
+            #now get the next line
+            second_line_eval_phylo=system(paste("\\
+                awk \\
+                    '{if(NR==", first_line_eval_phylo+1, "){print $0}}' \\
+                    ", path_output_file, sep=""), intern=TRUE)
+
+            #the next line should be the ENDING because no analyses should be done when the ERROR previously indicated appears, if not, we have a problem
+            if(!grepl(paste("ENDING predict_eval_phylo FOR  ", species, sep=""), second_line_eval_phylo, fixed=TRUE)){
+                stop(paste("ERROR! FALSE! PHYLO EVAL SHOULD NOT HAVE BEEN RUN FOR ", species, sep=""))
+            }
+        }
+
+        #count cases with error about suitability bin sample size
+        count_phylo_error_bin=system(paste("\\
+            grep \\
+                --count \\
+                'ERROR! FALSE! WE HAVE AT LEAST 1 PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR PHYLO MODEL ' \\
             ", path_output_file, sep=""), intern=TRUE)
-        #--count: print only a count of selected lines
 
-    #if the check appears 1 or several times
-    #we can have several times the same error because this is checked for each partition
-    if(count_non_phylo_error_bin[1]>0){
+        #if appears more than 0 times
+        #it can appear several times as this is checked by partition and phylo model
+        if(count_phylo_error_bin[1]>0){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH PHYLO SUITABILITY BIN SAMPLE SIZE FOR ONE OF THE PHYLO MODELS FOR SPECIES ", species, "CHECK THIS IS NOT AFFECTING THE PHYLO MODEL WE ARE USING THE PAPER", sep=""))
+        }
+
+
+        ##check correlation between proportion and non-proportion phylo APPROACHES
+        #look for a line whit the warning
+        warning_proporition_cor=system(paste("\\
+            grep \\
+                --extended-regexp \\
+                'WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS .*' \\
+                ", path_output_file, sep=""), intern=TRUE)
+
+        #if we have the warning printed
+        if(length(warning_proporition_cor)!=0){
+            
+            #if we have several cases (this is done for subset, no subset, intersect, no intersect)
+            if(length(warning_proporition_cor)>1){
+
+                #get the correlation value for each case
+                #x=warning_proporition_cor[[1]]
+                cor_values=sapply(warning_proporition_cor, {function(x) strsplit(x, split=" ")[[1]][13]})
+
+                #check that the names of the generated vector are exactly the values of warning_proporition_cor 
+                if(FALSE %in% (names(cor_values)==warning_proporition_cor)){
+                    stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE PROPORTION CHECK FOR SPECIES ", species, sep=""))
+                } else {
+                    names(cor_values)=NULL
+                }
+
+                #if we have an NA, just select the NA
+                if("NA" %in% cor_values){
+                    cor_value=NA
+                } else {
+                    #if not, get the lowest correlation
+                    cor_value=min(as.numeric(cor_values))
+                }
+            } else {
+
+                #get the correlation for the only case
+                cor_value=strsplit(warning_proporition_cor, split=" ")[[1]][13]
+
+                #convert "NA" to NA in R
+                if(cor_value=="NA"){
+                    cor_value=NA
+                } else {
+                    #convert to numeric
+                    cor_value=as.numeric(cor_value)
+                }
+            }
+
+            #if we get a correlation value below 0.9 or NA, we have low cor
+            if(is.na(cor_value) | cor_value<0.9){
+                cor_flag="low_cor"
+            } else {
+                cor_flag="high_cor"
+            }
+        } else {
+
+            #we have high cor if no warning is present
+            cor_flag="high_cor"
+        }
+
+
+        ##check we have run the boyce function the expected number of times
+        #count number of times we have output for this function
+        n_boyce=as.numeric(system(paste(" \\
+            grep \\
+                'Data include .* presences and .* absences\\.' \\
+                --extended-regexp \\
+                --count \\
+                ", path_output_file, sep=""), intern=TRUE))
+            #use regular expression to look for lines having Data include... and any character for the number of presences and absences except a new line character (.*). The string ends with an actual dot, so we have to scape "."
+                #https://stackoverflow.com/a/2912904
+
+        #calculate the expected number of boyce outputs
+        expected_boyce=((((3*2)+2)*12)+(3*12*8))
+            #in non-phylo: ((3*2)+2)*12
+                #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run two times the internal function used by modeva::boyce to calculate the input presence/absence file
+                #this is repeated across the 12 partitions
+            #in phylo: 3*12*8
+                #we run boyce for 3 algorithms across 12 partitions and 8 phylo-approaches
 
         #get the line number where eval_phylo starts
-        first_line_eval_phylo=as.numeric(system(paste(" \\
+        first_line_no_eval_phylo=as.numeric(system(paste(" \\
             grep \\
                 --line-number \\
-                'STARTING predict_eval_phylo FOR  ", species, "' \\
+                'STARTING predict_eval_no_phylo FOR  ", species, "' \\
                 ", path_output_file, "| \\
             cut \\
                 --delimiter : \\
@@ -128,78 +249,32 @@ check_outputs_species=function(species){
             #get line number with grep and, from the output, get the first element before :, which is the line number
             #https://stackoverflow.com/a/21412398
 
-        #now get the next line
-        second_line_eval_phylo=system(paste("\\
+        #now get the fourth next line
+        four_lines_after_eval_phylo=system(paste("\\
             awk \\
-                '{if(NR==", first_line_eval_phylo+1, "){print $0}}' \\
+                '{if(NR==", first_line_no_eval_phylo+4, "){print $0}}' \\
                 ", path_output_file, sep=""), intern=TRUE)
 
-        #the next line should be the ENDING because no analyses should be done when the ERROR previously indicated appears, if not, we have a problem
-        if(!grepl(paste("ENDING predict_eval_phylo FOR  ", species, sep=""), second_line_eval_phylo, fixed=TRUE)){
-            stop(paste("ERROR! FALSE! PHYLO EVAL SHOULD NOT HAVE BEEN RUN FOR ", species, sep=""))
+        #if the fourth line after non phylo eval is the END
+        if(grepl(paste("ENDING  ", species, sep=""), four_lines_after_eval_phylo, fixed=TRUE)){
+
+            #means the species has not run and we should have zero boyce outputs
+            check_boyce=n_boyce==0
+        } else {
+
+            #if not, the specie has run and we should have the expected number of boyce outputs
+            check_boyce=n_boyce==expected_boyce
         }
+
+        #check the number of outputs is the correct
+        if(!check_boyce){
+            stop("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION")
+        }
+
+
+        ##return the cor flag and FINISH
+        return(list(cor_flag, "FINISH"))
     }
-
-
-    #count cases with error about suitability bin sample size
-    count_phylo_error_bin=system(paste("\\
-        grep \\
-            --count \\
-            'ERROR! FALSE! WE HAVE AT LEAST 1 PHYLO SUITABILITY BIN WITH LESS THAN 60 DATA.POINTS FOR PHYLO MODEL ' \\
-        ", path_output_file, sep=""), intern=TRUE)
-
-    #if appears more than 0 times
-    #it can appear several times as this is checked by partition and phylo model
-    if(count_phylo_error_bin[1]>0){
-        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH PHYLO SUITABILITY BIN SAMPLE SIZE FOR ONE OF THE PHYLO MODELS FOR SPECIES ", species, "CHECK THIS IS NOT AFFECTING THE PHYLO MODEL WE ARE USING THE PAPER", sep=""))
-    }
-
-
-    ##check correlation between proportion and non-proportion phylo APPROACHES
-    #look for a line whit the warning
-    warning_proporition_cor=system(paste("\\
-        grep \\
-            --extended-regexp \\
-            'WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS .*' \\
-            ", path_output_file, sep=""), intern=TRUE)
-
-    #get the correlation value
-    cor_value=strsplit(warning_proporition_cor, split=" ")[[1]][12]
-
-    #stop only if we get a correlation value below 0.9
-    if(cor_value!="NA" & cor_value<0.9){
-
-        #stop and check the correlation
-        stop(paste("CHECK THE CORRELATION BETWEEN PROPORTION AND NON-PROPORTION PHYLO APPROACHES FOR ", species, ". IT IS TOO LOW: ", , sep=""))
-    }
-
-        ###por aquiii
-            #problem here, what if other species besides elliotti has NA? we are not counting them...
-
-    ##check we have run the boyce function the expected number of times
-    #count number of times we have output for this function
-    n_boyce=as.numeric(system(paste(" \\
-        grep \\
-            'Data include .* presences and .* absences\\.' \\
-            --extended-regexp \\
-            --count \\
-            ", path_output_file, sep=""), intern=TRUE))
-        #use regular expression to look for lines having Data include... and any character for the number of presences and absences except a new line character (.*). The string ends with an actual dot, so we have to scape "."
-            #https://stackoverflow.com/a/2912904
-
-    #check the number of outputs is the correct
-    if(n_boyce!=((((3*2)+2)*12)+(3*12*8))){
-        stop("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION")
-    }
-        #in non-phylo: ((3*2)+2)*12
-            #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run two times the internal function used by modeva::boyce to calculate the input presence/absence file
-            #this is repeated across the 12 partitions
-        #in phylo: 3*12*8
-            #we run boyce for 3 algorithms across 12 partitions and 8 phylo-approaches
-
-
-    ##print the finish
-    return("FINISH")
 }
 
 #run on one species
@@ -208,9 +283,26 @@ check_outputs_species=function(species){
 #run across species
 output_results=sapply(unique_species, check_outputs_species)
 
-#check we have run all species
-if(sum(output_results=="FINISH")!=length(unique_species)){
+#check we have run all species and the number of low_correlation between proportion and non-proportion is low
+#x=output_results[[1]]
+#x=output_results[[2]]
+output_results_check_finish=sapply(output_results, {function(x) if(!is.null(x) && x[2]=="FINISH") 1 else 0})
+output_results_check_correlation=sapply(output_results, {function(x) if(!is.null(x) && x[1]=="low_cor") 1 else 0})
+    #one liner ifelse
+        #https://stackoverflow.com/questions/15586566/if-statement-in-r-can-only-have-one-line
+    #&& only compares the first element of "x"
+        #"x" is a list with two elements: finish status and correlation status
+        #if the first one is not null, we can proceed
+        #if "x" is just NULL, we will get a false for !is.null(), so we get the else
+        #& and && indicate logical AND and | and || indicate logical OR. The shorter form performs elementwise comparisons in much the same way as arithmetic operators. The longer form evaluates left to right examining only the first element of each vector. Evaluation proceeds only until the result is determined. The longer form is appropriate for programming control-flow and typically preferred in if clauses.
+        #https://stackoverflow.com/a/16027891
+if(sum(output_results_check_finish)!=length(unique_species)){
     stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH SPECIES")
+}
+
+#count the number of cases with low correlation between the main phylogenetic approaches
+if(sum(output_results_check_correlation)>3){
+    stop("ERROR! FALSE! WE HAVE MORE THAN 3 SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
 }
 
 
@@ -520,11 +612,11 @@ get_boyce_phylo=function(species){
             ##extract the percentiles of the selected model with phylo
             #get the row
             boyce_row_phylo=boyce_table[
-                which(boyce_table$model==paste("phylo_rasters_subset_inter_", algorithm, "_boyce", sep="")), 
+                which(boyce_table$model==paste("phylo_rasters_proportion_subset_inter_", algorithm, "_boyce", sep="")), 
                 which(colnames(boyce_table) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))]
 
             #check we have selected the correct model
-            if(boyce_row_phylo$model!=paste("phylo_rasters_subset_inter_", algorithm, "_boyce", sep="")){
+            if(boyce_row_phylo$model!=paste("phylo_rasters_proportion_subset_inter_", algorithm, "_boyce", sep="")){
                 stop(paste("ERROR! FALSE! PROBLEM EXTRACTING BOYCE PHYLO AND NON-PHYLO FOR ", species, sep=""))
             } else { #if so, remove the model column
                 boyce_row_phylo$model=NULL
@@ -585,10 +677,205 @@ for(i in 1:ncol(subset_boyce_no_phylo_1)){
 }
 
 
+##plot boyce against the number of occurrences after resampling
+#algorithms
+algorithms=c("glm", "gam", "rf")
 
-#now plot phylo vs non-phylo
+#open empty plot
+pdf(paste("./results/global_test_phylo_current/boyce_non_phylo_vs_phylo.pdf", sep=""), width=8, height=8)
+    #we need the same height and width in order to properly compare the confidence intervals of X and Y. If the shape of the plot is not cuadrangular, we cannot visualize the difference of the CI between the two variable plots.
+plot(1, type="n", xlab="Boyce index non-phylo", ylab="Boyce index phylo", xlim=c(-1, 1), ylim=c(-1, 1))
+    #the x and y axis are the boyce index, which can go from -1 to 1
+
+#for each algorithm
+#algorithm_index=1
+for(algorithm_index in 1:length(algorithms)){
+
+    #select the algorithm
+    selected_algorithm=algorithms[algorithm_index]
+
+    #select rows of the selected algorithm
+    results_boyce_phylo_subset=results_boyce_phylo[which(results_boyce_phylo$algorithm==selected_algorithm), ]
+
+    #create a sequence from 1 to the number of species for which we have data
+    species_shape=seq(1,length(results_boyce_phylo_subset$species),1)
+        #this will be used to get a different shape for each specie
+
+    #plot points
+    points(x=results_boyce_phylo_subset$no_phylo_percentile_50, y=results_boyce_phylo_subset$phylo_percentile_50, col=algorithm_index, pch=species_shape)
+        #occurrences after resampling against the median boyce
+        #color 1,2,3... based on the index of the algorithm, i.e., 1 for all points of glm, 2 for all points of gam, and 3 for RF
+        #the shape will be different across species, as we are plotting here all species for a given model, we need a vector with all the shapes for these species
+
+    #add 95CI as error bars
+    #Y error bars, i.e, 95CI of the phylo boyce
+    arrows(
+        x0=results_boyce_phylo_subset$no_phylo_percentile_50, 
+        y0=results_boyce_phylo_subset$phylo_percentile_2.5, 
+        x1=results_boyce_phylo_subset$no_phylo_percentile_50, 
+        y1=results_boyce_phylo_subset$phylo_percentile_97.5, 
+        code=3, 
+        angle=90, 
+        length=0.02,
+        lwd=0.4,
+        col=algorithm_index)
+        #the bar is in the same X position, i.e., the non-phylo boyce index
+        #the bar moves across the Y axis, i.e., the phylo boyce index, from the percentile 2.5 to percentile 97.5
+        #select the type of arrow and the dimensions
+        #add the color of the algorithm
+    #X error bars, i.e, 95CI of the non-phylo boyce
+    arrows(
+        x0=results_boyce_phylo_subset$no_phylo_percentile_2.5, 
+        y0=results_boyce_phylo_subset$phylo_percentile_50, 
+        x1=results_boyce_phylo_subset$no_phylo_percentile_97.5, 
+        y1=results_boyce_phylo_subset$phylo_percentile_50, 
+        code=3, 
+        angle=90, 
+        length=0.02,
+        lwd=0.4,
+        col=algorithm_index)
+        #the bar is in the same Y position, i.e., the phylo boyce index
+        #the bar moves across the X axis, i.e., the non-phylo boyce index, from the percentile 2.5 to percentile 97.5
+}
+
+#add the legend
+legend(x="topleft", legend=algorithms, fill=1:length(algorithms))
+    #using the name of the models and the same color for each algorithm as used in the points, i.e., from 1 to the total number of algorithms.
+
+#add diagonal line
+abline(coef = c(0,1))
+dev.off()
+    #CHECK THE PLOT:
+        #if they are the same, the points will follow the diagonal. Also the 95CI bars will be the same between phylo and non-phylo
+        #if phylo (Y) is lower than non-phylo (X), points will be below diagonal
+        #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
 
 
+
+###############################
+###### PROCESS PHYLO DIFF #####
+###############################
+
+##define function to extract the phylo-boyce
+#species=unique(naturalized_occurrences$species)[1]
+get_boyce_phylo_diff=function(species){
+
+    #check whether file exists
+    boyce_exists=file.exists(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""))
+    
+    #if boyce does exists
+    if(boyce_exists){
+
+        #read the boyce table
+        boyce_table=read.table(
+            paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""),
+            sep="\t",
+            header=TRUE)
+
+        #open empty DF to save results
+        boyce_columns=data.frame(species=species)
+
+        #for each algorithm
+        #algorithm="glm"
+        for(algorithm in c("glm", "gam", "rf")){
+
+            ##extract the percentiles of the selected model
+            #get the row
+            boyce_column_phylo_diff=boyce_table[
+                which(boyce_table$model==paste("phylo_rasters_proportion_subset_inter_", algorithm, "_diff", sep="")), 
+                which(colnames(boyce_table) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))]
+
+            #check we have selected the correct model
+            if(boyce_column_phylo_diff$model!=paste("phylo_rasters_proportion_subset_inter_", algorithm, "_diff", sep="")){
+                stop(paste("ERROR! FALSE! PROBLEM EXTRACTING BOYCE PHYLO AND NON-PHYLO FOR ", species, sep=""))
+            } else { #if so, remove the model column
+                boyce_column_phylo_diff$model=NULL
+            }
+
+            #add phylo to the column names
+            colnames(boyce_column_phylo_diff)=paste(algorithm, "_phylo_diff_", colnames(boyce_column_phylo_diff), sep="")
+
+            #bind the phylo and no-phylo percentile to the algorithm and species names
+            boyce_column_phylo_diff_species=cbind.data.frame(species=species, boyce_column_phylo_diff)
+
+            #bind to the previous data.frame
+            boyce_columns=merge(boyce_columns, boyce_column_phylo_diff_species) 
+        }
+
+        #check we have the correct column names
+        #get all possible combinations of percentiles and algortihms as a DF
+        check_columns_raw=expand.grid(c("phylo_diff_percentile_2.5", "phylo_diff_percentile_50", "phylo_diff_percentile_97.5"), c("glm", "gam", "rf"))
+            #the first vector is used to sort the DF, so we need to use percentile first, to have 2.5,5,97.5...
+        #paste algorithm and percentiles        
+        check_columns=paste(check_columns_raw$Var2, check_columns_raw$Var1, sep="_")
+        #add species
+        check_columns=c("species", check_columns)
+        #check identical
+        if(!identical(colnames(boyce_columns), check_columns)){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE EXTRACTION OF BOYCE PHYLO DIFF FOR SPECIES ", species, sep=""))
+        }
+
+        #return the table
+        return(boyce_columns)
+    }
+}
+
+#apply the function to one species
+#get_boyce_phylo("halepensis")
+
+#apply the function across all species
+list_results_boyce_phylo_diff=lapply(unique(naturalized_occurrences$species), get_boyce_phylo_diff)
+    #get a list with the cleaned boyce table per species
+
+#check we have the correct rows and columns in each table
+#x=list_results_boyce_phylo_diff[[1]]
+#x=list_results_boyce_phylo_diff[[17]]
+check_rows_boyce_phylo_diff=FALSE %in% (sapply(list_results_boyce_phylo_diff, {function(x) if(!is.null(x)){nrow(x)==1}}))
+check_cols_boyce_phylo_diff=FALSE %in% (sapply(list_results_boyce_phylo_diff, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "glm_phylo_diff_percentile_2.5", "glm_phylo_diff_percentile_50", "glm_phylo_diff_percentile_97.5", "gam_phylo_diff_percentile_2.5", "gam_phylo_diff_percentile_50", "gam_phylo_diff_percentile_97.5", "rf_phylo_diff_percentile_2.5", "rf_phylo_diff_percentile_50", "rf_phylo_diff_percentile_97.5"))}}))
+if(check_rows_boyce_phylo_diff | check_cols_boyce_phylo_diff){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE EXTRACTION OF PHYLO AND NON-PHYLO BOYCE")
+}
+
+#bind all tables as the have the same columns
+results_boyce_phylo_diff=bind_rows(list_results_boyce_phylo_diff, .id=NULL)
+
+#add columns with the median(95CI) for each algorithm
+for(algorithm in c("glm", "gam", "rf")){
+
+    #paste the rounded median and 95CI of the selected algorithm
+    new_column=paste(
+        signif(results_boyce_phylo_diff[,
+            which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_50", sep=""))], 3), "(", 
+        signif(results_boyce_phylo_diff[,
+            which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_2.5", sep=""))], 3), ",", 
+        signif(results_boyce_phylo_diff[,
+            which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_97.5", sep=""))], 3), ")", sep="")
+        #we use signif to maintain the scientific notation while reducing the decimals
+            #https://stackoverflow.com/a/45106054
+
+    #add the new column to the DF
+    results_boyce_phylo_diff[,paste(algorithm, "_phylo_diff_median_95CI", sep="")]=new_column
+}
+
+
+###easy way to check this table? if not, move foward
+#x=results_boyce_phylo_diff[1,]
+apply(results_boyce_phylo_diff[,which(colnames(results_boyce_phylo_diff)!="species")], 1, {function(x) signif(x["glm_phylo_diff_percentile_50"])})
+
+
+#save the table
+write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current/results_boyce_non_phylo_vs_phylo_diff.tsv", sep=""), sep="\t", row.names=FALSE)
+
+
+
+
+##table 
+
+#use previous function with phylo diff, also transpose the table to get another table for glmm, return a list, i.e., list of list you will have
+
+
+
+#in the previous boyce_phylo funciton, you have change non prooprotio to proportion, check this is the model we are using in the paper
 
 
 
