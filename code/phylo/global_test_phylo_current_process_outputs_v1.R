@@ -752,9 +752,10 @@ dev.off()
 
 
 
-###############################
-###### PROCESS PHYLO DIFF #####
-###############################
+
+###################################
+###### TABLE PHYLO DIFF PAPER #####
+###################################
 
 ##define function to extract the phylo-boyce
 #species=unique(naturalized_occurrences$species)[1]
@@ -821,7 +822,7 @@ get_boyce_phylo_diff=function(species){
 }
 
 #apply the function to one species
-#get_boyce_phylo("halepensis")
+#get_boyce_phylo_diff("halepensis")
 
 #apply the function across all species
 list_results_boyce_phylo_diff=lapply(unique(naturalized_occurrences$species), get_boyce_phylo_diff)
@@ -857,27 +858,178 @@ for(algorithm in c("glm", "gam", "rf")){
     results_boyce_phylo_diff[,paste(algorithm, "_phylo_diff_median_95CI", sep="")]=new_column
 }
 
+#check the creation of the new variable went well
+#algorithm="glm"
+for(algorithm in c("glm", "gam", "rf")){
 
-###easy way to check this table? if not, move foward
-#x=results_boyce_phylo_diff[1,]
-apply(results_boyce_phylo_diff[,which(colnames(results_boyce_phylo_diff)!="species")], 1, {function(x) signif(x["glm_phylo_diff_percentile_50"])})
+    #extract the column indexes of each percentile of the selected algorithm
+    per_2.5_col_index=which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_2.5",sep=""))
+    median_col_index=which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_50",sep=""))
+    per_97.5_col_index=which(colnames(results_boyce_phylo_diff)==paste(algorithm, "_phylo_diff_percentile_97.5",sep=""))
 
+    #for each row of the DF apply function
+    #x=results_boyce_phylo_diff[1,]
+    phylo_diff_median_approach_2=apply(results_boyce_phylo_diff, 1, {function(x) paste(signif(as.numeric(x[median_col_index]),3), "(", signif(as.numeric(x[per_2.5_col_index]),3), ",", signif(as.numeric(x[per_97.5_col_index]),3), ")", sep="")})
+        #get the percentiles, round maintaining the scientific notation and paste them
+        #we do this for all rows
+
+    #check whether the newly created vector is exactly the same than the column with median - 95CI
+    if(!identical(phylo_diff_median_approach_2, results_boyce_phylo_diff[,paste(algorithm, "_phylo_diff_median_95CI", sep="")])){
+        stop(paste("ERROR! FALSE! PROBLEM CREATING THE TABLE WITH MEDIAN PHYLO FOR ALGORITHM ", algorithm, sep=""))
+    }
+}
 
 #save the table
 write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current/results_boyce_non_phylo_vs_phylo_diff.tsv", sep=""), sep="\t", row.names=FALSE)
+    #CHECK THE TABLE
+        #if the 95CI overlaps with zero, it means that the difference between non-phylo and phylo is positive for some data partitions and negative for others. In other words, we cannot say there are differences in the boyce index after the application of the phylogenetic correction.
+        #we need to see 95CIs consistently below 0 for us to say that phylo has a higher boyce index than non-phylo (we do non-phylo vs phylo)
 
 
 
 
-##table 
+############################
+###### GLMM PHYLO DIFF #####
+############################
 
-#use previous function with phylo diff, also transpose the table to get another table for glmm, return a list, i.e., list of list you will have
+##define function to create table for glmm
+#species=unique(naturalized_occurrences$species)[1]
+get_boyce_phylo_diff_glmm=function(species){
+
+    #check whether file exists
+    boyce_exists=file.exists(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""))
+    
+    #if boyce does exists
+    if(boyce_exists){
+
+        #read the boyce table
+        boyce_table=read.table(
+            paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""),
+            sep="\t",
+            header=TRUE)
+
+        #remove percentile columns
+        boyce_table=boyce_table[,which(!colnames(boyce_table)%in%c("percentile_2.5", "percentile_50", "percentile_97.5"))]
+
+        #open empty DF to save results
+        boyce_glmm_table=data.frame(species=NA, partition=NA, model=NA, phylo_diff=NA)
+
+        #for each algorithm
+        #algorithm="glm"
+        for(algorithm in c("glm", "gam", "rf")){
+
+            #across partitions, extract the value of boyce for the selected algorithm without phylo, with phylo and the difference
+            non_phylo_algo=boyce_table[
+                which(boyce_table$model==paste(algorithm, "_eval", sep="")),
+                which(colnames(boyce_table)!="model")]
+            phylo_algo=boyce_table[
+                which(boyce_table$model==paste("phylo_rasters_proportion_subset_inter_", algorithm, "_boyce", sep="")),
+                which(colnames(boyce_table)!="model")]
+            phylo_diff_algo=boyce_table[
+                which(boyce_table$model==paste("phylo_rasters_proportion_subset_inter_", algorithm, "_diff", sep="")),]
+            
+            #check we have selected the correct model
+            if(phylo_diff_algo$model!=paste("phylo_rasters_proportion_subset_inter_", algorithm, "_diff", sep="")){
+                stop(paste("ERROR! FALSE! PROBLEM EXTRACTING BOYCE PHYLO AND NON-PHYLO FOR ", species, sep=""))
+            } else { #if so, remove the model column
+                phylo_diff_algo$model=NULL
+            }
+
+            #check the difference was correctly calculated
+            if(TRUE %in% ((non_phylo_algo-phylo_algo)-phylo_diff_algo>1e-15)){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF GLMM PHYLO DIFF TABLE FOR SPECIES ", species, sep=""))
+            }
+
+            #convert the phylo diff row to a column
+            phylo_diff_column=t(phylo_diff_algo)
+            colnames(phylo_diff_column)="phylo_diff"
+            rownames(phylo_diff_column)=1:length(phylo_diff_column)
+
+            #create a vector with the name of the partitions and species
+            #x=colnames(phylo_diff_algo)[1]
+            partition_names=sapply(colnames(phylo_diff_algo), {function(x) paste(species, "_", strsplit(x,split="X")[[1]][2], sep="")})
+            if(FALSE %in% (names(partition_names)==colnames(phylo_diff_algo))){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCUALTING THE GLMM TABLE FOR SPECIES ", species, sep=""))
+            } else {
+                names(partition_names)=NULL
+            }
+
+            #combine everything in a DF
+            boyce_glmm_table_algo=data.frame(species=species, partition=partition_names, model=algorithm, phylo_diff=phylo_diff_column)
+
+            #
+            boyce_glmm_table=rbind.data.frame(boyce_glmm_table, boyce_glmm_table_algo)
+        }
+
+        #remove first row with NAs
+        boyce_glmm_table=boyce_glmm_table[which(apply(is.na(boyce_glmm_table),1,sum)!=ncol(boyce_glmm_table)),]
+
+        #update row names
+        rownames(boyce_glmm_table)=1:nrow(boyce_glmm_table)
+
+        #make several checks
+        check_1=nrow(boyce_glmm_table)!=12*3
+            #12 partitions times 3 algorithms
+        check_2=FALSE %in% (colnames(boyce_glmm_table)==c("species", "partition", "model", "phylo_diff"))
+            #correct column names
+        check_3=!identical(boyce_glmm_table$species, rep(species,12*3))
+            #species column should be the species name repeated 12*3 times
+        check_4=!identical(boyce_glmm_table$partition, rep(paste(species, "_", 1:12, sep=""),3))
+            #partition column should be the species name pasted with 1:12 repeated 3 times
+        check_5=!identical(boyce_glmm_table$model, c(rep("glm", 12), rep("gam", 12), rep("rf", 12)))
+            #model should be the three algorithms repeated 12 times each
+
+        #if any check is TRUE, stop
+        if(check_1 | check_2 | check_3 | check_4 | check_5){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WHEN CREATING THE PHYLO DIFF GLMM TABLE FOR SPECIES ", species, sep=""))
+        }
+
+        #return the table
+        return(boyce_glmm_table)
+    }
+}
+
+#apply the function to one species
+#get_boyce_phylo_diff_glmm("halepensis")
+
+#apply the function across all species
+list_results_boyce_phylo_glmm=lapply(unique(naturalized_occurrences$species), get_boyce_phylo_diff_glmm)
+    #get a list with the cleaned boyce table per species
+
+#check we have the correct rows and columns in each table
+#x=list_results_boyce_phylo_glmm[[1]]
+#x=list_results_boyce_phylo_glmm[[17]]
+check_rows_boyce_phylo_diff_glmm=FALSE %in% (sapply(list_results_boyce_phylo_glmm, {function(x) if(!is.null(x)){nrow(x)==12*3}}))
+    #each table should have 36 rows: 12 partitions times 3 algorithms 
+check_cols_boyce_phylo_diff_glmm=FALSE %in% (sapply(list_results_boyce_phylo_glmm, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "partition", "model", "phylo_diff"))}}))
+if(check_rows_boyce_phylo_diff_glmm | check_cols_boyce_phylo_diff_glmm){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE EXTRACTION OF PHYLO AND NON-PHYLO BOYCE")
+}
+
+#bind all tables as the have the same columns
+results_boyce_phylo_diff_glmm=bind_rows(list_results_boyce_phylo_glmm, .id=NULL)
+
+
+
+
+
+model=glm(phylo_diff~species*model,data=results_boyce_phylo_diff_glmm)
+anova(model, test="Chi")
+    #the key here is the interaction, phylo diff tends to be different depending on the species and the algorithm? in other words, the impact of the phylogenetic correction is dependent on the species and the algorithm used?
+
+
+#mixed model!!
+    #add to the partition as a random factor
+        #we need to let know the model that the boyce index from glm, gam and RF for halepensis_1 are all obtained from the same data!! and they are different from halepensis_2 even though they belong to the same species
+        #partition 1 of halepensis is different from partition 1 of sylvestris, they are independent
+
+
+
+
 
 
 
 #in the previous boyce_phylo funciton, you have change non prooprotio to proportion, check this is the model we are using in the paper
-
-
 
 ##SEND AGAIN NECESARRY FILES
 
