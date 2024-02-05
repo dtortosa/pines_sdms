@@ -502,11 +502,8 @@ exsitu_occurrences=function(species){
                 checks[[1]]=FALSE
             }
         }
-        if(length(subset_2)>0){
+        if(length(subset_2)>0 | length(subset_3)>0){
             checks[[2]]=FALSE
-        }
-        if(length(subset_3)>0){
-            checks[[3]]=FALSE
         }
         if(FALSE %in% checks){
             stop("ERROR! FALSE! WE HAVE A PROBLEM WHEN CALCULATING THE PRECISION WEIGHT FOR OCCURRENCES") 
@@ -523,6 +520,7 @@ exsitu_occurrences=function(species){
                 #cell with 3 high precision points
             #for(l in cell_ids_several_high_precision_points){if(length(which(cell_ids_several_high_precision_points==l))<2){k=l}}
                 #cell with less than 3 high precision points. You have to use 2, because less than 3 means you can have at least 2 points in cell_ids_several_high_precision_points, but remember that this variable includes those cells with several presences, i.e., duplicated cell ID, but the first appearance of the cell ID is not included
+            #i guess the previous commented lines were used in the original script for taking a look to some examples of cells with high precision points: less than 3 or more than 3 in the cell, respectively.
             #k=unique(table_stratified_sample$cell_id_presences)[1]
             for (k in unique(table_stratified_sample$cell_id_presences)){ #for each cell of the distribution buffer
                 subset=table_stratified_sample[table_stratified_sample$cell_id_presences==k,] #select the points inside the [i] cell. 

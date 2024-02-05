@@ -298,7 +298,7 @@ for (i in epithet_species_list){
             } else { #if not
                 if (subset$coordinatePrecision>=1 && subset$coordinatePrecision<=25){ #if the point has a cP between 1 and 25, inclugin both extremes. 
                     precision_weight = append(precision_weight, 1) #precision_weight = 1
-                } else { #if not
+                } else {#if not
                     precision_weight = append(precision_weight, 0.5) #precision_weight = 0.5
                 } 
             }   
