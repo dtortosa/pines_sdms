@@ -69,7 +69,7 @@ system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo
 system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", sep=""))
 
 #load species names
-list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
+list_species = read.table("./code/presences/species.txt", sep="\t", header=TRUE)
 
 #extract epithet from species list
 epithet_species_list = NULL
@@ -102,11 +102,11 @@ environment_var = clay*bio1
 
 #reduce resolution of environmental variable
 #load buffer albicaulis to get the target resolution
-buffer_albicaulis = raster(paste("results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
+buffer_albicaulis = raster(paste("./results/ocurrences/albicaulis_distribution_buffer", ".asc", sep=""))
 #prepare fact value for aggregate
 fact_value=res(buffer_albicaulis)[1]/res(environment_var)[1]
     #in raster::aggregate, fact is the aggregation factor expressed as number of cells in each direction (horizontally and vertically)
-    #we calculate it dividing the target (coarser) resolution by the original (finer) resolution
+    #we calculate it dividing the target (coarser) resolution by the original (finer) resolution, so we can know by how much we have to increase the number of cells in order to reach the target (coarser) resolution
 #aggregate cells
 environment_var_low_res=raster::aggregate(environment_var, fact=fact_value, fun=mean)
     #We use mean as the function to aggregate values. This is the same than using resample with "bilinear" method, as you can see in the code of "resample". 
@@ -158,6 +158,12 @@ if(nrow(naturalized_occurrences)!=597){
 if(sum(unique(naturalized_occurrences$species) %in% epithet_species_list)!= length(unique(naturalized_occurrences$species))){
     stop("ERROR! FALSE! WE DO NOT HAVE THE SAME SPECIES NAMES IN PERRET DATA")
 }
+if(
+    class(naturalized_occurrences$species)!="character" | 
+    class(naturalized_occurrences$longitude)!="numeric" |
+    class(naturalized_occurrences$latitude)!="numeric"){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE DATA TYPES IN THE OCCURRENCE DATA")
+}
 
 #plot minimum number of naturalized occurrences vs number of species retained
 #calculate the number of occurrences per species
@@ -203,6 +209,8 @@ for(threshold_value in threshold){
     #save results
     threshold_results=rbind.data.frame(threshold_results, cbind.data.frame(threshold_value,species_remaining))
 }
+dev.off()
+    #close the plot
 threshold_results=threshold_results[which(apply(is.na(threshold_results), 1, sum)!=ncol(threshold_results)),]
     #remove first row with NAs
 row.names(threshold_results)=1:nrow(threshold_results)
@@ -216,7 +224,6 @@ print(threshold_results)
 
 #set the threshold of FINAL number of naturalized occurrences we have
 nat_threshold=5
-    #we are going to avoid filtering for this.
     #the boyce index is specially well suited to dataset where absences are not reliable, so I understand we can use it even if we have very few presences.
         #if only 5 presence exits and from the whole globe it fall exactly in a place with high suitability, it is telling you something. it is not so strong than having 50 positive hits, but it is something. Maybe, other occurrences would not fall within high suitability but this one did among many many other pixels that are not suitable
         #The same applies for the opposite. If you only have 50 presences and it falls in low-suitability bin, for now you cannot be confidence about your model.
@@ -249,7 +256,7 @@ exsitu_occurrences=function(species){
 
     ##stop if pumila, just in case, because this species has part of its distribution in a corner and we should check it carefully
     if(species=="pumila"){
-        stop("ERROR! FALSE! YOU ARE TRYING TO ANALYZE PUMILA, AND WE HAVE NOT CHECKED THIS SCRIPT FOR THAT")
+        stop("ERROR! FALSE! YOU ARE TRYING TO ANALYZE PUMILA, AND WE HAVE NOT CHECKED THIS SCRIPT FOR THAT AS THIS SPECIES HAS PART OF ITS DISTRIBUTION AS AN INDEPENDENT PATCH IN THE MAP (THE LITTLE PEAK OF SIBERIA IN THE LEFT CORNER")
     }
 
     ##open folders
@@ -257,7 +264,7 @@ exsitu_occurrences=function(species){
 
     ##load the distribution buffer
     #read the raster
-    distribution_buffer = raster(paste("results/ocurrences/", species, "_distribution_buffer.asc", sep=""))
+    distribution_buffer = raster(paste("./results/ocurrences/", species, "_distribution_buffer.asc", sep=""))
 
     #convert to polygon
     polygon_distribution_buffer = rasterToPolygons(distribution_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
@@ -324,7 +331,7 @@ exsitu_occurrences=function(species){
     nrow(occurrences)
         #in this way we drop the points without environmental data (bioclim and soil)
     #stop if we lose more than 2 occurrences
-    if(nrow(environment_presences)-nrow(occurrences)>2){
+    if((nrow(occurrences)-nrow(environment_presences))>2){
         stop(paste("ERROR! FALSE! WE HAVE LOST MORE THAN 2 OCCURRENCES DUE TO LACK OF ENVIRONMENTAL DATA FOR SPECIES ", species, sep=""))
     }
     rm(environment_presences)
