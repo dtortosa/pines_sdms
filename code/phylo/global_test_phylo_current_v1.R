@@ -36,8 +36,8 @@ require(optparse)
     #we are going to use the pythonic way thanks to optparse, but you can also use base for this by using "commandArgs" 
         #https://www.r-bloggers.com/2015/09/passing-arguments-to-an-r-script-from-command-lines/
 option_list = list(
-    make_option(opt_str=c("-s", "--species"), type="character", default="halepensis,radiata", help="species to be analyzed [default=%default]", metavar="character"),
-    make_option(opt_str=c("-b", "--batch"), type="character", default="batch_1", help="name of the batch [default=%default]", metavar="character"))
+    make_option(opt_str=c("-s", "--species"), type="character", default="halepensis,radiata", help="Species to be analyzed. Strings separated by commas WITHOUT spaces between them [default=%default]", metavar="character"),
+    make_option(opt_str=c("-b", "--batch"), type="character", default="batch_1", help="Name of the batch [default=%default]", metavar="character"))
     #opt_str: string indicating the short and long flags for the argument
     #type: string indicating if integer, logical, character...
     #default: default value
@@ -67,13 +67,6 @@ system("mkdir -p ./results/global_test_phylo_current/exsitu_occurrences")
 system("mkdir -p ./results/global_test_phylo_current/env_predictors")
 system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_no_phylo/", sep=""))
 system(paste("mkdir -p ./results/global_test_phylo_current/predict_eval_phylo/", sep=""))
-
-#pre-defined functions
-plot_sin=function(input){
-    jpeg("./singularity_plot.jpeg", height=2000, width=2000, res=300)
-    plot(input)
-    dev.off()
-}
 
 #load species names
 list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
@@ -2308,27 +2301,7 @@ print("## FINISH ##")
     #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
 #table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
 #glmm
-    #Response: 
-        #the difference in boyce index between phylo and non-phylo.
-        #slope different from zero for factors means that the correction has an impact
-    #Main effects
-        #species
-        #algorithm
-        #invaded region?
-            #maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
-            #like in "Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders"
-    #interactions
-        #species*algorithms
-            #we are interested in knowing whether the phylogenetic correction has an impact on some species and algorithms but not in others
-            #maybe an overall effect is not visible, but we can see impact in specific cases.
-    #random factor: partition of the species
-        #partition_1_halepensis, partition_2_halepensis!!!
-        #the first partition of halepensis is not the same than the first partition of sylvestris!!!
-        #we need to control for this factor but we are not interested to know its effect. Maybe a partition is more difficult to predict than other. We have to control for that.
-        #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
-        #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species.
-            #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
-
+    #check species*algorithm interaction
 
 #check global_test_phylo_current_v1.R and the other scripts
 

@@ -1009,19 +1009,100 @@ if(check_rows_boyce_phylo_diff_glmm | check_cols_boyce_phylo_diff_glmm){
 #bind all tables as the have the same columns
 results_boyce_phylo_diff_glmm=bind_rows(list_results_boyce_phylo_glmm, .id=NULL)
 
+#save the table
+write.table(results_boyce_phylo_diff_glmm, paste("./results/global_test_phylo_current/results_boyce_phylo_diff_glmm.tsv", sep=""), sep="\t", row.names=FALSE)
+
+
+
+##prepare the data for modeling
+    #we are using this old script from my PhD as reference
+        #/home/dftortosa/diego_docs/science/phd/co2/analisis/codigo/whole_plant_fluxes/PAR_VPD/glmm_vpd_flujo_co2.R
+#check we have the correct variable types
+if(
+    class(results_boyce_phylo_diff_glmm$species)!="character" | 
+    class(results_boyce_phylo_diff_glmm$partition)!="character" | 
+    class(results_boyce_phylo_diff_glmm$model)!="character" | 
+    class(results_boyce_phylo_diff_glmm$phylo_diff)!="numeric"){
+    stop("ERROR! FALSE! WE HAVE A INCORRECT VARIABLE TYPES")
+}
+
+###POR AQUI
+    #i need the final data in order to do the modeling
+
+
+#/home/dftortosa/diego_docs/science/phd/co2/analisis/codigo/whole_plant_fluxes/PAR_VPD/glmm_vpd_flujo_co2.R
+
+
+#elegir transformacion respuesta!!
 
 
 
 
-model=glm(phylo_diff~species*model,data=results_boyce_phylo_diff_glmm)
+
+require(lattice) #para bwplot
+bwplot(phylo_diff~model|species, results_boyce_phylo_diff_glmm)
+    #too many partitions in order to seem them in a plot
+
+##run the glmm
+
+
+
+require(lme4)
+
+model0=glm(phylo_diff~species*model, data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
+model1=glmer(phylo_diff~species*model + (1|partition), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
+
+
+library(MuMIn)
+selMix <- AICc(model0, model1)
+selMix[order(selMix$AICc),] 
+
+anova(model0, model1)
+
+
+
+
+
+
 anova(model, test="Chi")
-    #the key here is the interaction, phylo diff tends to be different depending on the species and the algorithm? in other words, the impact of the phylogenetic correction is dependent on the species and the algorithm used?
 
 
-#mixed model!!
-    #add to the partition as a random factor
-        #we need to let know the model that the boyce index from glm, gam and RF for halepensis_1 are all obtained from the same data!! and they are different from halepensis_2 even though they belong to the same species
-        #partition 1 of halepensis is different from partition 1 of sylvestris, they are independent
+
+
+    #Response: 
+        #the difference in boyce index between phylo and non-phylo.
+        #slope different from zero for factors means that the correction has an impact
+    #Main effects
+        #species
+        #algorithm
+        #invaded region?
+            #maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
+            #like in "Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders"
+            #but many species have occurrences an South Africa, South America and AUS, you would have to do a level factor with these regions so not sure this is meaningful...
+    #interactions
+        #species*algorithms
+            #the key here is the interaction, phylo diff tends to be different depending on the species and the algorithm? in other words, the impact of the phylogenetic correction is dependent on the species and the algorithm used?
+            #maybe an overall effect is not visible, but we can see impact in specific cases.
+    #random factor: partition of the species
+        #partition_1_halepensis, partition_2_halepensis!!!
+        #the first partition of halepensis is not the same than the first partition of sylvestris!!!
+        #we need to control for this factor but we are not interested to know its effect. Maybe a partition is more difficult to predict than other. We need to let know the model that the boyce index from glm, gam and RF for halepensis_1 are all obtained from the same data!! and they are different from halepensis_2 even though they belong to the same species.
+            #this can have an effect on thet variance of the response variable
+            #but we do not want to lose degrees of freedom because of this, because we have maaany levels, halepensis_1, halepensis_2.... radiata_1..... better a random factor.
+        #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
+        #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species, i.e., 3 observations in each partition. We also many levels (12 per each species), so we can use as a random factor.
+            #we can use partition as a random factor testing the impact on the average value of the response, but we cannot test how influence the impact of a specific factor like model, because we only have 1 boyce value per model and partition, see below!
+            #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
+        #possible structures
+            #1|partition:
+                #depending on the partition, the boyce index tends to be higher or lower respect to the average (intercep)
+            #species|partition
+                #all species are not included in each partition, so we cannot test this
+            #algorithm|partition
+                #we cannot test this because, yes, we have 3 observations per partition and all models are inside each partition, but we only have 1 observation per model and partition!, not 3!
+                #indeed, we get the following error testing this
+                    #Error: number of observations (=72) <= number of random effects (=72) for term (model | partition); the random-effects parameters and the residual variance (or scale parameter) are probably unidentifiable
+                #but all algorithms are, i.e., we have boyce index for GLM, GAM and RF in each specific partition, so we can test whether the impact of the algorithm depends on the partition
 
 
 
