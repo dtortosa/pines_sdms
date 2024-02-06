@@ -488,7 +488,7 @@ exsitu_occurrences=function(species){
         }
 
         #bind precision_weight with table_stratified_sample
-        table_stratified_sample = cbind(table_stratified_sample, precision_weight)    
+        table_stratified_sample = cbind(table_stratified_sample, precision_weight)
 
         #check the weights have been correctly calculated
         subset_1=table_stratified_sample[is.na(table_stratified_sample$coordinatePrecision),]$precision_weight
@@ -638,13 +638,16 @@ exsitu_occurrences=function(species){
             #if there are high precision points final selected plot them into altitudinal plot to see the performance of the altitudinal sampling.
             if(nrow(final.presences[which(final.presences$precision_weight==1),]) > 1){
                 
+                #stop this because we should not have cases with precision weight==1
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM, OCURRENCES WITH PRECISION WEIGHT==1 FOR SPECIES ", species, sep=""))
+
                 #open png
                 png(paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_check_altitudinal_sampling.png", sep=""), width=2200, height=1600, res=300)
 
                 #plot elevation
                 if(species=="radiata"){
                     #if radiata, plot the canary islands where it has been introduced and where we can see selection of high precision points across the Teide
-                    canariensis_buffer=raster(paste("results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
+                    canariensis_buffer=raster(paste("./results/ocurrences/canariensis_distribution_buffer", ".asc", sep=""))
                     canariensis_buffer_polygon=rasterToPolygons(canariensis_buffer, fun=function(x){x==1}, dissolve=TRUE)
                     plot(crop(elev, canariensis_buffer_polygon), main="Altitudinal sampling of high precision points")
                     plot(raster_outside_pa_buffer_polygon_non_dissolved, add=TRUE, border="blue", lwd=0.1)

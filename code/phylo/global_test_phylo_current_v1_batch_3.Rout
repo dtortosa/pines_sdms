@@ -3,8 +3,8 @@ Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127726  6.9     350000 18.7   197038 10.6
-Vcells 251233  2.0    8388608 64.0  1031544  7.9
+Ncells 127726  6.9     350000 18.7   197036 10.6
+Vcells 251233  2.0    8388608 64.0  1031509  7.9
 Loading required package: colorout
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
@@ -171,95 +171,27 @@ Loaded gam 1.22-3
 
 Loading required package: modEvA
 Loading required package: terra
-terra 1.7.65
+terra 1.7.71
 Loading required package: gtools
 Loading required package: doParallel
 Loading required package: iterators
 Loading required package: parallel
-[1][1][1][1][1] FALSE FALSE FALSE FALSE
- FALSE
-
-
+[1] FALSE
 Warning message:
-
-Warning message:
-Warning message:
-Warning message:
-Warning message:
-In file.remove(".RData") :In file.remove(".RData") :In file.remove(".RData") :
- In file.remove(".RData") :
- In file.remove(".RData") :
+In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
-
-  cannot remove file '.RData', reason 'No such file or directory'
-
-  cannot remove file '.RData', reason 'No such file or directory'
- cannot remove file '.RData', reason 'No such file or directory'
- cannot remove file '.RData', reason 'No such file or directory'
-                                 used   used   used   used   used (Mb) (Mb) (Mb) (Mb) (Mb) gc trigger gc trigger gc trigger gc trigger gc trigger (Mb) (Mb) (Mb) (Mb) (Mb) max used max used max used max used max used (Mb) (Mb) (Mb) (Mb) (Mb)
-Ncells
-Ncells
-Ncells
-Ncells
-Ncells 127726 127726 127726  6.9 127726  6.9 127726  6.9     350000  6.9     350000  6.9     350000 18.7     350000 18.7     350000 18.7   197086 18.7   197086 18.7   197086 10.6   197086 10.6   197086 10.6
-Vcells 10.6
-Vcells 10.6
-Vcells 251237
-Vcells 251237
-Vcells 251237  2.0 251237  2.0 251237  2.0    8388608  2.0    8388608  2.0    8388608 64.0    8388608 64.0    8388608 64.0  1031617 64.0  1031617 64.0  1031617  7.9  1031617  7.9  1031617  7.9
-  7.9
-  7.9
-
-
-Loading required package: colorout
-Loading required package: colorout
-Loading required package: colorout
-Loading required package: colorout
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127726  6.9     350000 18.7   197084 10.6
+Vcells 251237  2.0    8388608 64.0  1031530  7.9
 Loading required package: colorout
 Warning message:
-Warning message:
-Warning message:
-Warning message:
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
-  there is no package called 'colorout'
-
-  there is no package called 'colorout'
-
-  there is no package called 'colorout'
- there is no package called 'colorout'
- there is no package called 'colorout'
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Loading required package: SystWrapper
-Warning message:
-Warning message:
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- Warning message:
+  there is no package called 'colorout'
+Loading required package: SystWrapper
 Warning message:
-
- In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
-In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  : there is no package called 'SystWrapper'
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
- 
   there is no package called 'SystWrapper'
- there is no package called 'SystWrapper'
-
-  there is no package called 'SystWrapper'
-starting worker pid=10110 on localhost:11647 at 05:46:58.861
-starting worker pid=10107 on localhost:11647 at 05:46:58.861
-starting worker pid=10111 on localhost:11647 at 05:46:58.861
-starting worker pid=10109 on localhost:11647 at 05:46:58.861
-starting worker pid=10108 on localhost:11647 at 05:46:58.863
-Loading required package: sp
-Loading required package: sp
-Loading required package: sp
-Loading required package: sp
+starting worker pid=2300713 on localhost:11008 at 14:27:46.559
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -268,44 +200,8 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
-randomForest 4.7-1.1
-Type rfNews() to see new features/changes/bug fixes.
-Loading required package: splines
-Loading required package: foreach
-Loaded gam 1.22-3
-
-     species total_points points_inside points_outside
-1 sylvestris           53             1             52
-2      taeda           25             7             18
-3 thunbergii            2             0              2
-4  torreyana            5             5              0
-5 virginiana           14            14              0
+   species total_points points_inside points_outside
+1 caribaea            1             0              1
   points_outside_after_resampling
-1                              51
-2                              18
-3                               2
-4                               0
-5                               0
+1                               1
 [1] "## FINISH ##"

@@ -250,13 +250,13 @@ check_outputs_species=function(species){
             #https://stackoverflow.com/a/21412398
 
         #now get the fourth next line
-        four_lines_after_eval_phylo=system(paste("\\
+        four_lines_after_no_eval_phylo=system(paste("\\
             awk \\
                 '{if(NR==", first_line_no_eval_phylo+4, "){print $0}}' \\
                 ", path_output_file, sep=""), intern=TRUE)
 
         #if the fourth line after non phylo eval is the END
-        if(grepl(paste("ENDING  ", species, sep=""), four_lines_after_eval_phylo, fixed=TRUE)){
+        if(grepl(paste("ENDING  ", species, sep=""), four_lines_after_no_eval_phylo, fixed=TRUE)){
 
             #means the species has not run and we should have zero boyce outputs
             check_boyce=n_boyce==0
@@ -268,7 +268,7 @@ check_outputs_species=function(species){
 
         #check the number of outputs is the correct
         if(!check_boyce){
-            stop("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION")
+            stop(paste("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION ", species, sep=""))
         }
 
 
