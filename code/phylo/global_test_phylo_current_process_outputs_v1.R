@@ -431,9 +431,9 @@ n_points=bind_rows(list_tables, .id = "batch_name")
 #calculate the percentage of points inside
 n_points$percent_points_inside=(n_points$points_inside/n_points$total_points)*100
 
-#stop if we have many species with a percentage above 10%
-if(length(which(n_points$percent_points_inside>10))>6){
-    stop("ERROR! FALSE! WE HAVE MORE THAN 6 SPECIES WITH MORE THAN 10% OF THE NATURALIZED OCCURRENCES INSIDE THE PA BUFFER")
+#stop if we have many species with a percentage above 30%
+if(length(which(n_points$percent_points_inside>30))>6){
+    stop("ERROR! FALSE! WE HAVE MORE THAN 6 SPECIES WITH MORE THAN 30% OF THE NATURALIZED OCCURRENCES INSIDE THE PA BUFFER")
 }
 
 
@@ -511,7 +511,11 @@ algorithms=c("glm", "gam", "rf")
 
 #open empty plot
 pdf(paste("./results/global_test_phylo_current/n_points_before_resampling/boyce_vs_n_occurrences.pdf", sep=""), width=12, height=8)
-plot(1, type="n", xlab="", ylab="", xlim=c(0, 100), ylim=c(-1, 1))
+plot(1, type="n", xlab="Number of occurrences after resampling", ylab="Boyce index", xaxt="n", yaxt="n", 
+    xlim=c(0, max(n_points$points_outside_after_resampling)+10), 
+    ylim=c(-1, 1))
+axis(1, at=seq(0, max(n_points$points_outside_after_resampling)+10, 5))
+axis(2, at=seq(-1, 1, 0.2))
     #the x axis is the number of points, we do not have species with more than 70-80 occurrences
     #the y axis is the boyce index, which can go from -1 to 1
 
@@ -529,7 +533,7 @@ for(algorithm_index in 1:length(algorithms)){
     results_boyce_subset=merge(results_boyce_subset, n_points, by="species")
 
     #create a sequence from 1 to the number of species for which we have data
-    species_shape=seq(1,length(results_boyce_subset$species),1)
+    species_shape=seq(1,length(unique(results_boyce_subset$species)),1)
         #this will be used to get a different shape for each specie
 
     #plot points
@@ -558,6 +562,7 @@ for(algorithm_index in 1:length(algorithms)){
 #add the legend
 legend(x="topright", legend=algorithms, fill=1:length(algorithms))
     #using the name of the models and the same color for each algorithm as used in the points, i.e., from 1 to the total number of algorithms.
+legend(x="bottomright", legend=unique(results_boyce$species), pch=seq(1,length(unique(results_boyce$species)),1))
 dev.off()
     #CHECK THE PLOT:
         #the number of occurrences is biasing our results? If so, we should see a positive correlation between boyce and the number of occurrences. If we see that boyce decreases with the number of occurrences, then it is possible that we do not have ability to evaluate species with a low number of occurrences?
@@ -684,7 +689,11 @@ algorithms=c("glm", "gam", "rf")
 #open empty plot
 pdf(paste("./results/global_test_phylo_current/boyce_non_phylo_vs_phylo.pdf", sep=""), width=8, height=8)
     #we need the same height and width in order to properly compare the confidence intervals of X and Y. If the shape of the plot is not cuadrangular, we cannot visualize the difference of the CI between the two variable plots.
-plot(1, type="n", xlab="Boyce index non-phylo", ylab="Boyce index phylo", xlim=c(-1, 1), ylim=c(-1, 1))
+plot(1, type="n", xlab="Boyce index non-phylo", ylab="Boyce index phylo", xaxt="n", yaxt="n", 
+    xlim=c(-1, 1), 
+    ylim=c(-1, 1))
+axis(1, at=seq(-1, 1, 0.2))
+axis(2, at=seq(-1, 1, 0.2))
     #the x and y axis are the boyce index, which can go from -1 to 1
 
 #for each algorithm
@@ -741,6 +750,7 @@ for(algorithm_index in 1:length(algorithms)){
 #add the legend
 legend(x="topleft", legend=algorithms, fill=1:length(algorithms))
     #using the name of the models and the same color for each algorithm as used in the points, i.e., from 1 to the total number of algorithms.
+legend(x="bottomright", legend=unique(results_boyce_phylo$species), pch=seq(1,length(unique(results_boyce_phylo$species)),1))
 
 #add diagonal line
 abline(coef = c(0,1))

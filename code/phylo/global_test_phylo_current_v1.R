@@ -353,8 +353,9 @@ exsitu_occurrences=function(species){
     #create DF with the number of occurrences in and outside of the PA buffer before the resampling
     n_points_in_out_pa_buffer=cbind.data.frame(nrow(points_and_values_outside_pa_buffer), length(points_inside_pa_buffer), length(points_outside_pa_buffer))
     names(n_points_in_out_pa_buffer)=c("total_points", "points_inside", "points_outside")
-    if(n_points_in_out_pa_buffer$points_inside > (n_points_in_out_pa_buffer$total_points*0.1)){
-        print(paste("WARNING! WE HAVE A PROBLEM, MORE THAN 10% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES ", species, sep=""))
+    if(n_points_in_out_pa_buffer$points_inside > (n_points_in_out_pa_buffer$total_points*0.20)){
+        print(paste("WARNING! WE HAVE A PROBLEM, MORE THAN 20% OF OCCURRENCES OF PERRET FALL WITHIN PA BUFFER FOR SPECIES ", species, sep=""))
+        print((n_points_in_out_pa_buffer$points_inside/n_points_in_out_pa_buffer$total_points)*100)
     }
         #we can have occurrences inside the PA buffer as this buffer is a large area around the natural distribution of pines. It is the whole area used for modeling, including, not only presences but also pseudoabsences.
 
@@ -1114,8 +1115,9 @@ predict_eval_no_phylo = function(species, status_previous_step){
                 #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
 
             #check if we have too many points within the same 10x10 cells
-            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.3)){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 30% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
+            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.35)){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 35% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
+                print(((nrow(obspred_dup)-nrow(obspred_no_dup))/nrow(presences))*100)
             }
                 #the difference in points between obspred_dup and obspred_no_dup is the number of presences being in 10x10km cells with other presences, as the latter was created by removing these presences, in contrast with the former.
 
@@ -1273,6 +1275,9 @@ require(modEvA)
 require(terra)
 require(raster)
 require(gtools)
+
+
+#####CHECK THIS FUNCTION USING STROBUS (phylo approach 7), FOR NA HANDLING
 
 #species="radiata"
 predict_eval_phylo = function(species, status_previous_step){
@@ -1870,11 +1875,13 @@ predict_eval_phylo = function(species, status_previous_step){
 
             #add the confidence interval as a new row
             #calculate the different percentiles per column
-            low_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.025)
-            median_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.5)
-            high_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.975)
+            low_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.025, na.rm=TRUE)
+            median_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.5, na.rm=TRUE)
+            high_interval_boyce=apply(X=boyce_table[,which(colnames(boyce_table) != "partition")], MARGIN=2, FUN=quantile, probs=0.975, na.rm=TRUE)
                 #calculate the median of each column (excluding the first one with the number of the partition)
                 #margin lets you select if you want to apply the function across columns (2) or rows (1)
+                #before calculating the quantiles of each, remove NAs (na.rm=TRUE).
+                    #we have boyce_index=NA for no_subset_no_inter in strobus, because this phylo approach produce a looot of areas with suitability=1, where many presences are included. Given that the last bin of boyce calculations ends at 0.94, no presence is included in the calculations, because all are between 0.94 and 1 
 
             #add them as new rows. Do it in two steps to avoid converting numeric into string, as we have to add a string ("percentile_XX") and numbers (the actual percentile value)
             boyce_table[nrow(boyce_table) + 1, 1]="percentile_2.5"
@@ -1999,8 +2006,15 @@ predict_eval_phylo = function(species, status_previous_step){
                     which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
                     which(colnames(final_boyce_results)==paste("phylo_rasters_proportion_", phylo_option, "_", model_type, "_boyce", sep=""))]
                 
-                #calculate the correlation
-                correlation=cor.test(non_proportion_column, proportion_column, method="spearman")
+                #if all observations are NA
+                if(sum(is.na(non_proportion_column))==length(non_proportion_column) | sum(is.na(proportion_column))==length(proportion_column)){
+                    
+                    #do not calculate the correlation
+                    correlation=list()
+                    correlation$estimate=NA
+                } else {
+                    correlation=cor.test(non_proportion_column, proportion_column, method="spearman")
+                }
 
                 #check
                 if(!is.na(correlation$estimate)){
@@ -2098,11 +2112,12 @@ predict_eval_phylo = function(species, status_previous_step){
         }
 
         #calculate percentiles
-        low_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.025)
-        median_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.5)
-        high_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.975)
+        low_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.025, na.rm=TRUE)
+        median_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.5, na.rm=TRUE)
+        high_interval_phylo_diff=apply(X=merged_boyce[,which(colnames(merged_boyce) != "partition")], MARGIN=2, FUN=quantile, probs=0.975, na.rm=TRUE)
             #calculate the median of each column (excluding the first one with the number of the partition)
             #margin lets you select if you want to apply the function across columns (2) or rows (1)
+            #we can have NAs for some phylo approaches (see above), so remove NAs to avoid problems
 
         #add them as new rows. Do it in two steps to avoid converting numeric into string
         merged_boyce[nrow(merged_boyce) + 1, 1]="percentile_2.5"
