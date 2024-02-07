@@ -108,6 +108,26 @@ check_outputs_species=function(species){
     #if the file exits do stuff
     if(output_file_exists){
 
+        ##get lines of start and end eval phylo
+        #get the line number where eval_phylo starts and then the next one, so we can know whether phylo_eval has been run or not
+        first_line_eval_phylo=as.numeric(system(paste(" \\
+            grep \\
+                --line-number \\
+                'STARTING predict_eval_phylo FOR  ", species, "' \\
+                ", path_output_file, "| \\
+            cut \\
+                --delimiter : \\
+                --fields 1", sep=""), intern=TRUE))
+            #get line number with grep and, from the output, get the first element before :, which is the line number
+            #https://stackoverflow.com/a/21412398
+
+        #now get the next line
+        second_line_eval_phylo=system(paste("\\
+            awk \\
+                '{if(NR==", first_line_eval_phylo+1, "){print $0}}' \\
+                ", path_output_file, sep=""), intern=TRUE)
+
+
         ##check warnings about suitability bin sample size
         #check whether we have the warning about suitability bin size
         count_non_phylo_error_bin = system(paste(" \\
@@ -121,25 +141,7 @@ check_outputs_species=function(species){
         #we can have several times the same error because this is checked for each partition
         if(count_non_phylo_error_bin[1]>0){
 
-            #get the line number where eval_phylo starts
-            first_line_eval_phylo=as.numeric(system(paste(" \\
-                grep \\
-                    --line-number \\
-                    'STARTING predict_eval_phylo FOR  ", species, "' \\
-                    ", path_output_file, "| \\
-                cut \\
-                    --delimiter : \\
-                    --fields 1", sep=""), intern=TRUE))
-                #get line number with grep and, from the output, get the first element before :, which is the line number
-                #https://stackoverflow.com/a/21412398
-
-            #now get the next line
-            second_line_eval_phylo=system(paste("\\
-                awk \\
-                    '{if(NR==", first_line_eval_phylo+1, "){print $0}}' \\
-                    ", path_output_file, sep=""), intern=TRUE)
-
-            #the next line should be the ENDING because no analyses should be done when the ERROR previously indicated appears, if not, we have a problem
+            #the next line after STARTING PHYLO should be the ENDING because no analyses should be done when the ERROR previously indicated appears, if not, we have a problem
             if(!grepl(paste("ENDING predict_eval_phylo FOR  ", species, sep=""), second_line_eval_phylo, fixed=TRUE)){
                 stop(paste("ERROR! FALSE! PHYLO EVAL SHOULD NOT HAVE BEEN RUN FOR ", species, sep=""))
             }
@@ -167,54 +169,41 @@ check_outputs_species=function(species){
                 'WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS .*' \\
                 ", path_output_file, sep=""), intern=TRUE)
 
-        #if we have the warning printed
-        if(length(warning_proporition_cor)!=0){
-            
-            #if we have several cases (this is done for subset, no subset, intersect, no intersect)
-            if(length(warning_proporition_cor)>1){
+        #get the correlation value for each case
+        #x=warning_proporition_cor[[1]]
+        cor_values=sapply(warning_proporition_cor, {function(x) strsplit(x, split=" ")[[1]][13]})
+        names(cor_values)=NULL
 
-                #get the correlation value for each case
-                #x=warning_proporition_cor[[1]]
-                cor_values=sapply(warning_proporition_cor, {function(x) strsplit(x, split=" ")[[1]][13]})
+        #if we have at least one value of correlation obtained from the warning
+        if(length(cor_values)!=0){
 
-                #check that the names of the generated vector are exactly the values of warning_proporition_cor 
-                if(FALSE %in% (names(cor_values)==warning_proporition_cor)){
-                    stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE PROPORTION CHECK FOR SPECIES ", species, sep=""))
-                } else {
-                    names(cor_values)=NULL
-                }
-
-                #if we have an NA, just select the NA
-                if("NA" %in% cor_values){
-                    cor_value=NA
-                } else {
-                    #if not, get the lowest correlation
-                    cor_value=min(as.numeric(cor_values))
-                }
-            } else {
-
-                #get the correlation for the only case
-                cor_value=strsplit(warning_proporition_cor, split=" ")[[1]][13]
-
-                #convert "NA" to NA in R
-                if(cor_value=="NA"){
-                    cor_value=NA
-                } else {
-                    #convert to numeric
-                    cor_value=as.numeric(cor_value)
-                }
-            }
-
-            #if we get a correlation value below 0.9 or NA, we have low cor
-            if(is.na(cor_value) | cor_value<0.9){
+            #low cor if at least 1 is NA
+            if("NA" %in% cor_values){
                 cor_flag="low_cor"
             } else {
-                cor_flag="high_cor"
-            }
-        } else {
 
-            #we have high cor if no warning is present
-            cor_flag="high_cor"
+                #if not NA, then calculate the min cor
+                cor_value=min(as.numeric(cor_values))
+
+                #if the min cor is lower than 0.9
+                if(cor_value<0.9){
+                    cor_flag="low_cor"     
+                } else {
+                    cor_flag="high_cor"
+                }
+            }
+        } else { #we do not have warning
+
+            #if the next line after STARTING phylo is NOT END
+            if(!grepl("ENDING predict_eval_phylo FOR", second_line_eval_phylo, fixed=TRUE)){
+
+                #then the phylo analyses have been run and we still do not have warning, so correlation is high
+                cor_flag="high_cor"
+            } else {
+
+                #if not, then the phylo analyses have not been run
+                cor_flag="cor_not_done"
+            }
         }
 
 
@@ -284,25 +273,21 @@ check_outputs_species=function(species){
 output_results=sapply(unique_species, check_outputs_species)
 
 #check we have run all species and the number of low_correlation between proportion and non-proportion is low
-#x=output_results[[1]]
-#x=output_results[[2]]
-output_results_check_finish=sapply(output_results, {function(x) if(!is.null(x) && x[2]=="FINISH") 1 else 0})
-output_results_check_correlation=sapply(output_results, {function(x) if(!is.null(x) && x[1]=="low_cor") 1 else 0})
+#x=output_results[,1]
+    #each species is a column
+output_results_count_finish=sum(apply(output_results, 2, {function(x) if(!is.null(x[2]) & x[2]=="FINISH") 1 else 0}))
+output_results_count_low_cor_cases=sum(apply(output_results, 2, {function(x) if(!is.null(x[1]) & x[1]=="low_cor") 1 else 0}))
+output_results_count_low_high_cor_cases=sum(apply(output_results, 2, {function(x) if(!is.null(x[1]) & x[1]%in%c("low_cor", "high_cor")) 1 else 0}))
     #one liner ifelse
         #https://stackoverflow.com/questions/15586566/if-statement-in-r-can-only-have-one-line
-    #&& only compares the first element of "x"
-        #"x" is a list with two elements: finish status and correlation status
-        #if the first one is not null, we can proceed
-        #if "x" is just NULL, we will get a false for !is.null(), so we get the else
-        #& and && indicate logical AND and | and || indicate logical OR. The shorter form performs elementwise comparisons in much the same way as arithmetic operators. The longer form evaluates left to right examining only the first element of each vector. Evaluation proceeds only until the result is determined. The longer form is appropriate for programming control-flow and typically preferred in if clauses.
-        #https://stackoverflow.com/a/16027891
-if(sum(output_results_check_finish)!=length(unique_species)){
+if(output_results_count_finish!=length(unique_species)){
     stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH SPECIES")
 }
 
 #count the number of cases with low correlation between the main phylogenetic approaches
-if(sum(output_results_check_correlation)>3){
-    stop("ERROR! FALSE! WE HAVE MORE THAN 3 SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
+percent_low_cor=(output_results_count_low_cor_cases/output_results_count_low_high_cor_cases)*100
+if(percent_low_cor>40){
+    stop("ERROR! FALSE! WE HAVE MORE THAN 40% OF SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
 }
 
 
@@ -894,7 +879,11 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
     #CHECK THE TABLE
         #if the 95CI overlaps with zero, it means that the difference between non-phylo and phylo is positive for some data partitions and negative for others. In other words, we cannot say there are differences in the boyce index after the application of the phylogenetic correction.
         #we need to see 95CIs consistently below 0 for us to say that phylo has a higher boyce index than non-phylo (we do non-phylo vs phylo)
+        #silvestris and patula (but patula overlaps with zero)
 
+    #alternative presentation
+        #barplot with phylo-diff, 3 bars per species, being positive or negative
+        #we will see the great negative impact in strobus.
 
 
 
@@ -1037,8 +1026,20 @@ if(
 }
 
 ###POR AQUI
-    #i need the final data in order to do the modeling
 
+
+    #invert the order: phylo vs non-phylo, so positive means more boyce for phylo
+
+    #significant estimates for a species/model means that phylo diff tend to be different for that level
+        #the point here is what level we use as reference, because we just want to say that phylo diff is different from zero in these species
+
+    #maybe a wilcoxon test within each model/species combination would be easier?
+        #we could test whether boyce is higher or lower between phylo and non-phylo across the 12 partitions of each combination.
+        #probably a better option!!!
+
+    #phylo seems to improve for sylvestris and patula, but the magnitude of the effect is pretty small (0.015). In contrast, phylo seems to make things worse with strobus, having a great impact (0.2).
+        #we can say that still not concluyent because we have only enough data for 14 species....
+        #At this point, we cannot know whether the correction is going to help or make things worse
 
 #/home/dftortosa/diego_docs/science/phd/co2/analisis/codigo/whole_plant_fluxes/PAR_VPD/glmm_vpd_flujo_co2.R
 
@@ -1056,11 +1057,16 @@ bwplot(phylo_diff~model|species, results_boyce_phylo_diff_glmm)
 ##run the glmm
 
 
+results_boyce_phylo_diff_glmm$species=factor(results_boyce_phylo_diff_glmm$species)
+results_boyce_phylo_diff_glmm$partition=factor(results_boyce_phylo_diff_glmm$partition)
+results_boyce_phylo_diff_glmm$model=factor(results_boyce_phylo_diff_glmm$model)
+    #these variables come as a chr not factor!
+
 
 require(lme4)
 
 model0=glm(phylo_diff~species*model, data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
-model1=glmer(phylo_diff~species*model + (1|partition), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
+model1=glmer(phylo_diff~relevel(species, ref="strobus")*model + (1|partition), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
 
 
 library(MuMIn)
@@ -1068,13 +1074,14 @@ selMix <- AICc(model0, model1)
 selMix[order(selMix$AICc),] 
 
 anova(model0, model1)
+anova(model0, test="Chi")
 
 
+#select best way to show differences between species, maybe posthoc?
+    #maybe put strobus, patula and sylvestris as reference and check impact of glm
 
+summary(glm(phylo_diff~relevel(species,ref="sylvestris")*relevel(model,ref="rf"), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity")))
 
-
-
-anova(model, test="Chi")
 
 
 
