@@ -43,3 +43,4 @@ code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files/
 *.ppt
 *.nav
 *.snm
+code/phylo/global_test_phylo_current_v1_batch_*

@@ -1881,7 +1881,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 #calculate the median of each column (excluding the first one with the number of the partition)
                 #margin lets you select if you want to apply the function across columns (2) or rows (1)
                 #before calculating the quantiles of each, remove NAs (na.rm=TRUE).
-                    #we have boyce_index=NA for no_subset_no_inter in strobus, because this phylo approach produce a looot of areas with suitability=1, where many presences are included. Given that the last bin of boyce calculations ends at 0.94, no presence is included in the calculations, because all are between 0.94 and 1 
+                    #we have boyce_index=NA for no_subset_no_inter in strobus, because this phylo approach produce a looot of areas with suitability=1, where many presences are included. Given that the last bin of boyce calculations ends at 0.991, no presence is included in the calculations, because all are between 0.991 and 1. In other words, as we have many presences with predicted suitability of exactly 1, they are outside of the last bin that ends at 0.991.
 
             #add them as new rows. Do it in two steps to avoid converting numeric into string, as we have to add a string ("percentile_XX") and numbers (the actual percentile value)
             boyce_table[nrow(boyce_table) + 1, 1]="percentile_2.5"
@@ -2288,8 +2288,7 @@ write.table(n_points_before_resampling_df, paste("./results/global_test_phylo_cu
 #finish the script
 print("## FINISH ##")
 
-#mkdir -p ./scripts/global_test_phylo_current_outputs/
-#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./scripts/global_test_phylo_current_v1.R --species="halepensis,radiata" --batch="batch_1" 2>&1 ./scripts/global_test_phylo_current_outputs/global_test_phylo_current_batch_1.Rout
+#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_v1.R --species="halepensis,radiata" --batch="batch_1" 2>&1 ./code/phylo/global_test_phylo_current_v1_batch_1.Rout
 
 
 
@@ -2304,11 +2303,9 @@ print("## FINISH ##")
     #mira pagina 284 Nivk's book, he seems to do as we
 
 
-#better option to see differences between phylo nonphylo?
-    #non_subset_inter seems to work better in sylvestris, which already has good boyce without phylo
-    #in halepensis not the same, and models are in general terrible
-    #check if other phylo-approach is consistently better than the one used in the paper
 
+
+##SEND AGAIN NECESARRY FILES
 
 
 
@@ -2318,20 +2315,12 @@ print("## FINISH ##")
         #CHECK SPECIES WITH LOW OCCURRENCES (e.g., clausa)
             #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
         #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
-#figure with median boyce per species with and wihtout phylo (better median than all the 12 partitions separated because they are not independent). Points of each model with different colors
-    #if they are the same, the points will follow the diagonal. Also the 95CI bars will be the same between phylo and non-phylo
-    #if phylo (Y) is lower than non-phylo (X), points will be below diagonal
-    #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
-#table with median and 95CI of the difference of boyce between phylo and not phylo for each species and model. so we can see specific cases.
-#glmm
-    #check species*algorithm interaction
-
-#check global_test_phylo_current_v1.R and the other scripts
 
 
-
-#If the other phylo-approaches work much better, you have several options
-    #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset
-        #if you just select the best option performing in the whole Perret dataset, then you are not testing independently, and there is risk of overfitting.
-    #combine all phylo approaches into a single ensemble and use it as correction
-    #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
+#after running everything, quick check how other phylo-approaches work in the species with more impact, i.e., radiata, sylvestris, strobus...
+    #I have already done it with the frist run and subset_no_inter is a bit better, but probably not enough to change the whole phylo approach of the main text
+    #If the other phylo-approaches work much better, you have several options
+        #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset
+            #if you just select the best option performing in the whole Perret dataset, then you are not testing independently, and there is risk of overfitting.
+        #combine all phylo approaches into a single ensemble and use it as correction
+        #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.

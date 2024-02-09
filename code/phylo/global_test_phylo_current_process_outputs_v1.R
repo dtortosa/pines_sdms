@@ -426,6 +426,9 @@ if(length(which(n_points$percent_points_inside>30))>6){
     stop("ERROR! FALSE! WE HAVE MORE THAN 6 SPECIES WITH MORE THAN 30% OF THE NATURALIZED OCCURRENCES INSIDE THE PA BUFFER")
 }
 
+#save table
+write.table(n_points, "./results/global_test_phylo_current/n_points_before_resampling/n_points_total.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
+
 
 ##extract boyce non-phylo per species
 #species=unique(naturalized_occurrences$species)[1]
@@ -1241,35 +1244,21 @@ print(significant_fdr)
 #save table
 write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
 
-#save n_points table
+
+
+
+##################
+##### FINISH #####
+##################
+
+#finish the script
+print("## FINISH ##")
+
+#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_process_outputs_v1.R 2>&1 ./code/phylo/global_test_phylo_current_process_outputs_v1.Rout
 
 
 
 
-
-
-
-
-###POR AQUI
-
-    #check change in glmm function to have phylo and non-phylo columns
-
-    #invert the order: phylo vs non-phylo, so positive means more boyce for phylo
-
-    #significant estimates for a species/model means that phylo diff tend to be different for that level
-        #the point here is what level we use as reference, because we just want to say that phylo diff is different from zero in these species
-
-    #maybe a wilcoxon test within each model/species combination would be easier?
-        #we could test whether boyce is higher or lower between phylo and non-phylo across the 12 partitions of each combination.
-        #probably a better option!!!
-
-    #makes sense boyce index only bins up to 0.94?
-
-#in the previous boyce_phylo funciton, you have change non prooprotio to proportion, check this is the model we are using in the paper
-
-##SEND AGAIN NECESARRY FILES
-
-
-
-
-
+######################
+##### NEXT STEPS #####
+######################
