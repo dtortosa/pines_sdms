@@ -10,6 +10,11 @@
 #In case you run this script as an executable, you can save the output without warnings "./myscript.R > myscript.Rout" or with errors "./myscript.R &> myscript.Rout"
     #https://askubuntu.com/questions/420981/how-do-i-save-terminal-output-to-a-file
 
+#Note about terminal
+    #you cannot run more than 4096 bytes of characters from the script to the terminal. It is not a problem of sublime, but a limit imposed in R. This is hard-coded and I should have to modify the C-code an re-compile to solve this.
+        #https://stackoverflow.com/questions/13216480/paste-character-limit
+
+
 
 
 ##################################
@@ -1062,28 +1067,10 @@ write.table(results_boyce_phylo_diff_glmm, paste("./results/global_test_phylo_cu
                     #Error: number of observations (=72) <= number of random effects (=72) for term (model | partition); the random-effects parameters and the residual variance (or scale parameter) are probably unidentifiable
                 #but all algorithms are, i.e., we have boyce index for GLM, GAM and RF in each specific partition, so we can test whether the impact of the algorithm depends on the partition
 
-
-
-
-###POR AQUI
-
-    #check change in glmm function to have phylo and non-phylo columns
-
-    #invert the order: phylo vs non-phylo, so positive means more boyce for phylo
-
-    #significant estimates for a species/model means that phylo diff tend to be different for that level
-        #the point here is what level we use as reference, because we just want to say that phylo diff is different from zero in these species
-
-    #maybe a wilcoxon test within each model/species combination would be easier?
-        #we could test whether boyce is higher or lower between phylo and non-phylo across the 12 partitions of each combination.
-        #probably a better option!!!
-
-    #makes sense boyce index only bins up to 0.94?
-
-
-
 #define a function to apply the wilcoxon test
-#species_algorithm="sylvestris_rf"
+require(exactRankTests)
+    #for wilcox.exact()
+#species_algorithm="radiata_glm"
 wilcoxon_signed_calc=function(species_algorithm){
 
     #extract the species and the algorithm
@@ -1109,6 +1096,43 @@ wilcoxon_signed_calc=function(species_algorithm){
     #calculate the test only if boyce phylo and non-phylo are different
     if(!identical(subset_boyce$phylo, subset_boyce$non_phylo)){
 
+        #run the wilcoxon test obtaining exact p-values always, even if ties
+        wilcoxon_signed_raw=wilcox.exact(
+                x=subset_boyce$phylo, 
+                y=subset_boyce$non_phylo, 
+                alternative="two.sided",
+                paired=TRUE)
+            #we are using a R function (wilcox.exact) that computes the paired rank wilcoxon test with exact p-values even in the case of ties, i.e., if two pairs of observations have the difference between phylo and non-phylo so it is no so simple to rank them. For example, partition 1 and partition 2 have both a difference of 0.1 between phylo and non-phylo.
+                #https://stats.stackexchange.com/q/597782
+            #x and y are the values to be compared
+            #alternative="two.sided": test whether x is greater or less than y
+            #paired=TRUE: paired test
+            #If both 'x' and 'y' are given and 'paired' is 'TRUE', a Wilcoxon signed rank test is performed. The null hypothesis is that the distribution of 'x - y' is symmetric about 'mu'. "mu" is 0 by default, thus we are testing whether the differences are symmetric around zero.
+                #The Wilcoxon Signed Rank Test is the non-parametric version of the paired t-test. It is used to test whether or not there is a significant difference between two population medians.
+                #We compare pairs of values that are not independent. For example, weight of a patient before and after an intervention. In our case, the boyce index of a model in a partition before and after and applying the phylogenetic correction.
+                    #https://www.statology.org/wilcoxon-signed-rank-test/
+                    #https://www.statology.org/wilcoxon-signed-rank-test-r/
+                #Wilcoxon Signed Rank Test vs T test
+                    #Hypothesis: Student’s t-test is a test comparing means, while Wilcoxon’s tests the ordering of the data. For example, if you are analyzing data with many outliers such as individual wealth (where few billionaires can greatly influence the result), Wilcoxon’s test may be more appropriate.
+                    #Interpretation: Although confidence intervals can also be computed for Wilcoxon’s test, it may seem more natural to argue about the confidence interval of the mean in the t-test than the pseudomedian for Wilcoxon’s test.
+                    #Fulfillment of assumptions: The assumptions of Student’s t-test may not be met for small sample sizes. In this case, it is often safer to select a non-parametric test. However, if the assumptions of the t-test are met, it has greater statistical power than Wilcoxon’s test.
+                    #https://www.datascienceblog.net/post/statistical_test/signed_wilcox_rank_test/
+                #Given we have only 12 data points for each test, I will go for the wilcoxon test. T-test can deal with violations of normality but having enough sample size, which is not our case. Also, we should check test by test across the 42 tests whether the differences in boyce index are or not indeed normal distributed. Wilcoxon is the best option for our case, as we avoid problems with normality.
+                #The hypotheses tested with the wilcoxon signed test are the following
+                    #H0: the median difference between the two groups is zero.
+                    #H1: The median difference is positive or negative, i.e., the phylogenetic correction makes the boyce index to go higher or lower.
+
+        #get the statistics
+        wilcoxon_signed_statistic=wilcoxon_signed_raw$statistic
+        names(wilcoxon_signed_statistic)=NULL
+            #check this link if you want to know how to calculate the statistic by hand, it is pretty straightforward.
+            #It is just calculate the difference between each pair in absolute value. Then rank cases from rank 1 to higher rank (i.e., higher absolute difference). Then separate cases where the difference is negative or positive. Then sum negative and positive ranks, separately. The smaller value of the two sums (in absolute value) is the statistic.
+            #For example, if for all partitions phylo-non_phylo is negative, all ranks are negative, and the sum of positive ranks is zero. Then zero is the value of the statistic. 
+            #This would be a extreme case of clear differences between groups, hence as the statistic is smaller, more differences between the groups, because this means that differences tend to have the same sign, meaning that it is always the same group the one having a greater value, indicating significant differences.
+                #https://www.statology.org/wilcoxon-signed-rank-test/
+        wilcoxon_signed_p=wilcoxon_signed_raw$p.value 
+
+        #run also the original wilcoxon function and save the warning in case it exists
         #define a function to get the warnings and the output in a one single object
         #input is code, a function with its arguments
         mytryCatch <- function(expr){
@@ -1127,161 +1151,125 @@ wilcoxon_signed_calc=function(species_algorithm){
                 #provide a function for warnings, that return the warning and the result of running the expression
         }
             #https://www.statology.org/r-trycatch/
-
-        #run the wilcoxon test capturing warnings
-        wilcoxon_signed_raw=mytryCatch(wilcox.test(
-            x=subset_boyce$phylo, 
-            y=subset_boyce$non_phylo, 
-            alternative="two.sided",
-            paired=TRUE))
-            #x and y are the values to be compared
-            #alternative="two.sided": test whether x is greater or less than y
-            #paired=TRUE: paired test
-            #If both 'x' and 'y' are given and 'paired' is 'TRUE', a Wilcoxon signed rank test is performed. The null hypothesis is that the distribution of 'x - y' is symmetric about 'mu'. "mu" is 0 by default, thus we are testing whether the differences are symmetric around zero.
-                #The Wilcoxon Signed Rank Test is the non-parametric version of the paired t-test. It is used to test whether or not there is a significant difference between two population medians.
-                #We compare pairs of values that are not independent. For example, weight of a patient before and after an intervention. In our case, the boyce index of a model in a partition before and after and applying the phylogenetic correction.
-                    #https://www.statology.org/wilcoxon-signed-rank-test/
-                    #https://www.statology.org/wilcoxon-signed-rank-test-r/
-                #Wilcoxon Signed Rank Test vs T test
-                    #Hypothesis: Student’s t-test is a test comparing means, while Wilcoxon’s tests the ordering of the data. For example, if you are analyzing data with many outliers such as individual wealth (where few billionaires can greatly influence the result), Wilcoxon’s test may be more appropriate.
-                    #Interpretation: Although confidence intervals can also be computed for Wilcoxon’s test, it may seem more natural to argue about the confidence interval of the mean in the t-test than the pseudomedian for Wilcoxon’s test.
-                    #Fulfillment of assumptions: The assumptions of Student’s t-test may not be met for small sample sizes. In this case, it is often safer to select a non-parametric test. However, if the assumptions of the t-test are met, it has greater statistical power than Wilcoxon’s test.
-                    #https://www.datascienceblog.net/post/statistical_test/signed_wilcox_rank_test/
-                #Given we have only 12 data points for each test, I will go for the wilcoxon test. T-test can deal with violations of normality but having enough sample size, which is not our case. Also, we should check test by test across the 42 tests whether the differences in boyce index are or not indeed normal distributed. Wilcoxon is the best option for our case, as we avoid problems with normality.
-                #The hypotheses tested with the wilcoxon signed test are the following
-                    #H0: the median difference between the two groups is zero.
-                    #H1: The median difference is positive or negative, i.e., the phylogenetic correction makes the boyce index to go higher or lower.
-        
-        #run again the wilcoxon test with out warning handling to check we are not messing with things here
-        wilcoxon_signed_raw2=wilcox.test(
-            x=subset_boyce$phylo, 
-            y=subset_boyce$non_phylo, 
-            alternative="two.sided",
-            paired=TRUE)
+        #run original wilcoxon function
+        wilcoxon_signed_raw1=mytryCatch(
+            wilcox.test(
+                x=subset_boyce$phylo, 
+                y=subset_boyce$non_phylo, 
+                alternative="two.sided",
+                paired=TRUE
+            )
+        )
 
         #save the p_value and statistics, along with the variable indicating whether we got or not the warning about the ties
-        #if the warning is not NULL
-        if(!is.null(wilcoxon_signed_raw$warning)){
+        #if the warning is NULL we get FALSE, if it is not NULL but it does not include the message of "ties", also FALSE. We also get TRUE if there is a warning and it is related to the ties.
+        check_ties=ifelse(is.null(wilcoxon_signed_raw1$warning), FALSE, grepl("cannot compute exact p-value with zeroes", wilcoxon_signed_raw1$warning, fixed=TRUE))
+        #if TRUE, i.e., we have a warning about the ties
+        if(check_ties){
 
-            #get the statistics
-            wilcoxon_signed_statistic=wilcoxon_signed_raw$value$statistic
-            wilcoxon_signed_p=wilcoxon_signed_raw$value$p.value 
-
-            #set ties warning as TRUE if the warning is about that
-            if(grepl("cannot compute exact p-value with zeroes", wilcoxon_signed_raw$warning, fixed=TRUE)){
-                wilcoxon_signed_warning_ties=TRUE
-            } else {
-                wilcoxon_signed_warning_ties=FALSE  
-            }
-
-            #check
-            if(!identical(wilcoxon_signed_raw$value, wilcoxon_signed_raw2)){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE WILCOXON TEST"))
-            }
-        } else {
-            #get the statistics
-            wilcoxon_signed_statistic=wilcoxon_signed_raw$statistic
-            wilcoxon_signed_p=wilcoxon_signed_raw$p.value 
-
-            #set warning ties as FALSE
-            wilcoxon_signed_warning_ties=FALSE
-
-            #check
-            if(!identical(wilcoxon_signed_raw, wilcoxon_signed_raw2)){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM CALCULATING THE WILCOXON TEST"))
-            }
+            #we have the warning about ties, so the original wilcoxon function does not calculate exact p-values, it uses instead a normal approximation. Thus, we can only compare the statistic
+            if(wilcoxon_signed_statistic!=wilcoxon_signed_raw1$value$statistic){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
+            } 
+        } else { #we do not have warning about ties, so the p-values should be also equal, we can compare them
+            if(
+                wilcoxon_signed_statistic!=wilcoxon_signed_raw1$statistic |
+                round(wilcoxon_signed_p,7)!=round(wilcoxon_signed_raw1$p.value,7)
+            ){
+                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
+            }  
         }
             #ties means that when you calculate phylo boyce - non_phylo boyce for each partition, and you try to make a rank of partitions, two or more partitions have exactly the same value of phylo_diff, thus they cannot be sorted by ranking. This makes the function unable to calculate a exact p-value and it has to use a normal approximation.
             #I am not sure if this is a problem when not having normal data, but just in case, I am going to be careful to consider as significant results with this warning, so I have to know it.
+            #https://stackoverflow.com/questions/60112609/warnings-in-wilcoxon-rank-sum-test-in-r
     } else {
-        wilcoxon_signed_warning_ties=FALSE
-        wilcoxon_signed_statistic=NA
-        wilcoxon_signed_p=NA
+        wilcoxon_signed_statistic=NaN
+        wilcoxon_signed_p=NaN
     }
 
-    return(cbind.data.frame(species, algorithm, median_non_phylo, median_phylo, median_phylo_diff, wilcoxon_signed_statistic, wilcoxon_signed_p, wilcoxon_signed_warning_ties))
+    return(cbind.data.frame(species, algorithm, median_non_phylo, median_phylo, median_phylo_diff, wilcoxon_signed_statistic, wilcoxon_signed_p))
 }
 
-wilcoxon_signed_calc(species="banksiana_glm")
+#run the function in one species
+#wilcoxon_signed_calc(species="banksiana_glm")
 
-#NaN in contorta and elliottii
-
+#get a vector with all species/models combinations
 species_algorithms=NULL
 for(species in unique(results_boyce_phylo_diff_glmm$species)) for(algorithm in unique(results_boyce_phylo_diff_glmm$model)) species_algorithms=append(species_algorithms, paste(species, "_", algorithm, sep=""))
-    #check combinations
-    #14*3
+    #for each species and for each model, paste both
+if(length(species_algorithms)!=length(unique(results_boyce_phylo_diff_glmm$species))*length(unique(results_boyce_phylo_diff_glmm$model))){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM ")
+}
 
+#apply the function across all species and model combinations
 list_wilcoxon_signed=lapply(species_algorithms, wilcoxon_signed_calc)
 
-
+#bind all rows into a DF
 require(dplyr)
 wilcoxon_signed_results=bind_rows(list_wilcoxon_signed, .id=NULL)
+
+#use species/model as row names for easier visualization in the terminal
 rownames(wilcoxon_signed_results)=paste(wilcoxon_signed_results$species, "_", wilcoxon_signed_results$algorithm, sep="")
 
+#see species with p<0.05
+significant_nominal_p_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_p<0.05), ]
+print("significant cases according to nominal p-value")
+print(significant_nominal_p_value)
 
-wilcoxon_signed_results$wilcoxon_signed_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_signed_p, method="BH")#correction for BH, it is valid use this correction when markerse are correlated directly, if two markers are correlated, a higher significance in one, will entail higher significance in the other. In the case the correlation was negative, we should used other correction, I think remember that Benjamini & Yekutieli (2001), but check. For further details see: "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/other_projects/helena_study/helena_ucp_cv/p_value_correction/pvalue_correction.pdf"
+#calculate the FDR across all p-values
+wilcoxon_signed_results$wilcoxon_signed_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_signed_p, method="BH")
+    #correction for BH, it is valid use this correction when markerse are correlated directly, if two markers are correlated, a higher significance in one, will entail higher significance in the other. In the case the correlation was negative, we should used other correction, I think remember that Benjamini & Yekutieli (2001), but check. For further details see: "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/other_projects/helena_study/helena_ucp_cv/p_value_correction/pvalue_correction.pdf"
 
+#see species with FDR<0.05
+significant_fdr=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_fdr<0.1),]
+print("significant cases according to FDR<0.1")
+print(significant_fdr)
 
-wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_p<0.05), c("species", "algorithm", "median_non_phylo", "median_phylo", "median_phylo_diff", "wilcoxon_signed_p", "wilcoxon_signed_fdr", "wilcoxon_signed_warning_ties")]
-    #we could focus on sylvestris and radiata as these are the only species with a boyce above 0 and differences in phylo-diff
-    #yes, en brutia phylo makes things worse, but the model is already terrible before phylo. The same goes for nigra....
+#multiple test correction
+    #we have many non-independent tests
+        #all Boyce values calculated for sylvestris have in common the species, i.e., the same partitions are used for glm, gam and rf.
+        #all Boyce values obtained with glm have in common that have been calculated with the same algorithm. Indeed, algorithm as a factor had a significant effect when running an anova on GLM of phylo-diff (you can easily run it if required to justify the lack of multiple-test correction during revision).
+        #Therefore, we have correlation between tests of the same species and tests of the same model, decreasing a lot the number of independent test. If we assume that values of the same species are correlated and values of the same model are correlated, the 42 independent tests divided by the 14 species and the 3 models gives 1!
+            #you have 3 values for sylvestris across models, all calculated with the same data!
+            #you have 14 values for GLM across species, all calculated with the same model!
+    #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we should not need to apply multiple test correction at all, the number of independent tests is really low.
 
+#Results:
+    #As shown in table XXX, from all species where the phylogenetic has a significant impact on the Boyce index, only P. sylvestris and P. radiata show a performance better than the random expectation (i.e., Boyce index above zero) with or without the phylogenetic correction. For P. sylvestris, glm and random forest show a slight, but still significant improvement in their ability to predict naturalized occurrences when considering recent evolution. In contrast, gam shows a slight decrease its performance when considering the phylogenetic information for this species. In the case of P. radiata, we found again a slight, but still significant improvement of the performance after applying the phylogenetic correction on glm.
+    #In the rest of cases with a phylogenetic impact, models show negative Boyce index with and without the phylogentic information, meaning they perform worse than the random expectation when predicting naturalized occurrences. It is important to note that our ability to evaluate the performance of the phylogenetic correction depends on the availability of naturalized occurrences. We need independent data from outside of the current ranges in order to evaluate the ability of the correction to include parts of the climatic fundamental niche that are not present in current ranges. Therefore, this evaluation approach is limited by the amount of truly naturalized presences of pines. As a consequence, we could perform an independent evaluation for only 25 pine species, with only 11 of them having more than 10 occurrences. The phylogenetic correction could improve (at least slightly) predictions of models that already show a good performance like in the case of P. sylvestris and P. radiata, being less useful for those models with a poor performance. Note, however, that at this point, more evidence coming from additional independent datasets would be required to support this.
 
-wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_fdr<0.05), c("species", "algorithm", "median_non_phylo", "median_phylo", "median_phylo_diff", "wilcoxon_signed_p", "wilcoxon_signed_fdr", "wilcoxon_signed_warning_ties")]
-    #we lose radiata if apply bonferroni
-
-#but the boyce index calculated within each species for the three models are not independent, you use partition 1,2,3... and the same partitions are used to calculated boyce in glm, gam... i.e., the same data, so they are not independent
-#and we have very few tests... I think it is not worth it...
-
-    #As shown in table XX, from all species where the phylogenetic has a significant impact on the Boyce index, only P. sylvestris show an performance better than the random expectation (i.e., Boyce index above zero). For this species, random forest shows a slight, but still significant, improvement in its ability to predict naturalized occurrences when considering P. sylvestris's recent evolution. This further supports our results showing a higher probability of range expansion of P. sylvestris through the Tamyr peninsula when considering its recent evolution, suggesting that the phylogenetic correction could be correctly pointing to colder parts of the climatic niche of P. sylvestris not included in its current range.
-    #In the rest of cases with a phylogenetic impact, models show negative Boyce index with and without the phylogentic information, meaning they perform worse than the random expectation when predicting the naturalized occurrences. It is important to bear in mind that our ability to evaluate the performance of the phylogenetic correction depends on the availability of naturalized occurrences. We need independent data from outside of the current ranges in order to evaluate the ability of the correction to include parts of the climatic fundamental niche that are not present in current ranges. Therefore, this evaluation approach is limited but the amount of truly naturalized presences of pines. As a consequence, we could perform the independent evaluation for only 25 pine species, having only 11 of them more than 10 occurrences. The phylogenetic correction could improve (at least slightly) predictions of models that already show a good performance like in the case of P. sylvestris, being less useful for those with a poor performance. Note, however, that at this point, more evidence coming from additional independent datasets would be required to determine this.
-
+#save table
+write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
 
 #save n_points table
 
 
 
-require(lattice) #para bwplot
-bwplot(phylo_diff~model|species, results_boyce_phylo_diff_glmm)
-    #too many partitions in order to seem them in a plot
-
-##run the glmm
-
-
-results_boyce_phylo_diff_glmm$species=factor(results_boyce_phylo_diff_glmm$species)
-results_boyce_phylo_diff_glmm$partition=factor(results_boyce_phylo_diff_glmm$partition)
-results_boyce_phylo_diff_glmm$model=factor(results_boyce_phylo_diff_glmm$model)
-    #these variables come as a chr not factor!
-
-
-require(lme4)
-
-model0=glm(phylo_diff~species*model, data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
-model1=glmer(phylo_diff~relevel(species, ref="strobus")*model + (1|partition), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity"))
-
-
-library(MuMIn)
-selMix <- AICc(model0, model1)
-selMix[order(selMix$AICc),] 
-
-anova(model0, model1)
-anova(model0, test="Chi")
-
-
-#select best way to show differences between species, maybe posthoc?
-    #maybe put strobus, patula and sylvestris as reference and check impact of glm
-
-summary(glm(phylo_diff~relevel(species,ref="sylvestris")*relevel(model,ref="rf"), data=results_boyce_phylo_diff_glmm, family=gaussian(link="identity")))
 
 
 
 
 
+###POR AQUI
 
+    #check change in glmm function to have phylo and non-phylo columns
 
+    #invert the order: phylo vs non-phylo, so positive means more boyce for phylo
 
+    #significant estimates for a species/model means that phylo diff tend to be different for that level
+        #the point here is what level we use as reference, because we just want to say that phylo diff is different from zero in these species
+
+    #maybe a wilcoxon test within each model/species combination would be easier?
+        #we could test whether boyce is higher or lower between phylo and non-phylo across the 12 partitions of each combination.
+        #probably a better option!!!
+
+    #makes sense boyce index only bins up to 0.94?
 
 #in the previous boyce_phylo funciton, you have change non prooprotio to proportion, check this is the model we are using in the paper
 
 ##SEND AGAIN NECESARRY FILES
+
+
+
+
 
