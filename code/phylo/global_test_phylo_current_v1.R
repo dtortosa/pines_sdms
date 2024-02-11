@@ -904,8 +904,8 @@ predict_eval_no_phylo = function(species, status_previous_step){
 
         ##predict and evaluate
         #check
-        if(length(glm_resample)!=12 | length(gam_resample)!=12 | length(rf_resample)!=12 ){
-            stop("ERROR! FALSE! WE DO NOT HAVE 12 PARITIONS OF THE DATA, I.E., WE DO NOT HAVE 12 MODELS FOR EACH ALGORITHM TYPE")
+        if(length(glm_resample)!=12 | length(gam_resample)!=12 | length(rf_resample)!=12 | length(glm_threshold)!=12 | length(gam_threshold)!=12){
+            stop("ERROR! FALSE! WE DO NOT HAVE 12 PARITIONS OF THE DATA, I.E., WE DO NOT HAVE 12 MODELS OR 12 THRESHOLDS FOR EACH ALGORITHM TYPE")
         }
         
         #open empty lists
@@ -929,7 +929,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
         #k=1
         for(k in 1:length(glm_resample)){
 
-            ##predict obtaining a continuous probability of presence for each cell outside of the PA_buffer
+            ##predict obtaining a continuous probability of presence for each cell outside of the PA_buffer, which will be the input for the Boyce index
             glm_predict[[k]] = predict(variables_stack_masked, glm_resample[[k]], type="response")
             gam_predict[[k]] = predict(variables_stack_masked, gam_resample[[k]], type="response")
                 #type="response" for both the predict function of GLM (stats::predict.glm) and GAM (gam::predict.Gam)
@@ -975,7 +975,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
             #RF
             #already binarized as we used a classification tree
             rf_bin_predict[[k]] = predict(variables_stack_masked, rf_resample[[k]], type="response")
-                #calculate also predictions using the binary results of RF so we can use it later when ensembling predictions
+                #calculate also predictions using the binary results of RF so we can use it later when ensembling predictions. We get binary predictions using response for this model because we used classification trees (see above).
 
 
             ##calculate the boyce index
@@ -988,13 +988,19 @@ predict_eval_no_phylo = function(species, status_previous_step){
             #run the function removing or not duplicates (see below)
             jpeg(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
             par(mfcol=c(3,2))
-            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
+            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
             mtext(paste(species, " - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
-            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
-            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
-            glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
-            gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GAM - no duplicates", sep=""))
-            rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("RF - no duplicates", sep=""))
+            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
+                ###CHECK WE HAVE THE EXACT SAME VALUE THAN IN THE SAVED TABLE
+                #checking the thing about rm.dup.classes, maybe for classes is interesting!
+                    #This means that any departure from the straight line actually decreases the resolution of the model predictions, i.e. its ability to distinguish many different classes of suitability
+                        #page 150 paper
+                        #https://www.whoi.edu/cms/files/hirzel_etal_2006_53457.pdf
+                        #https://rdocumentation.org/packages/ecospat/versions/3.5.1/topics/ecospat.boyce
+            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
+            glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
+            gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GAM - no duplicates", sep=""))
+            rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("RF - no duplicates", sep=""))
             dev.off()
                 #this is calculating the boyce index, which is well suited to evaluate presence-only models. In particular, it has been used to evaluate the ability predict species invasions (Petitpierre et al., 2012), because absences are not reliable when investigating colonizing species. Therefore it suits perfectly our case here.
                     #Initially, the boyce index was implemented by making bins (usually 10) of the predicted probability of habitat suitability. For example, from 0 to 0.1, from 0.1 to 0.2, and so on.... Of course, you are classifying the different cells into these bins, if the cell has a predicted probability of 0.05, it will go into the first bin.
@@ -1064,7 +1070,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
                         #Importantly, herzel et al 2006 showed 
                             #that a window size of 0.1-0.2 makes the boyce index very correlated with AUC measured on the same presences but also adding true absences.
                             #they also say that increase to much the number of classes (i.e., lower width of the window) increases the variance among cross-validation partitions
-                            #In their opinion, 0.1 is a good optimum. So we are going to use this
+                            #In their opinion, ten classes (0.1) is a good optimum. So we are going to use the default, i.e., 1/10 or 10 classes.
                             #Hirzel, A.H., G. Le Lay, V. Helfer, C. Randin & A. Guisan (2006) Evaluating the ability of habitat suitability models to predict species presences. Ecological Modelling 199: 142-152 
                     #res
                         #resolution of the moving window (if n.bins = NA). By default it is 100 focals, providing 100 moving bins. In other words, we move the window 100 times. If you increase the number of windows, each steps will be smaller in order to fit the larger number of windows within the same range of suitability values
@@ -1810,10 +1816,10 @@ predict_eval_phylo = function(species, status_previous_step){
                 #calculate the boyce index (see previous major step for further details)
                 jpeg(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_", selected_phylo_model, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
                 par(mfcol=c(2,2))
-                glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
+                glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
                 mtext(paste(species, " - part ", k, " - ", selected_phylo_model, sep=""), side=3, line=-1.6, outer=TRUE, cex=1, font=2)
-                gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
-                rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width=0.1, res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
+                gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
+                rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
                 dev.off()
 
                 #add the partition to the boyce results
