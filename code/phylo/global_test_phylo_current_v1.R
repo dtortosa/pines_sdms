@@ -988,6 +988,8 @@ predict_eval_no_phylo = function(species, status_previous_step){
             par(mfcol=c(3,2))
             glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
             mtext(paste(species, " - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
+            ##POR AQUII
+                #check why phylo has a great positive impact on strobus after setting rm.dup.classes as TRUE
             gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
             rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
             glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
@@ -1017,11 +1019,11 @@ predict_eval_no_phylo = function(species, status_previous_step){
                         #imagine you have only 4 cells in a bin, with 2 presences being inside the same 10x10km cell. 4 is also the total of presences in the study and the total number of cells in the study is 8
                             #2/4=0.5 is the proportion of presences in the bin
                             #4/8=0.5 is the proportion of cells/pixels in the bin
-                            #0.5/0.5=1
+                            #0.5/0.5=1 is the P/E ratio
                         #now imagine that we remove the duplicates, so only 1 of the two presences remains
                             #1/3=0.33 is the proportion of presences in the bin
                             #4/8=0.5 is the proportion of cells/pixels in the bin
-                            #0.33/0.5=0.66
+                            #0.33/0.5=0.66 is the P/E ratio
                         #in the proportion of presences, the denominator is going to be equal or higher than the numerator because, of course, the total number of presences is going to be higher than the number of presences in a given bin. Therefore, if you remove a few duplicated presences from both numerator and denominator (if we remove a duplicated presence in a bin that presence should be removed from the total count also), the impact is going to be higher in the numerator, which is a smaller number.
                             #if you have 2/5 and remove 1 presence, it makes more impact move from 2 to 1 than from 5 to 4.
                             #larger reduction of the numerator makes the total smaller
@@ -1042,6 +1044,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
                         #Now, we want to check whether the regions considered suitable outside of the current range, tend to have more presences than expected by chance. 
                         #if we more presences accumulated in an area with high suitability, we should consider that, and the other way around, if we have occurrences accumulated in a low suitability area, we should take that into account?
                         #Given there is not inherent problem to have several occurrences in the same cell for boyce index, provided that these occurrences are independent, then we should keep them. These are independent according to our definition in the manuscript, and we should be consistent with that. Do this validation as close as possible to the original analyses, only changing stuff required for the particular characteristics of invasive analyses.
+                        #The information I got from copilot assumes that the duplicated points are indeed the same, just duplicates and non-independent, but this is not the case. We have resampled the occurrences to have only 3 occurrences per 50x50km cell, and we have checked that we do not have more than 3 occurrences in any of these cells. Therefore, we have independent points.
                 #modEvA::Boyce is mostly based on ecospat.boyce which is the function used in Nick's book (page 268).
                     #obs: 
                         #a set of presence point coordinates. 

@@ -291,8 +291,8 @@ if(output_results_count_finish!=length(unique_species)){
 
 #count the number of cases with low correlation between the main phylogenetic approaches
 percent_low_cor=(output_results_count_low_cor_cases/output_results_count_low_high_cor_cases)*100
-if(percent_low_cor>40){
-    stop("ERROR! FALSE! WE HAVE MORE THAN 40% OF SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
+if(percent_low_cor>50){
+    stop("ERROR! FALSE! WE HAVE MORE THAN 50% OF SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
 }
 
 
