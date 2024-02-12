@@ -889,6 +889,11 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
         #we need to see 95CIs consistently below 0 for us to say that phylo has a higher boyce index than non-phylo (we do non-phylo vs phylo)
         #silvestris and patula (but patula overlaps with zero)
 
+    #CHECK THE PLOTS ABOUT BOYCE NO PHYLO
+        #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
+        #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
+        #also check that the median boyce index correlates well with the 
+
     #alternative presentation
         #barplot with phylo-diff, 3 bars per species, being positive or negative
         #we will see the great negative impact in strobus.

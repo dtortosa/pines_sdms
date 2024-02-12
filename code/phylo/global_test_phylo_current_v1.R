@@ -748,6 +748,10 @@ exsitu_occurrences=function(species){
 #packages
 require(randomForest)
 require(gam)
+require(modEvA)
+    #for boyce index. I am using this instead of ecospat.boyce because the latter gives me errors when loading the predicted raster
+require(terra)
+    #to convert RasterLayers to SpatRasters, which is the required input format of the boyce index function
 
 #species="radiata"
 predict_eval_no_phylo = function(species, status_previous_step){
@@ -979,25 +983,13 @@ predict_eval_no_phylo = function(species, status_previous_step){
 
 
             ##calculate the boyce index
-            #load packages
-            require(modEvA)
-                #for boyce index. I am using this instead of ecospat.boyce because the latter gives me errors when loading the predicted raster
-            require(terra)
-                #to convert RasterLayers to SpatRasters, which is the required input format of the boyce index function
-
             #run the function removing or not duplicates (see below)
             jpeg(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
             par(mfcol=c(3,2))
-            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
+            glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
             mtext(paste(species, " - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
-            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
-                ###CHECK WE HAVE THE EXACT SAME VALUE THAN IN THE SAVED TABLE
-                #checking the thing about rm.dup.classes, maybe for classes is interesting!
-                    #This means that any departure from the straight line actually decreases the resolution of the model predictions, i.e. its ability to distinguish many different classes of suitability
-                        #page 150 paper
-                        #https://www.whoi.edu/cms/files/hirzel_etal_2006_53457.pdf
-                        #https://rdocumentation.org/packages/ecospat/versions/3.5.1/topics/ecospat.boyce
-            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
+            gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
+            rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
             glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
             gam_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GAM - no duplicates", sep=""))
             rf_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("RF - no duplicates", sep=""))
@@ -1082,13 +1074,26 @@ predict_eval_no_phylo = function(species, status_previous_step){
                         #rm.dup.classes: if 'TRUE' (as in 'ecospat::ecospat.boyce') and if there are different bins with the same predicted/expected ratio, only one of each is used to compute the correlation.
                         #ONLY removes contiguous bins, i.e., bins that are together (e.g., 0.7-0.8 and 0.71-0.81) and have the same P/E ratio.
                         #default here is FALSE, while in ecospat::ecospat.boyce is TRUE. Nick used the default, which is True.
-                        #I am not sure it is a good idea to remove bins with the same P/E ratio. If two close bins have a similar value, that should be considered to strength the correlation between presence and suitability. These are legit values.... If they are in very different suitability bins, then this will destroy the correlation and that should be the case, because different suitability values have the same P/E ratio.
-                        #using the default of the modEVa function
-                        #IMPORTANT, DO NOT SET THIS AS TRUE
-                            #Look first the boyce plots for radiata. You can see cases like in GAM, where there are only two P/E ratios above zero, being the rest zero. If you remove bins with the same value (i.e., 0), you indeed get a correlation, but it is completely artificial. Most of the range of suitability, there is no association with the P/E ratio.
+                        #these bins with the same value will decrease the correlation between P/E ratio and suitability if they all have the same value! Remember that each new window has a higher average of suitability (e.g., we move from 0.70-0.80 to 0.71-81 of suitability values), so it should have a higher proportion of presences respect to the expected ratio strengthening the correlation. If we do not have the expected increase in presences, the correlation will be weaken.
+                        #If we remove these bins that are contiguous and have the same P/E values:
+                            #1) we will lose resolution, in the sense we will not know if the model is able or not to distinguish between different levels of suitability within this range with repeated values. If you remove 0.70-0.8 and 0.71-0.81, you do not know whether the model discriminate well between these classes at that fine resolution. In other words, pooling data reduces the resolution of the model’s predictions. The resolution refers to the model’s ability to distinguish between many different classes (levels) of suitability. Because of this, ecospat docs says that setting this as TRUE "lower the assessment of the evaluation of the model resolution".
+                            #2) We will focuses more on the discriminative aspect of the predictions. We are just evaluating whether more broad suitability classes (levels) differ in their proportion of presences. In other words, we focus the evaluation on the ability of the model to discriminate areas of presence from areas of absence or lower presence probability, taking less care of discriminating between more classes (0.70-0.80 vs 0.71-81 vs 0.72-0.82...). 
+                                #And this is what we want, just check how well the model differentiate between areas with low and high suitability, predicting naturalized occurrences in these high-suitable areas.
+                        #Let's talk about the case of GAM for radiata in partition 1.
+                            #Without removing duplicated classes, we get Boyce=0.0002, while removing the duplicated classes gives Boyce=0.5
+                            #We have all presences in just two suitability levels, around 0 and around 1. This is in line with the fact that most of the suitability values are around 0 and 1 with the fact that the threshold maximizing TSS in that partition is 0.78, so most of the suitable areas are only those veery suitable, there is no a gradient of suitability values. Despite being continuous, it is very similar to binary.
+                            #The first suitability bin (0-0.1) has a proportion of presences of presences respect to the total of presences of 0.64, while the proportion of pixels is 0.89. In other words, the proportion of presences is lower than the random expectation. The proportion of presences is a 29% less than the random expectation (P/E ratio=0.71).
+                            #The last bin (0.891-0.991) has 0.015 proportion of presences while the proportion of pixels is 0.016. Again, the proportion of presences is lower than the random expectation BUT we are not much closer. Now the proportion of presences is lower only in a 5% (P/E ratio=0.002).
+                            #Despite being the proportion of presences lower than the random expectation in both bins, there is a clear increase in the proportion of presences in the bin of high suitability.
+                            #if you consider the ability of the model to discriminate between multiple suitability levels, then the model is doing pretty bad as you have maaaany suitability levels with the same P/E ratio, so there is no a continuous increase in the proportion of presences as predicted suitability increases. In line with this, Boyce=0.002.
+                                #As explained in Harzel et al 2006, this information can be relevant for managment. If you plot the curves across partitions, you can get a median and confidence interval, so you can see in which levels of suitability you model works consistenly well across partitions and consider that when making management decisions. But we are not interested in this right now, see next line.
+                            #if you remove all the suitability levels in the middle that have the same P/E ratio and hence, you only consider the ability of the model to discriminate between low and high suitability (0-0.1 vs 0.89-0.991), then the model is doing well. In, areas with a high suitability, the proportion of presences tend to higher with respect to the random expectation under an uniform distribution of presences. The proportion of presences is still lower than the proportion of pixels in the last bin, but that presence proportion gets much closer to the random expection in the high suitability bin. Consequently, we get Boyce=0.5.
+                                #Indeed, if we check the plot with the presences on top of the predictions of gam for partition 1, we can see presences in areas with 0 suitbility, but also some of them in areas with high suitability.
+                                #We are going to consider the median of Boyce across partitions, anyways, so if, like in radiata, some partitions are very high but in generla we have this situaton of extreme suitabilities, others will have very low boyce index, and the median will be reduded.
+                        #The default of ecospat is TRUE for this argument, and this was the option used by Nick, but it is not the default for modEvA.
                     #na.rm: 
                         #Logical value indicating if missing values should be removed from computations. The default is TRUE.
-                        #TRUE, because we want to avoid cells with suitability values. There is nothing to do there.
+                        #TRUE, because we want to avoid cells without suitability values. There is nothing to do there.
                     #rm.dup.points: if 'TRUE' and if 'pred' is a SpatRaster and if there are repeated points within the same pixel, a maximum of one point per pixel is used to compute the presences. See examples in 'ptsrast2obspred'. The default is FALSE
                         #note that the function does not count duplicated presences for calculating the expected proportion. In other words, the expected proportion is calculated by just dividing the number of PIXELS within a given bin respect to the total number of PIXELS in the study area. These presences are used to calculate the proportion of presences in a bin respect to the total number of presences.
                 #ptsrast2obspred
@@ -1816,10 +1821,10 @@ predict_eval_phylo = function(species, status_previous_step){
                 #calculate the boyce index (see previous major step for further details)
                 jpeg(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_", selected_phylo_model, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
                 par(mfcol=c(2,2))
-                glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
+                glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
                 mtext(paste(species, " - part ", k, " - ", selected_phylo_model, sep=""), side=3, line=-1.6, outer=TRUE, cex=1, font=2)
-                gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
-                rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=FALSE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
+                gam_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
+                rf_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
                 dev.off()
 
                 #add the partition to the boyce results
