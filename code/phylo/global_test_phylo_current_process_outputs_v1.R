@@ -892,7 +892,8 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
     #CHECK THE PLOTS ABOUT BOYCE NO PHYLO
         #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
         #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
-        #also check that the median boyce index correlates well with the 
+            #if all partitions show consistently the same situation, and we have a median Boyce very high with just two bins, take a look.
+        #also check that the median boyce index correlates well with the ensemble showing predicted suitability outside PA buffer and the naturalized occurrences. Higher boyce should correlated with more matches.
 
     #alternative presentation
         #barplot with phylo-diff, 3 bars per species, being positive or negative

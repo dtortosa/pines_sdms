@@ -26,7 +26,7 @@ sbatch slurm_global_test_batch_23.slurm;
 sbatch slurm_global_test_batch_24.slurm; 
 sbatch slurm_global_test_batch_25.slurm; 
 
-n_jobs=$(squeue -u dsalazar | awk '{if(NR!=1){count++}}END{print count}')
+n_jobs=$(squeue -u dsalazar | awk '{if(NR!=1 && $4 ~/^global_test_phylo/){count++}}END{print count}')
 echo 'WE HAVE ' $n_jobs ' jobs'
 #to stop all jobs #squeue -u dsalazar | awk '{if(NR!=1){print $1}}' | xargs scancel
 #chmod +x 00_master_bash.sh; ./00_master_bash.sh > 00_master_bash.out 2>&1
