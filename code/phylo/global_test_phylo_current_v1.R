@@ -1115,6 +1115,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
   
 
             ##check ptsrast2obspred, which is internally used by boyce, and the number of points within 10x10km cells for each algorithm
+            #it should be the same in all models, but we are checking it just in case
             #algorithm="glm"
             for(algorithm in c("glm", "gam", "rf")){
 
@@ -1214,6 +1215,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
             c("percentile_50", median_boyce),
             c("percentile_97.5", high_interval_boyce))
             #add the percentiles with their names as new rows
+            #using this approach makes all numeric variables to be converted to character. Look at the next major step for approach to change if needed. Not required right now, as we are directly saving the table to TSV, and the numbers are saved as num and not characters
 
 
         ##make stacks
