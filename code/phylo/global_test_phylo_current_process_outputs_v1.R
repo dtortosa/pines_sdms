@@ -224,9 +224,9 @@ check_outputs_species=function(species){
                 #https://stackoverflow.com/a/2912904
 
         #calculate the expected number of boyce outputs
-        expected_boyce=((((3*2)+2)*12)+(3*12*8))
+        expected_boyce=((((3*2)+6)*12)+(3*12*8))
             #in non-phylo: ((3*2)+2)*12
-                #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run two times the internal function used by modeva::boyce to calculate the input presence/absence file
+                #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run 6 times the internal function used by modeva::boyce to calculate the input presence/absence file
                 #this is repeated across the 12 partitions
             #in phylo: 3*12*8
                 #we run boyce for 3 algorithms across 12 partitions and 8 phylo-approaches

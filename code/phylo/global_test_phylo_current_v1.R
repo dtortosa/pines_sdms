@@ -1114,24 +1114,35 @@ predict_eval_no_phylo = function(species, status_previous_step){
                         #In other words, you get a value per pixel and also for each additional presence included in the same pixel with other presence. Each row has a value for presence/absence.
   
 
-            ##check ptsrast2obspred, which is internally used by boyce
-            #run the function to calculate DF with presence/absence and predicted probability
-            obspred_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=FALSE, na.rm=TRUE, verbosity=2)
-            obspred_no_dup=ptsrast2obspred(rst=terra::rast(rf_predict[[k]]), pts=presences[,c("longitude", "latitude")], rm.dup=TRUE, na.rm=TRUE, verbosity=2)
+            ##check ptsrast2obspred, which is internally used by boyce, and the number of points within 10x10km cells for each algorithm
+            #algorithm="glm"
+            for(algorithm in c("glm", "gam", "rf")){
 
-            #the number of presences/absences after removing dups (second point in the same cell) should be the same than the total number of cell in the raster of predictions. If the cell has presence 1, if the cell has no presence then 0.
-            if(nrow(obspred_no_dup) != length(which(!is.na(getValues(rf_predict[[k]]))))){
-                stop(paste("ERROR! FALSE! WE ARE NOT CORRECTLY CALCULATING THE PRESENCES/ABSENCES FOR EVALUATION IN SPECIES ", species, sep=""))
-            }
-                #the additional presences in the same cell are included as additional rows in the data.frame
-                #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
+                #select the raster with the predictions of the selected model
+                selected_predict_raster=eval(parse(text=paste(algorithm, "_predict[[k]]", sep="")))
 
-            #check if we have too many points within the same 10x10 cells
-            if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.35)){
-                stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 35% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, sep=""))
-                print(((nrow(obspred_dup)-nrow(obspred_no_dup))/nrow(presences))*100)
+                #run the function to calculate DF with presence/absence and predicted probability for each model
+                obspred_dup=ptsrast2obspred(rst=terra::rast(selected_predict_raster), pts=presences[,c("longitude", "latitude")], rm.dup=FALSE, na.rm=TRUE, verbosity=2)
+                obspred_no_dup=ptsrast2obspred(rst=terra::rast(selected_predict_raster), pts=presences[,c("longitude", "latitude")], rm.dup=TRUE, na.rm=TRUE, verbosity=2)
+
+                #the number of presences/absences after removing dups (second point in the same cell) should be the same than the total number of cell in the raster of predictions as we have now one value per cell, no more.
+                if(nrow(obspred_no_dup) != length(which(!is.na(getValues(selected_predict_raster))))){
+                    stop(paste("ERROR! FALSE! WE ARE NOT CORRECTLY CALCULATING THE PRESENCES/ABSENCES FOR EVALUATION IN SPECIES ", species, " AND MODEL ", algorithm, sep=""))
+                }
+                    #the additional presences in the same cell are included as additional rows in the data.frame
+                    #these will be also considered when counting the number of presences in each suitability bin and when counting the total number of presences, but this is ok, because these are legit and independent observations following our definition (see above).
+
+                #check if we have too many points within the same 10x10 cells
+                if((nrow(obspred_dup)-nrow(obspred_no_dup))>(nrow(presences)*0.35)){
+
+                    #print the percentage of occurrences in the same 10x10km cells
+                    print(((nrow(obspred_dup)-nrow(obspred_no_dup))/nrow(presences))*100)
+                    
+                    #stop
+                    stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PRESENCES WITIN THE SAME 10x10km CELL. MORE THAN 35% OF THE PRESENCES ARE PRESENT IN THE SAME CELL WITH OTHER PRESENCES FOR SPECIES ", species, " AND MODEL ", algorithm, sep=""))
+                }
+                    #the difference in points between obspred_dup and obspred_no_dup is the number of presences being in 10x10km cells with other presences, as the latter was created by removing these presences, in contrast with the former.
             }
-                #the difference in points between obspred_dup and obspred_no_dup is the number of presences being in 10x10km cells with other presences, as the latter was created by removing these presences, in contrast with the former.
 
 
             ##check we do not have a low number of pixels in any bin
