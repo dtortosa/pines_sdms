@@ -988,8 +988,6 @@ predict_eval_no_phylo = function(species, status_previous_step){
             par(mfcol=c(3,2))
             glm_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
             mtext(paste(species, " - part ", k, sep=""), side=3, line=-1.9, outer=TRUE, cex=1, font=2)
-            ##POR AQUII
-                #check why phylo has a great positive impact on strobus after setting rm.dup.classes as TRUE
             gam_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(gam_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GAM", sep=""))
             rf_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(rf_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("RF", sep=""))
             glm_boyce_no_dup=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_predict[[k]]), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=TRUE, na.rm=TRUE, plot=TRUE, main=paste("GLM - no duplicates", sep=""))
