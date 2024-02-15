@@ -1570,7 +1570,7 @@ predict_eval_phylo = function(species, status_previous_step){
         stack_name=c("phylo_rasters_subset", "phylo_rasters_proportion_subset", "phylo_rasters_no_subset", "phylo_rasters_proportion_no_subset")
         #for each phylo-stack
         #k=1
-        for(k in 1:length(stack_name)){
+        for(k in 1:length(stack_name)){ #nolint
 
             #extract the name of the selected stack
             selected_stack_name=stack_name[k]
@@ -1595,6 +1595,17 @@ predict_eval_phylo = function(species, status_previous_step){
                 #ensamble_phylo2 = calc(selected_stack, function(x) (sum(x))/nlayers(selected_stack))
                 #identical(getValues(ensamble_phylo), getValues(ensamble_phylo2))
                 #TRUE
+                #Note about abrupt changes:
+                    #I have detected in strobus abrupt changes in the ensemble of phylo-corrected suitability proportion so subset.
+                    #This is NOT caused by any kind of abrupt change in bio17 (humidity of the driest quarter), but because bio4, which temperature seasonality, a variables without any abrupt change whatsoever. Therefore, this is not a problem of the input climatic data.
+                    #The reason behind the abrupt change is in the approach of calculating phylo-proportion only in regions within the phylogenetic range. The first calculation of the phylogenetic range (is.between) is binomial, i.e., the cell is whithin the phylogenetic yes or no. Therefore you are going to have cell in and out of the range together without any transition. The propotion within the range will be continuous, but once you reach the first boundary, the phylo-proportion suitability will go to zero. This is what we see at the longitude around Moscow.
+                    #This should not be a problem for model evaluation
+                        #TSS is calculated in the continuous predictions of GLM and GAM looking for a threshold that maximize TSS. Therefore, we are binarizying and then evaluating, looking for the threshold best separating presences and absences.
+                        #We, indeed, have abrupt changes in the ensembles of continuous predictions without phylo like in strobus. In central europe, you can see abrupt reductions of suitability from green (above 0.5) to gray (0).
+                        #In the case of boyce, we could have some occurrences that whether they fall at one side or other of the boundary (inside or outside of the phylogenetic correction), will end up in high or low-suitability bins, making abrupt changes in the values.
+                        #This could explain, as we will see in the results, the great increase in suitability for phylo non subset in strobus, but this is not an artifact.
+                        #As done for evaluating the original models, we have predictions that tend to be abrupt, and can capture or not occurrences. If we just extend these suitable regions without capturing any presences, boyce index will be low, so we are not artifically inflating this evaluation metric. And we are seeing positive impact in several models, not just one case....
+                        #And again, we have also abrupt changes in our continuous predictions without phylo, and boyce is doing ok. We are not using boyce in a binary raster, just a continuous raster with a little bit less of variation in some regions.
 
             #add the name of the layer indicating that we are NOT excluding areas that do not fall within all phylogenetic ranges and save
             names(ensamble_phylo) = paste(selected_stack_name, "_no_inter", sep="")
@@ -1759,6 +1770,10 @@ predict_eval_phylo = function(species, status_previous_step){
                 gam_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_gam.grd", sep=""), bands=k)[[1]]
                 rf_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_rf.grd", sep=""), bands=k)[[1]]
                     #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
+
+                
+                ###aquiii, CHECK WHAT HAPPENS WITH proportion no subset and giving 0.99 instead of 1, because the last bin is 0.990..
+                    #even if cells with 1 are out, we are moving cells with low suitablity and presences to high suitability, so these low-suitabler but still having presences are not counted anymore in boyce
 
                 #phylo-conversion of the models
                 glm_phylo=glm_predict
