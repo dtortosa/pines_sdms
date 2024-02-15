@@ -1301,9 +1301,6 @@ require(terra)
 require(raster)
 require(gtools)
 
-
-#####CHECK THIS FUNCTION USING STROBUS (phylo approach 7), FOR NA HANDLING
-
 #species="radiata"
 predict_eval_phylo = function(species, status_previous_step){
 
@@ -1326,16 +1323,17 @@ predict_eval_phylo = function(species, status_previous_step){
         bio17_raw = raster("./datos/finals/bio17.asc")
 
         #load ancestral reconstruction
-        final_anc_ou_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_ou_bio4.csv", sep=",", header=TRUE)
-        final_anc_ou_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_ou_bio17.csv", sep=",", header=TRUE)
-        final_anc_bm_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_bm_bio4.csv", sep=",", header=TRUE)
-        final_anc_bm_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_bm_bio17.csv", sep=",", header=TRUE)
-        
+        final_anc_ou_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_ou_bio4.csv", sep=",", header=TRUE) # nolint
+        final_anc_ou_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_ou_bio17.csv", sep=",", header=TRUE) # nolint
+        final_anc_bm_bio4 = read.table("./results/phylo_reconstruction/final_recons/final_anc_bm_bio4.csv", sep=",", header=TRUE) # nolint
+        final_anc_bm_bio17 = read.table( "./results/phylo_reconstruction/final_recons/final_anc_bm_bio17.csv", sep=",", header=TRUE) # nolint
+            #we set nolint for these objects along with the list of models and bio4-bio17 rasters to avoid the warning indicating that the variables are not being used. These objects are used but with get() and eval(parse()), so the linter does not detect them. The ou models will be not used, only BM.
+
         #list of evolution models: ONLY BM
         #list_models_bio4 = c("final_anc_ou_bio4", "final_anc_bm_bio4")
         #list_models_bio17 = c("final_anc_ou_bio17", "final_anc_bm_bio17")
-        list_models_bio4 = c("final_anc_bm_bio4")
-        list_models_bio17 = c("final_anc_bm_bio17")
+        list_models_bio4 = c("final_anc_bm_bio4") # nolint
+        list_models_bio17 = c("final_anc_bm_bio17") # nolint
 
         #remove the areas inside the PA buffer
         #we have selected naturalized occurrences outside the PA buffer, see occurrences script for further details
@@ -1345,8 +1343,8 @@ predict_eval_phylo = function(species, status_previous_step){
         polygon_raster_pa_buffer = rasterToPolygons(raster_pa_buffer, fun=function(x){x==1}, n=16, dissolve = TRUE) #convert to a polygon
 
         #IMPORTANT STEP: do an inverse mask of the environmental variable using the PA buffer as mask. This will give us all areas outside of the PA buffer.
-        bio4=mask(bio4_raw, polygon_raster_pa_buffer, inverse=TRUE)
-        bio17=mask(bio17_raw, polygon_raster_pa_buffer, inverse=TRUE)
+        bio4=mask(bio4_raw, polygon_raster_pa_buffer, inverse=TRUE) # nolint
+        bio17=mask(bio17_raw, polygon_raster_pa_buffer, inverse=TRUE) # nolint
             #we do not need the area inside the PA buffer, as we have removed all occurrences occurring there. We do not want to use regions considered during the modeling.
             #also, the boyce index (evaluation metric for presence-only data) uses the whole raster of predictions, considering as absences everything that does not have a presence. It would consider as absences the PA buffer if we do not remove this area because we have removed the occurrences inside that buffer in these exsitu analyses.
 
@@ -1390,7 +1388,7 @@ predict_eval_phylo = function(species, status_previous_step){
 
             #for each evolution model
             #m=1
-            for(m in 1:length(list_selected_models)){
+            for(m in 1:length(list_selected_models)){ # nolint
 
                 #select the [m] evolution model 
                 selected_model = list_selected_models[m]
@@ -1475,6 +1473,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 #from ID of cells without NA, select the ID of those whose vale is inside of the phylo range
                 final_cells_subset = cells_withot_NA_subset[cell_inside_phylo_range_subset]
                 final_cells_no_subset = cells_withot_NA_no_subset[cell_inside_phylo_range_no_subset]
+                    #we can use the list of cells within the phylogenetic range directly on "cells_without NA" because we checked what cells where inside the range using na.omit(raster_subsetted) and na.omit(raster_no_subsetted), so the ID of cells is the same in both cases.
 
                 #create a empty raster with the same extent and resolution than the selected env variable
                 final_raster_subset = raster(extent(selected_env_var), resolution=res(selected_env_var))
@@ -1536,18 +1535,22 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #check we have correct number of layers, i.e., 2 because we have 2 environmental variables.
         if(
-            (nlayers(phylo_rasters_subset)!=2) | 
-            (nlayers(phylo_rasters_proportion_subset)!=2) | 
-            (nlayers(phylo_rasters_no_subset)!=2) | 
+            (nlayers(phylo_rasters_subset)!=2) | #nolint
+            (nlayers(phylo_rasters_proportion_subset)!=2) | #nolint
+            (nlayers(phylo_rasters_no_subset)!=2) | #nolint
             (nlayers(phylo_rasters_proportion_no_subset)!=2)){
             stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL VARIABLES-MODELS FOR ", species, sep=""))
         }
+            #the warning here is caused because we are using "|" insted of "||"
+                #c(TRUE, FALSE, TRUE) | c(FALSE, TRUE, FALSE) gives c(TRUE, TRUE, TRUE), because it makes a element-wise comparison.
+                #c(TRUE, FALSE, TRUE) || c(FALSE, TRUE, FALSE) gives TRUE, because it only compares the first element of each vector, and returns TRUE if at least one of them is TRUE.
+                #in general, we should use the first approach because "if" requires 1 boolean value. We are going to leave it as it is because we are sure that we are only doing one comparison, as nlayers returns only one value.
 
         #check we have the correct names in each phylo stack
         if(
-            (FALSE %in% grepl(pattern="_subset", x=names(phylo_rasters_subset), ignore.case=FALSE, fixed=TRUE)) |
-            (FALSE %in% grepl(pattern="_proportion_subset", x=names(phylo_rasters_proportion_subset), ignore.case=FALSE, fixed=TRUE)) |
-            (FALSE %in% grepl(pattern="_no_subset", x=names(phylo_rasters_no_subset), ignore.case=FALSE, fixed=TRUE)) |
+            (FALSE %in% grepl(pattern="_subset", x=names(phylo_rasters_subset), ignore.case=FALSE, fixed=TRUE)) | #nolint
+            (FALSE %in% grepl(pattern="_proportion_subset", x=names(phylo_rasters_proportion_subset), ignore.case=FALSE, fixed=TRUE)) | #nolint
+            (FALSE %in% grepl(pattern="_no_subset", x=names(phylo_rasters_no_subset), ignore.case=FALSE, fixed=TRUE)) | #nolint
             (FALSE %in% grepl(pattern="_proportion_no_subset", x=names(phylo_rasters_proportion_no_subset), ignore.case=FALSE, fixed=TRUE))){
             stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL VARIABLES-MODELS FOR ", species, sep=""))
         }
@@ -1557,6 +1560,7 @@ predict_eval_phylo = function(species, status_previous_step){
                     #we want to look for a string, not regular expression
                 #x: a character vector where we look for matches
                 #ignore.case: if "TRUE", case is ignored. Default is FALSE.
+            #same warning as previous lines, the script ensures we only have 1 boolean value, so we are going to leave it as it is.
 
         #combine the phylogenetic correction of all env variables into one single ensemble (excluding and not excluding the areas inside the phylogenetic range of one variable but outside of the other phylo-ranges)
         #open stack to save the ensembles (i.e., considering all env variables) but across different phylo-approaches (e.g., with and without proportion...)
@@ -2330,6 +2334,7 @@ print("## FINISH ##")
 
 
 
+#check in github fast the differences between the version finished before debugging and the last version
 ##SEND AGAIN NECESARRY FILES
 
 
