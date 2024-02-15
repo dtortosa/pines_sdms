@@ -1595,7 +1595,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 #ensamble_phylo2 = calc(selected_stack, function(x) (sum(x))/nlayers(selected_stack))
                 #identical(getValues(ensamble_phylo), getValues(ensamble_phylo2))
                 #TRUE
-                #Note about abrupt changes:
+                #Note about abrupt changes in phylo ensemble:
                     #I have detected in strobus abrupt changes in the ensemble of phylo-corrected suitability proportion so subset.
                     #This is NOT caused by any kind of abrupt change in bio17 (humidity of the driest quarter), but because bio4, which temperature seasonality, a variables without any abrupt change whatsoever. Therefore, this is not a problem of the input climatic data.
                     #The reason behind the abrupt change is in the approach of calculating phylo-proportion only in regions within the phylogenetic range. The first calculation of the phylogenetic range (is.between) is binomial, i.e., the cell is whithin the phylogenetic yes or no. Therefore you are going to have cell in and out of the range together without any transition. The propotion within the range will be continuous, but once you reach the first boundary, the phylo-proportion suitability will go to zero. This is what we see at the longitude around Moscow.
@@ -1604,7 +1604,7 @@ predict_eval_phylo = function(species, status_previous_step){
                         #We, indeed, have abrupt changes in the ensembles of continuous predictions without phylo like in strobus. In central europe, you can see abrupt reductions of suitability from green (above 0.5) to gray (0).
                         #In the case of boyce, we could have some occurrences that whether they fall at one side or other of the boundary (inside or outside of the phylogenetic correction), will end up in high or low-suitability bins, making abrupt changes in the values.
                         #This could explain, as we will see in the results, the great increase in suitability for phylo non subset in strobus, but this is not an artifact.
-                        #As done for evaluating the original models, we have predictions that tend to be abrupt, and can capture or not occurrences. If we just extend these suitable regions without capturing any presences, boyce index will be low, so we are not artifically inflating this evaluation metric. And we are seeing positive impact in several models, not just one case....
+                        #As done for evaluating the original models, we have predictions that tend to be abrupt, and can capture or not occurrences. If we just extend these suitable regions without capturing any presences, boyce index will be low, so we are not artifically inflating this evaluation metric. And we are seeing positive impact in several models, not just one case.... We could have a problem if the positive impact comes only for one model/species, because maybe it was just chances and then amplified by the abrupt change, but this is happening for other models/species.
                         #And again, we have also abrupt changes in our continuous predictions without phylo, and boyce is doing ok. We are not using boyce in a binary raster, just a continuous raster with a little bit less of variation in some regions.
 
             #add the name of the layer indicating that we are NOT excluding areas that do not fall within all phylogenetic ranges and save
@@ -1617,8 +1617,8 @@ predict_eval_phylo = function(species, status_previous_step){
             bio17_raster=selected_stack[[which(grepl("bio17", names(selected_stack), fixed=TRUE))]]
 
             #stop if we do NOT have 1 layer in each stack, as we should have only 1 model
-            if(nlayers(bio4_raster)!=1 | nlayers(bio17_raster)!=1){
-                stop("ERROR! FALSE! WE HAVE A PROBLEM MAKING THE INTERSTCION OF BIO17 AND BIO4, WE HAVE MORE THAN 1 LAYER PER VARIABLE, BUT THIS SCRIPT ONLY CAN DEAL WITH 1 PER VARIABLE. ERROR. YOU HAVE TO SUM ALL RASTERS OF EACH ENV BIO STACK SO YOU HAVE ONE VALUE PER CELL AND KNOW WHAT CELLS ARE ZERO FOR ALL CLIMATIC PROJECTIONS FOR THAT ENV VARIABLE")
+            if(nlayers(bio4_raster)!=1 | nlayers(bio17_raster)!=1){ #nolint
+                stop("ERROR! FALSE! WE HAVE A PROBLEM MAKING THE INTERSTCION OF BIO17 AND BIO4, WE HAVE MORE THAN 1 LAYER PER VARIABLE, BUT THIS SCRIPT ONLY CAN DEAL WITH 1 PER VARIABLE. ERROR. YOU HAVE TO SUM ALL RASTERS OF EACH ENV BIO STACK SO YOU HAVE ONE VALUE PER CELL AND KNOW WHAT CELLS ARE ZERO FOR ALL CLIMATIC PROJECTIONS FOR THAT ENV VARIABLE. In that way, when we multiply bio4*bio17, we get zero only in those cells where all bio4 and bio17 rasters have 0, leaving only cells with value for at least one phylo rasters in bio4 AND bio17")
             }
 
             #multiply both stacks to get the intersection
@@ -1636,7 +1636,7 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #check we have the correct names in the new rasters, having one for each type of phylo-approach
         if(
-            !identical(sapply(ensamble_phylo_no_inter, {function(x){names(x)}}), paste(stack_name, "_no_inter", sep="")) |
+            !identical(sapply(ensamble_phylo_no_inter, {function(x){names(x)}}), paste(stack_name, "_no_inter", sep="")) | #nolint
             !identical(sapply(ensamble_phylo_inter, {function(x){names(x)}}), paste(stack_name, "_inter", sep=""))
             ){
             stop("ERROR! FALSE! WE HAVE A PROBLEM GENERATING THE STACK OF PHYLO CORRECTIONS")
