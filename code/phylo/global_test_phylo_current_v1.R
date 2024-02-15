@@ -1744,7 +1744,7 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #for each phylo-approach
         #l=1
-        for(l in 1:length(phylo_models)){
+        for(l in 1:length(phylo_models)){ # nolint
 
             #select the [l] phylo-approach
             selected_phylo_model=phylo_models[l]
@@ -1771,10 +1771,6 @@ predict_eval_phylo = function(species, status_previous_step){
                 rf_predict = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_rf.grd", sep=""), bands=k)[[1]]
                     #we use the number of layer to extract it, getting a stack of 1 layer. Then we have to extract it to get the raster layer instead of a stack
 
-                
-                ###aquiii, CHECK WHAT HAPPENS WITH proportion no subset and giving 0.99 instead of 1, because the last bin is 0.990..
-                    #even if cells with 1 are out, we are moving cells with low suitablity and presences to high suitability, so these low-suitabler but still having presences are not counted anymore in boyce
-
                 #phylo-conversion of the models
                 glm_phylo=glm_predict
                 glm_phylo[which(getValues(selected_ensemble_phylo)>=0.1)]=1
@@ -1789,6 +1785,19 @@ predict_eval_phylo = function(species, status_previous_step){
                     #this is also the closest thing to what we do in the analyses of the MS
                         #remember that we cannot just calculate the average because we have zero for most of the regions in the phylo, so the average would be very low in almost every place. 
                         #also, phylo-suitability is not the same than the SDMs suitability! Here, a value above 0 means that the climate is inside the phylogenetic range! yes, maybe far away from the current status, but still after the first split with the closest sister species.
+
+                #Important notes about the approach to combine SDMs and phylo
+                    #we are changing the value of suitability of cells within the phylogenetic range to ~1 (0.99), moving cells from intermediate suitability bins to the last bin.
+                    #For an example of what is happening, we can explain the cases of P. strobus for proportion_no_subset_inter, which shows the greatest impact of the phylogenetic correction. We will explain GAM, but GLM and RF also show a lot of change with phylo.
+                        #GAM without phylo shows a peak of proportion presences and P/Eratio around 0.31 of suitabilty. From there, the proportion of presences and P/E ratio decreases steadily, generating a negative correlation. Lower probability to find presences as suitability increases.
+                        #GAM with phylo, occurrences that where from the bin 63 (median suitability 0.60) were all moved to to high suitability (yes, the phylo-correction has correctly selected all cells with ocurrences in intermediate suitable bins! that is really cool). This makes the proportion of presences for these bins zero and P/E ratio is also zero (you are dividing by zero). Now, we have instead of a steadly decrease of P/E ratio until 1.79, you stop at a P/E ratio of 4.47. Then you have a bunch of P/E values of zero, from which only 1 is counted, because we are only interested in the ability of the model to discriminate low vs high suitability. If you have a bunch of low P/E values around 0.6 suitability, you just need to take one to know the model is not predicting well there. Then, you have a point of very high proportion of presences and P/E ratio at the last bin where occurrences has been sent, but only if you set the suitability for cells within phylo as 0.99, because the last bin ends at 0.99000.... instead of one. This is only one point in the correlation, one cell, because of this, sending the cells to 1 or 0.99 does not make a lot of change.
+                    #This is totally correct
+                        #we are taking cells from intermediate suitability bins that were making the model fail. These presences were distributed in a way that made the P/E ratio to decrease as suitability of the bin increases, i.e., the model was not able to correctly increase the probability of presence as suitability increases.
+                        #what the PA correction has done is to take ALL cells with occurrences in these intermediate bins and move them to the last, highest suitability bin. SO IT HAS BEEN CORRECTLY SELECTING CELLS WITH OCCURRENCES and moving them to high suitability, THIS IS GREAT! Because of this we have now a bettere correlation, we have made a cleaner correlation.
+
+                #LOOOK AT RF, and then SYLVESTRIS 
+
+
 
                 #add the names of the rasters
                 names(glm_phylo)=paste("glm_", selected_phylo_model, "_part_", k, sep="")
