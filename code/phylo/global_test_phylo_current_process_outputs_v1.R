@@ -1238,7 +1238,7 @@ print(significant_fdr)
 
 #multiple test correction
     #we have many non-independent tests
-        #all Boyce values calculated for sylvestris have in common the species, i.e., the same partitions are used for glm, gam and rf.
+        #all Boyce values calculated for sylvestris have in common the species, i.e., the same partitions are used for glm, gam and rf. Also the same phylo-correction is used! We use the same phylo-suitability map to rescue cells within the phylogenetic range but with low-suitability according to the SDMs. Therefore, the Boyce values with phylo for the same species are NOT independent.
         #all Boyce values obtained with glm have in common that have been calculated with the same algorithm. Indeed, algorithm as a factor had a significant effect when running an anova on GLM of phylo-diff (you can easily run it if required to justify the lack of multiple-test correction during revision).
         #Therefore, we have correlation between tests of the same species and tests of the same model, decreasing a lot the number of independent test. If we assume that values of the same species are correlated and values of the same model are correlated, the 42 independent tests divided by the 14 species and the 3 models gives 1!
             #you have 3 values for sylvestris across models, all calculated with the same data!
