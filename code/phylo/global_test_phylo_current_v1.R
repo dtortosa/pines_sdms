@@ -1092,6 +1092,7 @@ predict_eval_no_phylo = function(species, status_previous_step){
                                 #Indeed, if we check the plot with the presences on top of the predictions of gam for partition 1, we can see presences in areas with 0 suitbility, but also some of them in areas with high suitability.
                                 #We are going to consider the median of Boyce across partitions, anyways, so if, like in radiata, some partitions are very high but in generla we have this situaton of extreme suitabilities, others will have very low boyce index, and the median will be reduded.
                         #The default of ecospat is TRUE for this argument, and this was the option used by Nick, but it is not the default for modEvA.
+                        #Note that the duplicated classes remain in "$bins" of the Boyce results, you have to remove them if you want to replicate the Byce value we used here.
                     #na.rm: 
                         #Logical value indicating if missing values should be removed from computations. The default is TRUE.
                         #TRUE, because we want to avoid cells without suitability values. There is nothing to do there.
@@ -1781,6 +1782,7 @@ predict_eval_phylo = function(species, status_previous_step){
                     
                     #select the boyce eval for the corresponding model and partition
                     selected_boyce=eval(parse(text=paste(model_name, "_eval[[k]]$bins", sep="")))
+                        #careful if you use the data stored in bins, as this include all continuous bins with the same P/E ratio that we have NOT considered, as we used rm.dup.class=TRUE
 
                     #calculate the number of rows, i.e., bins
                     n_bins=nrow(selected_boyce)
@@ -1838,6 +1840,7 @@ predict_eval_phylo = function(species, status_previous_step){
                     #This is totally correct
                         #we are taking cells from intermediate suitability bins that were making the model fail. These presences were distributed in a way that made the P/E ratio to decrease as suitability of the bin increases, i.e., the model was not able to correctly increase the probability of presence as suitability increases.
                         #what the PA correction has done is to take ALL cells with occurrences in these intermediate bins and move them to the last, highest suitability bin. SO IT HAS BEEN CORRECTLY SELECTING CELLS WITH OCCURRENCES and moving them to high suitability, THIS IS GREAT! Because of this we have now a bettere correlation, we have made a cleaner correlation.
+                        #Also note that we are applying the same phylogenetic-map to the predictions of the three models, so the new boyce values are correlated, but we can still have differences between models of the same species. A region that is included in the phylogenetic correction could be missed by GLM while at the same time it could be considered as suitable by RF. In the first case the phylo correction would improve Boyce, but not in the second case, as the the cell remain with the same suitability and hence it remains in the same bin.
 
                 #add the names of the rasters
                 names(glm_phylo)=paste("glm_", selected_phylo_model, "_part_", k, sep="")
@@ -1849,19 +1852,37 @@ predict_eval_phylo = function(species, status_previous_step){
                     
                     #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
                     #glm
+                    selected_glm_threshold=glm_threshold[[k]][2,2]
                     glm_phylo_bin = glm_phylo #copy the raster 
-                    glm_phylo_bin[glm_phylo_bin>=(glm_threshold[[k]][2,2]),] <- 1 #give 1 to the pixels with a predicted value higher or equal than the threshold
-                    glm_phylo_bin[glm_phylo_bin<(glm_threshold[[k]][2,2]),] <- 0 #give 0 to the pixels with a predicted value lower than the threshold
+                    #if the thresholds are higher than the suitability give it to the cells within the phylogenetic correction, then the threshold is higher than the value of suitability given to the cells within the phylo-range. This is a value extremely close to the end of the last suitability bin used in Boyce index calculation. Therefore, this is the maximum suitability considered in our analyses, if a cell is above this value, we can give it 1, even if it is not above the threshold. That threshold would be very close anyways, as we are talking here about 0.98 and 0.99...          
+                    if(selected_glm_threshold < suit_value_phylo_across_models["glm"]){
+                        
+                        #give 1 to the pixels with a predicted value higher or equal than the threshold
+                        glm_phylo_bin[glm_phylo_bin>=selected_glm_threshold,] <- 1
+                        
+                        #give 0 to the pixels with a predicted value lower than the threshold
+                        glm_phylo_bin[glm_phylo_bin<selected_glm_threshold,] <- 0
+                    } else {
+
+                        #then the threshold is above the value of suitability given to the cells inside the phylogenetic range, so use that value instead
+                        glm_phylo_bin[glm_phylo_bin>=suit_value_phylo_across_models["glm"],] <- 1
+                        glm_phylo_bin[glm_phylo_bin<suit_value_phylo_across_models["glm"],] <- 0
+
+                    }
+
+                    ##por aquii, think about the threshold stuff
+
 
                     #gam
                     gam_phylo_bin = gam_phylo 
-                    gam_phylo_bin[gam_phylo_bin>=(gam_threshold[[k]][2,2]),] <- 1
-                    gam_phylo_bin[gam_phylo_bin<(gam_threshold[[k]][2,2]),] <- 0
+                    gam_phylo_bin[gam_phylo_bin>=(gam_threshold[[k]][2,2]),] <- 1 # nolint: object_usage_linter.
+                    gam_phylo_bin[gam_phylo_bin<(gam_threshold[[k]][2,2]),] <- 0 # nolint: object_usage_linter.
 
                     #rf
                     rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
                     rf_phylo_bin = rf_predict_bin
-                    rf_phylo_bin[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    rf_phylo_bin[selected_ensemble_phylo>=0.1]=1
+                    #we can use selected_ensemble_phylo as condition because the phylo rasters were calculated using the res and extent of the ensemble of binary predictions of the three models, thus there is a match between the cells of these rasters
                     #IMPORTANT HERE:
                         #We are directly using the binary prediction of RF and this is ok.
                         #think what we do with glm.
@@ -1871,6 +1892,9 @@ predict_eval_phylo = function(species, status_previous_step){
                             #therefore, it is the same than if we binarize glm and then convert to 1 those cells with phylo-suitability > 0.75
                     
                     #check that the order of adding the phylo-correction (before or after binarization) does not matter
+
+                    #we could remove here getvalues!!! check with copilot
+
                     check_glm_raster=glm_predict
                     check_glm_raster[check_glm_raster>=(glm_threshold[[k]][2,2]),] <- 1
                     check_glm_raster[check_glm_raster<(glm_threshold[[k]][2,2]),] <- 0
@@ -2112,10 +2136,10 @@ predict_eval_phylo = function(species, status_previous_step){
                 #check
                 if(!is.na(correlation$estimate)){
                     if(correlation$estimate<0.90){
-                        print(paste("WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS ", correlation$estimate, " FOR SPECIES ", species, sep=""))
+                        print(paste("WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS ", correlation$estimate, " FOR SPECIES ", species, " model ", model_type, " phylo option ", phylo_option, sep=""))
                     }
                 } else { #we also print the warning if the correlation is NA
-                    print(paste("WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS ", correlation$estimate, " FOR SPECIES ", species, sep="")) 
+                    print(paste("WARNING! PROPORTION AND NON-PROPORTION ARE NOT SIMILAR AS EXPECTED. CORRELATION IS ", correlation$estimate, " FOR SPECIES ", species, " model ", model_type, " phylo option ", phylo_option, sep="")) 
                 }
             }
         }

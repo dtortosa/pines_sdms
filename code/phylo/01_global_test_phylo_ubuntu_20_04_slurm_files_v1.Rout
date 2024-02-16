@@ -3,8 +3,8 @@ Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127481  6.9     350000 18.7   198111 10.6
-Vcells 245982  1.9    8388608 64.0  1016781  7.8
+Ncells 127727  6.9     350000 18.7   197039 10.6
+Vcells 251237  2.0    8388608 64.0  1031544  7.9
 Loading required package: colorout
    Mode    TRUE 
 logical     114 
