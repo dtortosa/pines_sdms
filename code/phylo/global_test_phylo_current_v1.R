@@ -1841,6 +1841,7 @@ predict_eval_phylo = function(species, status_previous_step){
                         #we are taking cells from intermediate suitability bins that were making the model fail. These presences were distributed in a way that made the P/E ratio to decrease as suitability of the bin increases, i.e., the model was not able to correctly increase the probability of presence as suitability increases.
                         #what the PA correction has done is to take ALL cells with occurrences in these intermediate bins and move them to the last, highest suitability bin. SO IT HAS BEEN CORRECTLY SELECTING CELLS WITH OCCURRENCES and moving them to high suitability, THIS IS GREAT! Because of this we have now a bettere correlation, we have made a cleaner correlation.
                         #Also note that we are applying the same phylogenetic-map to the predictions of the three models, so the new boyce values are correlated, but we can still have differences between models of the same species. A region that is included in the phylogenetic correction could be missed by GLM while at the same time it could be considered as suitable by RF. In the first case the phylo correction would improve Boyce, but not in the second case, as the the cell remain with the same suitability and hence it remains in the same bin.
+                        #Also note that we do not have a problem with other extreme, i.e., suitability around 0. We are not moving cells to low-suitability giving them exactly zero, thus the value of low-suitability cells will be 0.00000.... and that is the value for start of the first bin. So it is very likely that very low-suitable cells are included in the first bin. We are not biasing the results by adding cells exact 0, leaving them outside of the first bin, while including high suitable cells in the last bin. This is not the case.
 
                 #add the names of the rasters
                 names(glm_phylo)=paste("glm_", selected_phylo_model, "_part_", k, sep="")
@@ -1850,34 +1851,53 @@ predict_eval_phylo = function(species, status_previous_step){
                 #calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIME
                 if(selected_phylo_model=="phylo_rasters_proportion_subset_inter"){
                     
-                    #convert each projection in binary using the threshold calculated with fit_eval_models (TSS)
-                    #glm
-                    selected_glm_threshold=glm_threshold[[k]][2,2]
-                    glm_phylo_bin = glm_phylo #copy the raster 
-                    #if the thresholds are higher than the suitability give it to the cells within the phylogenetic correction, then the threshold is higher than the value of suitability given to the cells within the phylo-range. This is a value extremely close to the end of the last suitability bin used in Boyce index calculation. Therefore, this is the maximum suitability considered in our analyses, if a cell is above this value, we can give it 1, even if it is not above the threshold. That threshold would be very close anyways, as we are talking here about 0.98 and 0.99...          
-                    if(selected_glm_threshold < suit_value_phylo_across_models["glm"]){
+                    #convert GLM and GAM projections in binary using the threshold calculated with fit_eval_models (TSS)
+                    #define function to binarize
+                    #model_to_binarize="glm"
+                    binarize_phylo=function(model_to_binarize){
                         
-                        #give 1 to the pixels with a predicted value higher or equal than the threshold
-                        glm_phylo_bin[glm_phylo_bin>=selected_glm_threshold,] <- 1
+                        #select the threshold of the model
+                        selected_threshold=eval(parse(text=paste(model_to_binarize, "_threshold[[k]][2,2]", sep="")))
                         
-                        #give 0 to the pixels with a predicted value lower than the threshold
-                        glm_phylo_bin[glm_phylo_bin<selected_glm_threshold,] <- 0
-                    } else {
+                        #copy the phylo raster
+                        selected_phylo_bin = eval(parse(text=paste(model_to_binarize, "_phylo", sep="")))
 
-                        #then the threshold is above the value of suitability given to the cells inside the phylogenetic range, so use that value instead
-                        glm_phylo_bin[glm_phylo_bin>=suit_value_phylo_across_models["glm"],] <- 1
-                        glm_phylo_bin[glm_phylo_bin<suit_value_phylo_across_models["glm"],] <- 0
+                        #if the threshold is higher than the suitability given to the cells within the phylogenetic correction, the cells within the phylo-range are not going to be included in suitable areas, which is an error. The value we give to the cells within the phylo range is a value extremely close to the end of the last suitability bin used in Boyce index calculation. Therefore, this is the maximum suitability considered in our analyses, if a cell is above this value, we can give it 1, even if it is not above the threshold. That threshold would be very close anyways, as the suitability for phylo-cells is around 0.98 and 0.99...
+                        #if the threshold is NOT above the suitability of cells within the phylo-range     
+                        if(selected_threshold <= suit_value_phylo_across_models[model_to_binarize]){
+                            
+                            #give 1 to the pixels with a predicted value higher or equal than the threshold
+                            selected_phylo_bin[selected_phylo_bin>=selected_threshold,] <- 1
+                                #this will include cells within the phylo-range because the threshold is equal or lower than the suitibility in these cells
 
+                            #give 0 to the pixels with a predicted value lower than the threshold
+                            selected_phylo_bin[selected_phylo_bin<selected_threshold,] <- 0
+                        } else {
+
+                            #then the threshold is above the value of suitability given to the cells inside the phylogenetic range, so use that value instead to binarize
+                            selected_phylo_bin[selected_phylo_bin>=suit_value_phylo_across_models[model_to_binarize],] <- 1
+                            selected_phylo_bin[selected_phylo_bin<suit_value_phylo_across_models[model_to_binarize],] <- 0
+
+                            #print warning
+                            print(paste("WARNING! The threshold for ", model_to_binarize, " is above the suitability given to the cells inside the phylo-range for ", species, " in ", selected_phylo_model, sep=""))
+
+                            #print the threshold and phylo-suitability values
+                            print(paste("The threshold value is ", selected_threshold, " while the suitability value given to cells inside the phylo-range is ", suit_value_phylo_across_models[model_to_binarize], ". We are using the latter as threshold.", sep=""))
+                        }
+
+                        #return the binarized raster
+                        return(selected_phylo_bin)
                     }
 
-                    ##por aquii, think about the threshold stuff
+                    #do the actual binarization for glm and gam
+                    glm_phylo_bin=binarize_phylo("glm")
+                    gam_phylo_bin=binarize_phylo("gam")
 
 
-                    #gam
-                    gam_phylo_bin = gam_phylo 
-                    gam_phylo_bin[gam_phylo_bin>=(gam_threshold[[k]][2,2]),] <- 1 # nolint: object_usage_linter.
-                    gam_phylo_bin[gam_phylo_bin<(gam_threshold[[k]][2,2]),] <- 0 # nolint: object_usage_linter.
+                    ##por aqui
 
+
+                    #RF binary predictions with phylo added
                     #rf
                     rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
                     rf_phylo_bin = rf_predict_bin
@@ -1893,16 +1913,18 @@ predict_eval_phylo = function(species, status_previous_step){
                     
                     #check that the order of adding the phylo-correction (before or after binarization) does not matter
 
-                    #we could remove here getvalues!!! check with copilot
+                    
+                    #check problem with correlation proporion non-proportion in strobus
+                    #we have removed here getvalues!!!
 
                     check_glm_raster=glm_predict
                     check_glm_raster[check_glm_raster>=(glm_threshold[[k]][2,2]),] <- 1
                     check_glm_raster[check_glm_raster<(glm_threshold[[k]][2,2]),] <- 0
-                    check_glm_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    check_glm_raster[selected_ensemble_phylo>=0.1]=1
                     check_gam_raster=gam_predict
                     check_gam_raster[check_gam_raster>=(gam_threshold[[k]][2,2]),] <- 1
                     check_gam_raster[check_gam_raster<(gam_threshold[[k]][2,2]),] <- 0
-                    check_gam_raster[which(getValues(selected_ensemble_phylo)>=0.1)]=1
+                    check_gam_raster[selected_ensemble_phylo>=0.1]=1
                     if(!identical(getValues(glm_phylo_bin), getValues(check_glm_raster)) | 
                     !identical(getValues(gam_phylo_bin), getValues(check_gam_raster))){
                         stop("ERROR! FALSE! WE HAVE A PROBLEM DURING THE BINARIZATION OF PHYLO-MODELS")
