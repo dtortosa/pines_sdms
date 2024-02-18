@@ -106,7 +106,8 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
 
 ##add a check to check whether the thresholds are above the suitability value given to cells within the phylo-range
 #"WARNING! The threshold for glm is above the suitability given to the cells inside the phylo-range for strobus in phylo_rasters_proportion_subset_inter"
-#"The threshold value is 0.999 while the suitability value given to cells inside the phylo-range is 0.990877347196968. We are using the latter as threshold"
+#"The threshold value is 0.999 while the suitability value given to cells inside the phylo-range is 0.990877347196968"
+    #the phylo model should be always proportion_subset_inter
 
 check_outputs_species=function(species){
 
