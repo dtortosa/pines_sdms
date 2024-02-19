@@ -1851,58 +1851,70 @@ predict_eval_phylo = function(species, status_previous_step){
                 names(gam_phylo)=paste("gam_", selected_phylo_model, "_part_", k, sep="")
                 names(rf_phylo)=paste("rf_", selected_phylo_model, "_part_", k, sep="")
 
-
-
-                ###POR AQUIII
                 #check whether the suitability value given to cells within the phylo-range is still within the last bin of boyce after generating the new phylo-raster
                 #define function to do the check
                 #model_to_check="gam"
                 check_last_bin_boyce=function(model_to_check){
                     
                     #get the phylo and non-phylo rasters for the selected model
-                    selected_non_phylo_raster=eval(parse(text=paste(model, "_predict", sep="")))
-                    selected_phylo_raster=eval(parse(text=paste(model, "_phylo", sep="")))
+                    selected_non_phylo_raster=eval(parse(text=paste(model_to_check, "_predict", sep="")))
+                    selected_phylo_raster=eval(parse(text=paste(model_to_check, "_phylo", sep="")))
 
-                    #if the min or the max of suitability in the new phylo raster are not same compared to the original prediction raster, then the range of pred is changed and hence the bins in boyce will be different, so the suitability value given to cells within the phylo range could be again outside of the last bin, and hence it will not be considered
+                    #if the min or the max of suitability in the new phylo raster are not same compared to the original prediction raster, then the range of pred is changed and hence the bins in boyce will be different, so the suitability value given to cells within the phylo range could be again outside of the last bin, and hence it will not be considered. The min/max can change if all the cells with the lowest/highest suitaibility value are within the phylo range. 
+                        #For example, if the highest suitability is 1 being in three cells. These three cells are within the phylogenetic range, so we give them the new and lower suitability value so they can enter in the last bin of boyce (remember, 1 is outside of the last bin in Boyce). Now these cells have a value lower than 1 and, given they were the ones with the highest suitability, now the maximum suitability of the raster has decreased. They can still be the highest value or other cell (in or outside the phylo range) could take the first place. It does not matter what cells take the first place. When we calculate Boyce in this new data, we will have difference bins because the range of suitability is different now, that is the thing. The max is smaller, so the max of the last bin will be smaller, so the suitabiltiy value previously given to the phylo-cells can be now higher than the last bin of Boyce.
+                        #The opposite case is less likely because we would need to have ALL cels with the minimum suitability (likely 0) within the phylogenetic range, but we are also accounting for that anyways. If the min value of suitability changes, the range of suitability changes, so we recalculate the bins using Boyce
+                        #In both cases, if we calculate Boyce using the new range, we will get the final bins, and we can use them to select the suitability for phylo-cells to enter the last bin.
                     if(
-                        max(getValues(selected_non_phylo_raster), na.rm=TRUE) != max(getValues(selected_phylo_raster), na.rm=TRUE) | 
+                        max(getValues(selected_non_phylo_raster), na.rm=TRUE) != max(getValues(selected_phylo_raster), na.rm=TRUE) |  # nolint: vector_logic_linter.
                         min(getValues(selected_non_phylo_raster), na.rm=TRUE) != min(getValues(selected_phylo_raster), na.rm=TRUE)
                     ){
-                        #jJUST RUN BOYCE WITH RASTER PHYLO AND GET A BIT BELOW THE MAX OF THE LAST BIN, NOW NO CHANGE IN MAX BECAUSE PHYLO CELLS ARE NOW THE ONES LEADING?
-                        #WHAT ABOUT THE MINIMUM?
-                            #if the change is because the minimum, we are now calculating the last bins cosndiering a range with new bin, so we should have no problem with this.
 
+                        #run Boyce 
                         new_last_bin_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(selected_phylo_raster), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=FALSE)
 
                         #calculate the number of rows, i.e., bins
-                        n_bins=nrow(new_last_bin_boyce)
+                        n_bins=nrow(new_last_bin_boyce$bins)
                         
                         #get suitability at the last two bins
-                        end_last_bin=new_last_bin_boyce[n_bins,]$bin.max
-                        end_penultimate_bin=new_last_bin_boyce[n_bins-1,]$bin.max
+                        end_last_bin=new_last_bin_boyce$bins[n_bins,]$bin.max
+                        end_penultimate_bin=new_last_bin_boyce$bins[n_bins-1,]$bin.max
                         
                         #calculate the difference between the two ends
                         distance_last_bins=end_last_bin-end_penultimate_bin
                         
                         #add to the penultimate end the 99% of the difference so we get very close to the end of the last bin but without touching it
-                        suit_value_for_phylo=end_penultimate_bin+(distance_last_bins*0.99)
+                        new_suit_value_for_phylo=end_penultimate_bin+(distance_last_bins*0.99)
 
                         #give the new suitability value to those cells within the phylo-range
-                        selected_phylo_raster[selected_ensemble_phylo>=0.1]=suit_value_for_phylo
+                        selected_phylo_raster[selected_ensemble_phylo>=0.1]=new_suit_value_for_phylo
 
-                        #save the new phylo raster
-                        assign(paste(model, "_phylo", sep=""), selected_phylo_raster, envir=.GlobalEnv)
-
+                        #save the new phylo raster overwritting the previous phylo_raster in the global environment
+                        assign(paste(model_to_check, "_phylo", sep=""), selected_phylo_raster, envir=.GlobalEnv)
                     }
 
-                    #now check that we have no problem with the last bin
+                    #calculate again boyce to check whether the phylo-cells are within the last bin
+                    final_last_bins=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(selected_phylo_raster), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=FALSE)
+
+                    #get the suitability of phylo-cells
+                    final_suitability_phylo=unique(selected_phylo_raster[selected_ensemble_phylo>=0.1])
+                    if(length(final_suitability_phylo)!=1){
+                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM SELECTING THE NEW SUITAIBLITY FOR PHYLO-CELLS, ALL THEY SHOULD HAVE THE SAME SUITABILITY, BUT THIS IS NOT CASE: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
+                    }
+
+                    #update the final_suitability value for phylo-cells
+                    if(final_suitability_phylo!=suit_value_phylo_across_models[model_to_check]){
+                        suit_value_phylo_across_models[model_to_check]=final_suitability_phylo
+                    }
+                    if(final_suitability_phylo!=suit_value_phylo_across_models[model_to_check]){
+                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM SELECTING THE NEW SUITAIBLITY FOR PHYLO-CELLS: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
+                    }
+
+                    #now do the check about whether the new suitability value for phylo-cells is indeed in the last bin of boyce
                     if(
-                        max(getValues(selected_non_phylo_raster), na.rm=TRUE) != max(getValues(selected_phylo_raster), na.rm=TRUE) | 
-                        min(getValues(selected_non_phylo_raster), na.rm=TRUE) != min(getValues(selected_phylo_raster), na.rm=TRUE)
+                        !(final_suitability_phylo > final_last_bins$bins[99,]$bin.max &  # nolint: vector_logic_linter.
+                        final_suitability_phylo < final_last_bins$bins[100,]$bin.max)
                     ){
-                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH SELECTING THE CORRECT SUITABILITY VALUE FOR CELLS WITHIN THE PHYLO-RANGE AS WE ARE NOT ABLE TO INCLUDE THEM IN THE LAST BIN OF BOYCE: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
-                    } else {
-                        print("OK! We have selected the correct suitability value for cells within the phylo-range as we are able to include them in the last bin of Boyce")
+                        print(paste("WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, ". The problem is that the cells inside the phylo-range are the one with the highest value of suitability. When we give them a new, lower value to enter within the last bin of Boyce, we reduce the max value of suitability for the whole raster. The script has tried to calculate again the bins considering the range of suitability values (new max), but the problem persists, likely because the phylo-cells are still the ones with the highest value, so the second time we gave them a new suitability value, we reduced again the max suitability of the raster. We could continue doing this until a cells outside the phylo-range has a higher suitability but this has the risk of reducing too much the suitability of phylo-cells. From what I have seen, the greatest impact of the correction comes from the removel of occurrences from low and intermediate suitability bins. Adding these occurrences to the last, high suitability bin usutually increases Boyce a bit, but it is much less important that the previous removal of occurrences. Considering this, and the fact that doing this process recursively could put again phylo-cells in intermediate or low bins, lead me to stop here.", sep=""))
                     }
                 }
                 #apply function across models
@@ -1941,7 +1953,7 @@ predict_eval_phylo = function(species, status_previous_step){
                             #our current approach, i.e., applying phylo after binarization, is cleaner. Doing that, outside the phylo-range, only cells above the original threshold are considered as suitable, and then those witin phylo are considered as suitable even if their suibility value is below the threshold. This is what we want
                                 #Note that the suitability value given to cells within the phylo-range will be very high anyways, as we selected a value very close to the end of the last suitability bin in Boyce calculations, i.e., very close to 0.99...
 
-                    #check whether the threshold used to create binary predictions is above the value of usitability given to cells within the phylo range
+                    #check whether the threshold used to create binary predictions is above the value of suitability given to cells within the phylo range
                         #if it is, just print a warning, but not problem because we are applying the phylo-correction after binarizing, including the phylo-suitable areas in that way
                         #if it is not, we can check whether applying before or after gives the same result
                     #model_to_check="glm"

@@ -110,6 +110,12 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
     #the phylo model should be always proportion_subset_inter
 #if we have cases like this, it should not be a problem as we are directly applying phylo after the binarization, so phylo only affects to cells within the phylo-range
 
+#count cases:
+    #"WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR:"
+    #not a problem, look the explaination in the script
+    #we run six more times boyce inside the phylo model and partititon
+
+
 check_outputs_species=function(species){
 
     #output file path
