@@ -1851,10 +1851,67 @@ predict_eval_phylo = function(species, status_previous_step){
                 names(gam_phylo)=paste("gam_", selected_phylo_model, "_part_", k, sep="")
                 names(rf_phylo)=paste("rf_", selected_phylo_model, "_part_", k, sep="")
 
+
+
+                ###POR AQUIII
+                #check whether the suitability value given to cells within the phylo-range is still within the last bin of boyce after generating the new phylo-raster
+                #define function to do the check
+                #model_to_check="gam"
+                check_last_bin_boyce=function(model_to_check){
+                    
+                    #get the phylo and non-phylo rasters for the selected model
+                    selected_non_phylo_raster=eval(parse(text=paste(model, "_predict", sep="")))
+                    selected_phylo_raster=eval(parse(text=paste(model, "_phylo", sep="")))
+
+                    #if the min or the max of suitability in the new phylo raster are not same compared to the original prediction raster, then the range of pred is changed and hence the bins in boyce will be different, so the suitability value given to cells within the phylo range could be again outside of the last bin, and hence it will not be considered
+                    if(
+                        max(getValues(selected_non_phylo_raster), na.rm=TRUE) != max(getValues(selected_phylo_raster), na.rm=TRUE) | 
+                        min(getValues(selected_non_phylo_raster), na.rm=TRUE) != min(getValues(selected_phylo_raster), na.rm=TRUE)
+                    ){
+                        #jJUST RUN BOYCE WITH RASTER PHYLO AND GET A BIT BELOW THE MAX OF THE LAST BIN, NOW NO CHANGE IN MAX BECAUSE PHYLO CELLS ARE NOW THE ONES LEADING?
+                        #WHAT ABOUT THE MINIMUM?
+                            #if the change is because the minimum, we are now calculating the last bins cosndiering a range with new bin, so we should have no problem with this.
+
+                        new_last_bin_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(selected_phylo_raster), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=FALSE)
+
+                        #calculate the number of rows, i.e., bins
+                        n_bins=nrow(new_last_bin_boyce)
+                        
+                        #get suitability at the last two bins
+                        end_last_bin=new_last_bin_boyce[n_bins,]$bin.max
+                        end_penultimate_bin=new_last_bin_boyce[n_bins-1,]$bin.max
+                        
+                        #calculate the difference between the two ends
+                        distance_last_bins=end_last_bin-end_penultimate_bin
+                        
+                        #add to the penultimate end the 99% of the difference so we get very close to the end of the last bin but without touching it
+                        suit_value_for_phylo=end_penultimate_bin+(distance_last_bins*0.99)
+
+                        #give the new suitability value to those cells within the phylo-range
+                        selected_phylo_raster[selected_ensemble_phylo>=0.1]=suit_value_for_phylo
+
+                        #save the new phylo raster
+                        assign(paste(model, "_phylo", sep=""), selected_phylo_raster, envir=.GlobalEnv)
+
+                    }
+
+                    #now check that we have no problem with the last bin
+                    if(
+                        max(getValues(selected_non_phylo_raster), na.rm=TRUE) != max(getValues(selected_phylo_raster), na.rm=TRUE) | 
+                        min(getValues(selected_non_phylo_raster), na.rm=TRUE) != min(getValues(selected_phylo_raster), na.rm=TRUE)
+                    ){
+                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH SELECTING THE CORRECT SUITABILITY VALUE FOR CELLS WITHIN THE PHYLO-RANGE AS WE ARE NOT ABLE TO INCLUDE THEM IN THE LAST BIN OF BOYCE: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
+                    } else {
+                        print("OK! We have selected the correct suitability value for cells within the phylo-range as we are able to include them in the last bin of Boyce")
+                    }
+                }
+                #apply function across models
+                sapply(c("glm", "gam", "rf"), check_last_bin_boyce)
+
                 #calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIME
                 if(selected_phylo_model=="phylo_rasters_proportion_subset_inter"){
                     
-                    #add cells within the phylo range to the binary projections
+                    #add cells within the phylo range to the binary projections, i.e., value of 1 instead of 0
                     #glm
                     glm_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm.grd", sep=""), bands=k)[[1]]
                     glm_phylo_bin = glm_predict_bin
@@ -1940,9 +1997,6 @@ predict_eval_phylo = function(species, status_previous_step){
                 }
 
                 #calculate the boyce index (see previous major step for further details)
-
-                ###QCUICK CHECK ARGUMENTS BOYCE, pred done, check are the same than in non-phylo except the input raster
-
                 jpeg(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_", selected_phylo_model, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
                 par(mfcol=c(2,2))
                 glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
@@ -1989,15 +2043,17 @@ predict_eval_phylo = function(species, status_previous_step){
             save(rf_phylo_boyce_list, file=paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/boyce_partitions/", species, "_", selected_phylo_model, "_rf_boyce.rda", sep=""))
 
             #check we have the same partitions in all lists
+            #x=glm_phylo_boyce_list[[1]]
             glm_partitions=sapply(glm_phylo_boyce_list, function(x){return(x[[3]])})
             gam_partitions=sapply(gam_phylo_boyce_list, function(x){return(x[[3]])})
             rf_partitions=sapply(rf_phylo_boyce_list, function(x){return(x[[3]])})
-            if((!identical(glm_partitions, gam_partitions)) | (!identical(glm_partitions, rf_partitions))){
+            if((!identical(glm_partitions, gam_partitions)) | (!identical(glm_partitions, rf_partitions))){ # nolint: vector_logic_linter.
                 stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF BOYCE ACROSS PARTITIONS")
             }
 
             #calculate a table with boyce index across models and partitions
             #add the boyce index of each combination as a row
+            #x=glm_phylo_boyce_list[[1]]
             boyce_table=cbind.data.frame(
                 cbind.data.frame(glm_partitions),
                 cbind.data.frame(sapply(glm_phylo_boyce_list, function(x){return(x[[2]])})), 
