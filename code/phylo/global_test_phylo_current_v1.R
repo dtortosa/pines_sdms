@@ -1855,8 +1855,38 @@ predict_eval_phylo = function(species, status_previous_step){
                 if(selected_phylo_model=="phylo_rasters_proportion_subset_inter"){
                     
                     #add cells within the phylo range to the binary projections
-                    #first check whether the threshold used to create binary predictions is above the value of usitability given to cells within the phylo range
-                    #if the threshold is higher than the suitability given to the cells within the phylogenetic correction, the cells within the phylo-range are not going to be included in suitable areas, which is an error. The value we give to the cells within the phylo range is a value extremely close to the end of the last suitability bin used in Boyce index calculation. Therefore, this is the maximum suitability considered in our analyses, if a cell is above this value, we can give it 1, even if it is not above the threshold. That threshold would be very close anyways, as the suitability for phylo-cells is around 0.98 and 0.99...
+                    #glm
+                    glm_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm.grd", sep=""), bands=k)[[1]]
+                    glm_phylo_bin = glm_predict_bin
+                    glm_phylo_bin[selected_ensemble_phylo>=0.1]=1
+                        #we can use selected_ensemble_phylo as condition because the phylo rasters were calculated using the res and extent of the ensemble of binary predictions of the three models, thus there is a match between the cells of these rasters
+
+                    #gam
+                    gam_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam.grd", sep=""), bands=k)[[1]]
+                    gam_phylo_bin = gam_predict_bin
+                    gam_phylo_bin[selected_ensemble_phylo>=0.1]=1
+
+                    #rf
+                    rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
+                    rf_phylo_bin = rf_predict_bin
+                    rf_phylo_bin[selected_ensemble_phylo>=0.1]=1
+                    
+                    #IMPORTANT HERE: 
+                        #We are directly using the binary prediction of RF and this is ok.
+                        #think what we do with glm.
+                            #take the continuous prediction, convert to high suitability those cells with phylo-suitability > 0.1.
+                            #then apply the threshold to binarize
+                            #if the suitability value given to cells within the phylo-range is equal or above the threshold
+                                #these cells are going to be considered 1 
+                                #therefore, it is the same than if we binarize glm and then convert to 1 those cells with phylo-suitability>0.1
+                            #if the suitability value given to cells within the phylo-range is below the threshold, then we could have differences
+                                #if that is the case, we would have to use the suitability value given to phylo-cells as threshold. All cells above that value would be considered 1, even those outside of the phylogenetic range and below the original threshold, if they still are above the suitability value given to cells within the phylo-range.
+                            #our current approach, i.e., applying phylo after binarization, is cleaner. Doing that, outside the phylo-range, only cells above the original threshold are considered as suitable, and then those witin phylo are considered as suitable even if their suibility value is below the threshold. This is what we want
+                                #Note that the suitability value given to cells within the phylo-range will be very high anyways, as we selected a value very close to the end of the last suitability bin in Boyce calculations, i.e., very close to 0.99...
+
+                    #check whether the threshold used to create binary predictions is above the value of usitability given to cells within the phylo range
+                        #if it is, just print a warning, but not problem because we are applying the phylo-correction after binarizing, including the phylo-suitable areas in that way
+                        #if it is not, we can check whether applying before or after gives the same result
                     #model_to_check="glm"
                     check_threshold_vs_phylo=function(model_to_check){
                         
@@ -1871,57 +1901,29 @@ predict_eval_phylo = function(species, status_previous_step){
 
                             #print the threshold and phylo-suitability values
                             print(paste("The threshold value is ", selected_threshold, " while the suitability value given to cells inside the phylo-range is ", suit_value_phylo_across_models[model_to_check], sep=""))
+                        } else { 
+
+                            #means that the suitability value given to cells within the phylo-range is equal or higher than the threshold so, in that case, applying the phylo correction before or after binarization should give the same result
+
+                            #get the original phylo bin raster
+                            phylo_raster_bin_check_1=eval(parse(text=paste(model_to_check, "_phylo_bin", sep="")))
+
+                            #get the original phylo continuous raster
+                            phylo_raster_continuous_check=eval(parse(text=paste(model_to_check, "_phylo", sep="")))
+
+                            #binarize the continuous phylo raster
+                            phylo_raster_bin_check_2 = phylo_raster_continuous_check
+                            phylo_raster_bin_check_2[phylo_raster_bin_check_2>=selected_threshold,] <- 1
+                            phylo_raster_bin_check_2[phylo_raster_bin_check_2<selected_threshold,] <- 0
+
+                            #check both approaches are identical
+                            if(!identical(getValues(phylo_raster_bin_check_1), getValues(phylo_raster_bin_check_2))){
+                                stop("ERROR! FALSE! WE HAVE A PROBLEM DURING THE BINARIZATION OF PHYLO-MODELS")
+                            }
                         }
                     }
                     check_threshold_vs_phylo("glm")
                     check_threshold_vs_phylo("gam")
-
-
-                    ##por aquii, check adding phylo to binary instead ot doing it in continuous
-
-
-                    #now add to the binary predictions those regions inside the phylogenetic range
-                    #glm
-                    glm_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_glm.grd", sep=""), bands=k)[[1]]
-                    glm_phylo_bin = glm_predict_bin
-                    glm_phylo_bin[selected_ensemble_phylo>=0.1]=1
-
-                    #gam
-                    gam_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_gam.grd", sep=""), bands=k)[[1]]
-                    gam_phylo_bin = gam_predict_bin
-                    gam_phylo_bin[selected_ensemble_phylo>=0.1]=1
-
-                    #rf
-                    rf_predict_bin = stack(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/prediction_rasters/", species, "_predictions_bin_rf.grd", sep=""), bands=k)[[1]]
-                    rf_phylo_bin = rf_predict_bin
-                    rf_phylo_bin[selected_ensemble_phylo>=0.1]=1
-                    #we can use selected_ensemble_phylo as condition because the phylo rasters were calculated using the res and extent of the ensemble of binary predictions of the three models, thus there is a match between the cells of these rasters
-                    #IMPORTANT HERE:
-                        #We are directly using the binary prediction of RF and this is ok.
-                        #think what we do with glm.
-                            #take the continuous prediction, convert to 1 those cells with phylo-suitability > 0.1
-                            #then apply the threshold to binarize
-                            #the cells converted to 1 are going to be considered 1 in any case because the maximum value of the threshold is 1
-                            #therefore, it is the same than if we binarize glm and then convert to 1 those cells with phylo-suitability > 0.75
-                    
-                    #check that the order of adding the phylo-correction (before or after binarization) does not matter
-
-                    
-                    #check problem with correlation proporion non-proportion in strobus
-                    #we have removed here getvalues!!!
-
-                    check_glm_raster=glm_predict
-                    check_glm_raster[check_glm_raster>=(glm_threshold[[k]][2,2]),] <- 1
-                    check_glm_raster[check_glm_raster<(glm_threshold[[k]][2,2]),] <- 0
-                    check_glm_raster[selected_ensemble_phylo>=0.1]=1
-                    check_gam_raster=gam_predict
-                    check_gam_raster[check_gam_raster>=(gam_threshold[[k]][2,2]),] <- 1
-                    check_gam_raster[check_gam_raster<(gam_threshold[[k]][2,2]),] <- 0
-                    check_gam_raster[selected_ensemble_phylo>=0.1]=1
-                    if(!identical(getValues(glm_phylo_bin), getValues(check_glm_raster)) | 
-                    !identical(getValues(gam_phylo_bin), getValues(check_gam_raster))){
-                        stop("ERROR! FALSE! WE HAVE A PROBLEM DURING THE BINARIZATION OF PHYLO-MODELS")
-                    }
 
                     #add names to the rasters
                     names(glm_phylo_bin)=paste("glm_", selected_phylo_model, "_bin_part_", k, sep="")
@@ -1935,11 +1937,12 @@ predict_eval_phylo = function(species, status_previous_step){
                     glm_phylo_bin_list[[k]]=glm_phylo_bin
                     gam_phylo_bin_list[[k]]=gam_phylo_bin
                     rf_phylo_bin_list[[k]]=rf_phylo_bin
-                        #for the first phylo approach (l=1), 1-1=0, thus length(data_partitions) is zero. We add rasters from 1 to 12
-                        #for the second phylo-approach (l=2), 2-1=1, length(data_partitions) is 12, so we add 12 to k, giving 13 for the first layer, 14 for the second, and so on...
                 }
 
                 #calculate the boyce index (see previous major step for further details)
+
+                ###QCUICK CHECK ARGUMENTS BOYCE, pred done, check are the same than in non-phylo except the input raster
+
                 jpeg(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/plots/", species, "_part_", k, "_", selected_phylo_model, "_boyce_index_plot.jpeg", sep=""), width=960, height=960, pointsize=24)
                 par(mfcol=c(2,2))
                 glm_phylo_boyce=modEvA::Boyce(obs=presences[,c("longitude", "latitude")], pred=terra::rast(glm_phylo), n.bins=NA, bin.width="default", res=100, method="spearman", rm.dup.classes=TRUE, rm.dup.points=FALSE, na.rm=TRUE, plot=TRUE, main=paste("GLM", sep=""))
@@ -2049,7 +2052,7 @@ predict_eval_phylo = function(species, status_previous_step){
             length(glm_phylo_bin_list)!=length(data_partitions) |
             length(gam_phylo_bin_list)!=length(data_partitions) |
             length(rf_phylo_bin_list)!=length(data_partitions)){
-            stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS FOR ", species, sep=""))
+            stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PARTTITIONS FOR ", species, sep=""))
         }
 
         #check that we have only selected the first phylo-approach (i.e., the one used in the MS) and we have analyzed all 12 partitions
@@ -2123,6 +2126,12 @@ predict_eval_phylo = function(species, status_previous_step){
         if(ncol(final_boyce_results)!=length(phylo_models)*3+1 | nrow(final_boyce_results)!=length(data_partitions)+3){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS")
         }
+
+
+        ###PROBLEM here with strobus
+        #check problem with correlation proporion non-proportion in strobus
+
+
         #check for each algorithm and phylo-approach that proportion and non-proportion is the same
         #model_type="glm"
         for(model_type in c("glm", "gam", "rf")){

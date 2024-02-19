@@ -108,6 +108,7 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
 #"WARNING! The threshold for glm is above the suitability given to the cells inside the phylo-range for strobus in phylo_rasters_proportion_subset_inter"
 #"The threshold value is 0.999 while the suitability value given to cells inside the phylo-range is 0.990877347196968"
     #the phylo model should be always proportion_subset_inter
+#if we have cases like this, it should not be a problem as we are directly applying phylo after the binarization, so phylo only affects to cells within the phylo-range
 
 check_outputs_species=function(species){
 
