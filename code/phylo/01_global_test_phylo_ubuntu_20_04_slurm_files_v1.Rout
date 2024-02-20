@@ -3,9 +3,16 @@ Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127727  6.9     350000 18.7   197039 10.6
-Vcells 251237  2.0    8388608 64.0  1031544  7.9
+Ncells 127726  6.9     350000 18.7   197038 10.6
+Vcells 251233  2.0    8388608 64.0  1031544  7.9
 Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
    Mode    TRUE 
 logical     114 
 [1] TRUE TRUE TRUE
