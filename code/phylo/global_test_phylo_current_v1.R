@@ -2118,23 +2118,23 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #check we have the correct number of rasters in all lists. It should be only 12, because we are saving rasters only for the first phylo model, so 12 partitions, 12 rasters
         if(
-            length(glm_phylo_list)!=length(data_partitions) |
-            length(gam_phylo_list)!=length(data_partitions) |
-            length(rf_phylo_list)!=length(data_partitions) |
-            length(glm_phylo_bin_list)!=length(data_partitions) |
-            length(gam_phylo_bin_list)!=length(data_partitions) |
+            length(glm_phylo_list)!=length(data_partitions) | # nolint: vector_logic_linter.
+            length(gam_phylo_list)!=length(data_partitions) | # nolint: vector_logic_linter.
+            length(rf_phylo_list)!=length(data_partitions) | # nolint: vector_logic_linter.
+            length(glm_phylo_bin_list)!=length(data_partitions) | # nolint: vector_logic_linter.
+            length(gam_phylo_bin_list)!=length(data_partitions) | # nolint: vector_logic_linter.
             length(rf_phylo_bin_list)!=length(data_partitions)){
             stop(paste("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PARTTITIONS FOR ", species, sep=""))
         }
 
-        #check that we have only selected the first phylo-approach (i.e., the one used in the MS) and we have analyzed all 12 partitions
+        #check that we have only selected the second phylo-approach (i.e., the one used in the MS) and we have analyzed all 12 partitions
         if(
-            !identical(sapply(glm_phylo_list, {function(x) names(x)}), paste("glm_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(sapply(gam_phylo_list, {function(x) names(x)}), paste("gam_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(sapply(rf_phylo_list, {function(x) names(x)}), paste("rf_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(sapply(glm_phylo_bin_list, {function(x) names(x)}), paste("glm_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep="")) |
-            !identical(sapply(gam_phylo_bin_list, {function(x) names(x)}), paste("gam_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep="")) |
-            !identical(sapply(rf_phylo_bin_list, {function(x) names(x)}), paste("rf_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep=""))
+            !identical(sapply(glm_phylo_list, {function(x) names(x)}), paste("glm_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) | # nolint: vector_logic_linter.
+            !identical(sapply(gam_phylo_list, {function(x) names(x)}), paste("gam_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) | # nolint: vector_logic_linter.
+            !identical(sapply(rf_phylo_list, {function(x) names(x)}), paste("rf_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) | # nolint: vector_logic_linter.
+            !identical(sapply(glm_phylo_bin_list, {function(x) names(x)}), paste("glm_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep="")) | # nolint: vector_logic_linter.
+            !identical(sapply(gam_phylo_bin_list, {function(x) names(x)}), paste("gam_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep="")) | # nolint: vector_logic_linter.
+            !identical(sapply(rf_phylo_bin_list, {function(x) names(x)}), paste("rf_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep=""))
         ){
             stop("ERROR! FALSE! THIS SCRIPT IS PREPARED TO DEAL WITH ONLY 1 PHYLO MODEL, SPECIFICALLY 'phylo_rasters_proportion_subset_inter'")
         }
@@ -2149,12 +2149,12 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #check
         if(
-            !identical(names(predictions_glm), paste("glm_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(names(predictions_gam), paste("gam_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(names(predictions_rf), paste("rf_phylo_rasters_proportion_subset_inter_part_", c(1:12), sep="")) |
-            !identical(names(predictions_glm_bin), paste("glm_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep="")) |
-            !identical(names(predictions_gam_bin), paste("gam_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep="")) |
-            !identical(names(predictions_rf_bin), paste("rf_phylo_rasters_proportion_subset_inter_bin_part_", c(1:12), sep=""))
+            !identical(names(predictions_glm), paste("glm_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) |
+            !identical(names(predictions_gam), paste("gam_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) |
+            !identical(names(predictions_rf), paste("rf_phylo_rasters_proportion_subset_inter_part_", data_partitions, sep="")) |
+            !identical(names(predictions_glm_bin), paste("glm_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep="")) |
+            !identical(names(predictions_gam_bin), paste("gam_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep="")) |
+            !identical(names(predictions_rf_bin), paste("rf_phylo_rasters_proportion_subset_inter_bin_part_", data_partitions, sep=""))
         ){
             stop("ERROR! FALSE! THIS SCRIPT IS PREPARED TO DEAL WITH ONLY 1 PHYLO MODEL, SPECIFICALLY 'phylo_rasters_proportion_subset_inter'")
         }
@@ -2195,17 +2195,15 @@ predict_eval_phylo = function(species, status_previous_step){
             #mixedsort(final_boyce_results$partition)
                 #https://stackoverflow.com/a/2778060
         #check we have the correct number of columns and rows
-        if(ncol(final_boyce_results)!=length(phylo_models)*3+1 | nrow(final_boyce_results)!=length(data_partitions)+3){
+        if(
+            ncol(final_boyce_results)!=length(phylo_models)*3+1 |  # nolint: vector_logic_linter.
+            nrow(final_boyce_results)!=length(data_partitions)+3
+        ){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS")
         }
 
-
-        ###PROBLEM here with strobus
-        #check problem with correlation proporion non-proportion in strobus
-
-
         #check for each algorithm and phylo-approach that proportion and non-proportion is the same
-        #model_type="glm"
+        #model_type="gam"
         for(model_type in c("glm", "gam", "rf")){
             
             #phylo_option="subset_inter"
@@ -2220,7 +2218,10 @@ predict_eval_phylo = function(species, status_previous_step){
                     which(colnames(final_boyce_results)==paste("phylo_rasters_proportion_", phylo_option, "_", model_type, "_boyce", sep=""))]
                 
                 #if all observations are NA
-                if(sum(is.na(non_proportion_column))==length(non_proportion_column) | sum(is.na(proportion_column))==length(proportion_column)){
+                if(
+                    sum(is.na(non_proportion_column))==length(non_proportion_column) | # nolint: vector_logic_linter.
+                    sum(is.na(proportion_column))==length(proportion_column)
+                ){
                     
                     #do not calculate the correlation
                     correlation=list()
@@ -2244,7 +2245,8 @@ predict_eval_phylo = function(species, status_previous_step){
         final_boyce_results_reduced=final_boyce_results[,which(
             colnames(final_boyce_results)=="partition" | 
             grepl("phylo_rasters_subset_inter_", colnames(final_boyce_results), fixed=TRUE) | 
-            grepl("phylo_rasters_proportion_subset_inter_", colnames(final_boyce_results), fixed=TRUE))]
+            grepl("phylo_rasters_proportion_subset_inter_", colnames(final_boyce_results), fixed=TRUE)
+        )]
         #reorder columns by algorithm
         final_boyce_results_reduced=final_boyce_results_reduced[,c(
             which(colnames(final_boyce_results_reduced)=="partition"),
@@ -2343,7 +2345,7 @@ predict_eval_phylo = function(species, status_previous_step){
 
         #put the phylo-models as rows and partitions as columns
         merged_boyce_transponse=as.data.frame(t(merged_boyce[,which(colnames(merged_boyce)!="partition")]))
-        colnames(merged_boyce_transponse)=final_boyce_results$partition
+        colnames(merged_boyce_transponse)=merged_boyce$partition
         merged_boyce_transponse$model=row.names(merged_boyce_transponse)
         row.names(merged_boyce_transponse)=NULL
         merged_boyce_transponse=merged_boyce_transponse[, c(
@@ -2406,8 +2408,10 @@ master_processor=function(species){
 
     #send output to a specific file for the species
     output_file=file(paste("./results/global_test_phylo_current/species_output_files/", species, ".txt", sep=""), open = "wt")
+        #wt: w for writting and t for text
     sink(output_file, type="output")
     sink(output_file, type="message")
+        #send both outputs and messages
         #https://stackoverflow.com/a/75991645
 
     #start
@@ -2456,7 +2460,7 @@ clust <- makeCluster(length(species_to_analyze), outfile="")
 registerDoParallel(clust)
 
 #packages
-packages_parallel=c("raster", "sf", "randomForest", "gam", "modEvA", "gtools")
+packages_parallel=c("raster", "sf", "randomForest", "gam", "modEvA", "gtools", "terra")
 
 #run the function in parallel
 n_points_before_resampling = foreach(i=species_to_analyze, .packages=packages_parallel) %dopar% {
@@ -2510,31 +2514,3 @@ print("## FINISH ##")
 ##### NEXT STEPS #####
 ######################
 
-#took old version of _check_altitudinal_sampling.png in results/occurrences folders for radiata
-
-#check the thing about glm non binary!
-    #mira pagina 284 Nivk's book, he seems to do as we
-
-
-
-
-#check in github fast the differences between the version finished before debugging and the last version
-##SEND AGAIN NECESARRY FILES
-
-
-
-
-#script to check general output and outputs per species
-    #table with n_points_before_resampling_df
-        #CHECK SPECIES WITH LOW OCCURRENCES (e.g., clausa)
-            #check pattern, these cases have higher or lower boyce? to see if they are biasing our results, our glmm, see below.
-        #check how many naturalized presences inside PA buffer across species in "n_points_before_resampling". Use this to answer comment 8 of review about buffer size too big.
-
-
-#after running everything, quick check how other phylo-approaches work in the species with more impact, i.e., radiata, sylvestris, strobus...
-    #I have already done it with the frist run and subset_no_inter is a bit better, but probably not enough to change the whole phylo approach of the main text
-    #If the other phylo-approaches work much better, you have several options
-        #split perret dataset (maybe 75-25), compare the different phylo approaches in the 75% dataset, select the best one and then evaluate in the 25% dataset
-            #if you just select the best option performing in the whole Perret dataset, then you are not testing independently, and there is risk of overfitting.
-        #combine all phylo approaches into a single ensemble and use it as correction
-        #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
