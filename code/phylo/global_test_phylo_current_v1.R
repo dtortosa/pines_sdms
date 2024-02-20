@@ -1741,7 +1741,7 @@ predict_eval_phylo = function(species, status_previous_step){
                 "percentile_50", 
                 "percentile_97.5") )
 
-        #empty lists for raster predictions
+        #empty lists for raster predictions. We only need one list for all phylo models, because we will only save the rasters for the phylo approach used in the manuscript
         glm_phylo_list=list()
         gam_phylo_list=list()
         rf_phylo_list=list()
@@ -1905,8 +1905,11 @@ predict_eval_phylo = function(species, status_previous_step){
                     if(final_suitability_phylo!=suit_value_phylo_across_models[model_to_check]){
                         suit_value_phylo_across_models[model_to_check]=final_suitability_phylo
                     }
-                    if(final_suitability_phylo!=suit_value_phylo_across_models[model_to_check]){
-                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM SELECTING THE NEW SUITAIBLITY FOR PHYLO-CELLS: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
+                    if(
+                        final_suitability_phylo!=suit_value_phylo_across_models[model_to_check] | # nolint: vector_logic_linter.
+                        suit_value_phylo_across_models[model_to_check]<0.95
+                    ){
+                        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM SELECTING THE NEW SUITAIBLITY FOR PHYLO-CELLS, NOT CORRECTLY CHANGED OR TOO LOW, I.E., BELOW 0.95: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, sep=""))
                     }
 
                     #now do the check about whether the new suitability value for phylo-cells is indeed in the last bin of boyce
@@ -2043,9 +2046,9 @@ predict_eval_phylo = function(species, status_previous_step){
             
             #check
             if(
-                (length(glm_phylo_boyce_list)!=12) |
-                (length(gam_phylo_boyce_list)!=12) |
-                (length(rf_phylo_boyce_list)!=12)){
+                (length(glm_phylo_boyce_list)!=length(data_partitions)) |
+                (length(gam_phylo_boyce_list)!=length(data_partitions)) |
+                (length(rf_phylo_boyce_list)!=length(data_partitions))){
                 stop("ERROR! FALSE! WE DO NOT HAVE BOYCE INDEX FOR ALL PARTITIONS")
             }
 
@@ -2084,7 +2087,8 @@ predict_eval_phylo = function(species, status_previous_step){
                 #calculate the median of each column (excluding the first one with the number of the partition)
                 #margin lets you select if you want to apply the function across columns (2) or rows (1)
                 #before calculating the quantiles of each, remove NAs (na.rm=TRUE).
-                    #we have boyce_index=NA for no_subset_no_inter in strobus, because this phylo approach produce a looot of areas with suitability=1, where many presences are included. Given that the last bin of boyce calculations ends at 0.991, no presence is included in the calculations, because all are between 0.991 and 1. In other words, as we have many presences with predicted suitability of exactly 1, they are outside of the last bin that ends at 0.991.
+                    #We can have NA for boyce if, for example, the phylo correction captures ALL occurrences in low and intermediate suitability bins, and put them above the last bin of Boyce, because the suitability value given to them is still above that bin.
+                    #Remember that we try to give phylo-cells a suitability within the last bin of Boyce, but sometimes is not possible because the highest suitability value is still within these phylo-cells, so any change we do to them will change the max value of suitability of the raster and hence the range used for Boyce to calculate the bins. Doing that recursively wcould reduce a lot the suitability of the phylo cells, somethign that would be misleading as the greatest impact of the correction comes from the removal of occurrences from intermediate suitabiltiy bins. See above for code delaing with this.
 
             #add them as new rows. Do it in two steps to avoid converting numeric into string, as we have to add a string ("percentile_XX") and numbers (the actual percentile value)
             boyce_table[nrow(boyce_table) + 1, 1]="percentile_2.5"
