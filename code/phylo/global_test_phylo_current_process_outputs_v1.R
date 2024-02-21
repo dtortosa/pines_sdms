@@ -17,11 +17,11 @@
 
 
 
-##################################
-####### CREATE SLURM FILES ####### 
-##################################
+#############################
+####### CHECK OUTPUTS ####### 
+#############################
 
-#create slurm and bash scripts
+#check outputs of the analyses
 
 
 
@@ -39,9 +39,6 @@
 
 #set the seed for reproducibility
 set.seed(56756)
-
-#create some folders
-system("mkdir -p ./code/phylo/recipes/01_global_test_phylo_ubuntu_20_04_v1_slurm_files")
 
 #load species names
 list_species = read.table("code/presences/species.txt", sep="\t", header=TRUE)
@@ -102,20 +99,6 @@ if(sum(unique_species %in% epithet_species_list)!= length(unique_species)){
 ##################################
 #define function
 #species=unique_species[1]
-
-
-##add a check to check whether the thresholds are above the suitability value given to cells within the phylo-range
-#"WARNING! The threshold for glm is above the suitability given to the cells inside the phylo-range for strobus in phylo_rasters_proportion_subset_inter"
-#"The threshold value is 0.999 while the suitability value given to cells inside the phylo-range is 0.990877347196968"
-    #the phylo model should be always proportion_subset_inter
-#if we have cases like this, it should not be a problem as we are directly applying phylo after the binarization, so phylo only affects to cells within the phylo-range
-
-#count cases:
-    #"WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR:"
-    #not a problem, look the explaination in the script
-    #we run six more times boyce inside the phylo model and partititon
-
-
 check_outputs_species=function(species){
 
     #output file path
@@ -179,6 +162,32 @@ check_outputs_species=function(species){
             stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH PHYLO SUITABILITY BIN SAMPLE SIZE FOR ONE OF THE PHYLO MODELS FOR SPECIES ", species, "CHECK THIS IS NOT AFFECTING THE PHYLO MODEL WE ARE USING THE PAPER", sep=""))
         }
 
+        #count cases with warning about threshold being above the suitability value given
+        #to cells within the phylo-range
+        count_threshold=system(paste("\\
+            grep \\
+                --extended-regexp \\
+                --count \\
+                'WARNING! The threshold for .* is above the suitability given to the cells inside the phylo-range for .* in .*' \\
+            ", path_output_file, sep=""), intern=TRUE)
+
+        #if appears more than half of the maxmium number of times it can appear (1 per the two continuous models, each partition and only the phylo approach used to plot)
+        if(count_threshold[1]>(2*12*1)*0.5){
+            stop(paste("ERROR! FALSE! WE HAVE MANY CASES WITH THE THRESHOLD ABOVE THE VALUE OF SUITABILITY GIVEN TO THE CELLS WITHIN PHYLO-RANGE FOR ", species, ". THIS IS NOT A BIG DEAL BECAUSE we are directly applying phylo after the binarization, so these cells within the phylo-range are getting 1 in binary rasters, but cells with the same suitability value outside the phylo-range are not getting 1, so we are not messing with the predictions of the SDMs", sep=""))
+        }
+
+        #count cases with warning about the last bin
+        count_no_last_bin=system(paste("\\
+            grep \\
+                --count \\
+                'WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR' \\
+            ", path_output_file, sep=""), intern=TRUE)
+
+        #if appears more than 25% of the maxmium number of times it can appear (3 times for each partition and phylo approach)
+        if(count_no_last_bin[1]>(3*12*8)*0.25){
+            stop(paste("ERROR! FALSE! WE HAVE MANY CASES WHERE WE ARE UNABLE TO PUT THE CELLS WITIHN PHYLO-RANGE INTO THE LAST BIN OF BOYCE FOR ", species, ". THIS IS NOT A BIG DEAL BECAUSE THE GREATEST IMPACT I HAVE SEEN IT IS IN THE REMOVAL OF PHYLO-CELLS FROM INTERMEDIATE BINS. SEE EXPLANATIONS IN THE MAIN SCRIPT.", sep=""))
+        }
+
 
         ##check correlation between proportion and non-proportion phylo APPROACHES
         #look for a line whit the warning
@@ -238,12 +247,13 @@ check_outputs_species=function(species){
                 #https://stackoverflow.com/a/2912904
 
         #calculate the expected number of boyce outputs
-        expected_boyce=((((3*2)+6)*12)+(3*12*8))
+        expected_boyce=((((3*2)+6)*12)+(3*3*12*8))
             #in non-phylo: ((3*2)+2)*12
                 #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run 6 times the internal function used by modeva::boyce to calculate the input presence/absence file
                 #this is repeated across the 12 partitions
-            #in phylo: 3*12*8
-                #we run boyce for 3 algorithms across 12 partitions and 8 phylo-approaches
+            #in phylo: 3*3*12*8
+                #we run boyce 3 times for each of 3 algorithms across 12 partitions and 8 phylo-approaches
+                    #two to define the last bin of boyce where to put cells within the phylo-range and the last for actually running boyce and get the Boyce index.
 
         #get the line number where eval_phylo starts
         first_line_no_eval_phylo=as.numeric(system(paste(" \\

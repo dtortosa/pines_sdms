@@ -1917,7 +1917,7 @@ predict_eval_phylo = function(species, status_previous_step){
                         !(final_suitability_phylo > final_last_bins$bins[99,]$bin.max &  # nolint: vector_logic_linter.
                         final_suitability_phylo < final_last_bins$bins[100,]$bin.max)
                     ){
-                        print(paste("WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, ". The problem is that the cells inside the phylo-range are the one with the highest value of suitability. When we give them a new, lower value to enter within the last bin of Boyce, we reduce the max value of suitability for the whole raster. The script has tried to calculate again the bins considering the range of suitability values (new max), but the problem persists, likely because the phylo-cells are still the ones with the highest value, so the second time we gave them a new suitability value, we reduced again the max suitability of the raster. We could continue doing this until a cells outside the phylo-range has a higher suitability but this has the risk of reducing too much the suitability of phylo-cells. From what I have seen, the greatest impact of the correction comes from the removel of occurrences from low and intermediate suitability bins. Adding these occurrences to the last, high suitability bin usutually increases Boyce a bit, but it is much less important that the previous removal of occurrences. Considering this, and the fact that doing this process recursively could put again phylo-cells in intermediate or low bins, lead me to stop here.", sep=""))
+                        print(paste("WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, ". The problem is that the cells inside the phylo-range are the ones with the highest value of suitability. When we give them a new, lower value to enter within the last bin of Boyce, we reduce the max value of suitability for the whole raster. The script has tried to calculate again the bins considering the range of suitability values (new max), but the problem persists, likely because the phylo-cells are still the ones with the highest value, so the second time we gave them a new suitability value, we reduced again the max suitability of the raster. We could continue doing this until a cell outside the phylo-range has a higher suitability but this has the risk of reducing too much the suitability of phylo-cells. From what I have seen, the greatest impact of the correction comes from the removel of occurrences from low and intermediate suitability bins. Adding these occurrences to the last, high suitability bin usually increases Boyce a bit, but it is much less important that the previous removal of occurrences from low-intermediate bins. Considering this, and the fact that doing this process recursively could put again phylo-cells in intermediate or low bins, lead me to stop here.", sep=""))
                     }
                 }
                 #apply function across models
@@ -2194,13 +2194,42 @@ predict_eval_phylo = function(species, status_previous_step){
             #this applies natural sorting
             #mixedsort(final_boyce_results$partition)
                 #https://stackoverflow.com/a/2778060
-        #check we have the correct number of columns and rows
+
+        #set as NA columns with at least 1 NA, so we are sure that if the median has value it was obtained from 12 values. With less than 12 values, no median is calculated
+        #column_name="phylo_rasters_no_subset_no_inter_gam_boyce"
+        for(column_name in colnames(final_boyce_results)){
+
+            #if the column name is not partition, then do the operation
+            if(column_name!= "partition"){
+
+                #extract the values of the column
+                selected_column=final_boyce_results[,column_name]
+
+                #select only the values for the partitions, not the percentiles
+                selected_column_subset=selected_column[
+                    which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5"))
+                ]
+                    #we can use "final_boyce_results" to filter because "selected_column" was directly created from that data.frame inherting the same order of rows, i.e., partition 1, then partition 2...
+
+                #if all values are not finite 
+                if(sum(is.finite(selected_column_subset))!=length(selected_column_subset)){
+                    
+                    #set the whole column as NA
+                    final_boyce_results[,column_name]=NA
+                }
+            }
+        }
+
+        #make important check about whether we have the correct number of columns and rows before saving the table
         if(
             ncol(final_boyce_results)!=length(phylo_models)*3+1 |  # nolint: vector_logic_linter.
             nrow(final_boyce_results)!=length(data_partitions)+3
         ){
             stop("ERROR! FALSE! WE HAVE NOT ANALYZED ALL PHYLO MODELS AND PARTTITIONS")
         }
+
+        #save the original table
+        write.table(final_boyce_results, gzfile(paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_original_boyce_table.tsv.gz", sep="")), sep="\t", col.names=TRUE, row.names=FALSE)
 
         #check for each algorithm and phylo-approach that proportion and non-proportion is the same
         #model_type="gam"
@@ -2217,10 +2246,10 @@ predict_eval_phylo = function(species, status_previous_step){
                     which(!final_boyce_results$partition %in% c("percentile_2.5", "percentile_50", "percentile_97.5")),
                     which(colnames(final_boyce_results)==paste("phylo_rasters_proportion_", phylo_option, "_", model_type, "_boyce", sep=""))]
                 
-                #if all observations are NA
+                #if all observations are NA, NaN, Inf or -Inf, 
                 if(
-                    sum(is.na(non_proportion_column))==length(non_proportion_column) | # nolint: vector_logic_linter.
-                    sum(is.na(proportion_column))==length(proportion_column)
+                    sum(is.finite(non_proportion_column))!=length(non_proportion_column) | # nolint: vector_logic_linter.
+                    sum(is.finite(proportion_column))!=length(proportion_column)
                 ){
                     
                     #do not calculate the correlation
@@ -2405,6 +2434,10 @@ system("mkdir -p ./results/global_test_phylo_current/species_output_files")
 ##prepare master function
 #better this way, so if a species is too slow it will not get the other species stuck in the first step, as the other ones will continue running
 master_processor=function(species){
+
+    #set the seed to ensure we have reproducible results for each species
+    set.seed(87545675)
+        #If you're using parallel processing (with packages like parallel, foreach, future, etc.), each process has its own random number generator. This can make the results not reproducible, even if you call set.seed(). To get reproducible results with parallel processing, you need to set the seed in each process.
 
     #send output to a specific file for the species
     output_file=file(paste("./results/global_test_phylo_current/species_output_files/", species, ".txt", sep=""), open = "wt")
