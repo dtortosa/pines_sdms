@@ -794,10 +794,6 @@ dev.off()
         #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
 
 
-##por aquiii
-
-##envir=.GlobalEnv, problem with several especies in the same batch!!
-
 
 
 ###################################
@@ -888,6 +884,7 @@ if(check_rows_boyce_phylo_diff | check_cols_boyce_phylo_diff){
 results_boyce_phylo_diff=bind_rows(list_results_boyce_phylo_diff, .id=NULL)
 
 #add columns with the median(95CI) for each algorithm
+#algorithm="glm"
 for(algorithm in c("glm", "gam", "rf")){
 
     #paste the rounded median and 95CI of the selected algorithm
@@ -933,9 +930,8 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
         #we will see the great negative impact in strobus.
 
     #CHECK THE TABLE
-        #if the 95CI overlaps with zero, it means that the difference between non-phylo and phylo is positive for some data partitions and negative for others. In other words, we cannot say there are differences in the boyce index after the application of the phylogenetic correction.
-        #we need to see 95CIs consistently below 0 for us to say that phylo has a higher boyce index than non-phylo (we do non-phylo vs phylo)
-        #silvestris and patula (but patula overlaps with zero)
+        #if the 95CI overlaps with zero, it means that the difference between non-phylo and phylo is positive for some data partitions and negative for others.
+        #compare with the wilcoxon tests from the next section
 
     #CHECK THE PLOTS ABOUT BOYCE NO PHYLO, SPECIALLY ELLILOTTI, NIGRA AND MUGO
         #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
@@ -1086,43 +1082,44 @@ write.table(results_boyce_phylo_diff_glmm, paste("./results/global_test_phylo_cu
 ##check for significant differences
 #info for GLMM that we finally do not used
     #wilcoxon vs GLMM
-        #Note that we are just interested in knowing whether the Boyce index is different between applying or not the phylogenetic correction. Using a GLMM would show that the impact differs between species for it is more difficult to show that the phylogenetic correction causes a change over zero for a given model an species, because you have to set a species/model as reference. Putting sylvestris and strobus as references show that they are indeed different from the rest, but again, we obtain many p-values and it is more difficult to present.
+        #Note that we are just interested in knowing whether the Boyce index is different between applying or not the phylogenetic correction. Using a GLMM would show that the impact differs between species, but it is more difficult to show that the phylogenetic correction causes a change over zero for a given model an species, because you have to set a species/model as reference. Putting sylvestris and strobus as references show that they are indeed different from the rest, but again, we obtain many p-values and it is more difficult to present.
         #The wilcoxon test let us to just show if the median Boyce index of with phylo and non-phylo across the 12 partitions of a species/model combination is indeed different.
         #We do not need to add the partition or models as factors as we are calculating the p-value within the 12 partitions of each species/model. We also say to the test that boyce with and without phylo from partition 1 are paired, i.e., they are not independent. See below.
-    #Response: 
-        #the difference in boyce index between phylo and non-phylo.
-        #slope different from zero for factors means that the correction has an impact
-    #Main effects
-        #species
-        #algorithm
-        #invaded region?
-            #maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
-            #like in "Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders"
-            #but many species have occurrences an South Africa, South America and AUS, you would have to do a level factor with these regions so not sure this is meaningful...
-    #interactions
-        #species*algorithms
-            #the key here is the interaction, phylo diff tends to be different depending on the species and the algorithm? in other words, the impact of the phylogenetic correction is dependent on the species and the algorithm used?
-            #maybe an overall effect is not visible, but we can see impact in specific cases.
-    #random factor: partition of the species
-        #partition_1_halepensis, partition_2_halepensis!!!
-        #the first partition of halepensis is not the same than the first partition of sylvestris!!!
-        #we need to control for this factor but we are not interested to know its effect. Maybe a partition is more difficult to predict than other. We need to let know the model that the boyce index from glm, gam and RF for halepensis_1 are all obtained from the same data!! and they are different from halepensis_2 even though they belong to the same species.
-            #this can have an effect on thet variance of the response variable
-            #but we do not want to lose degrees of freedom because of this, because we have maaany levels, halepensis_1, halepensis_2.... radiata_1..... better a random factor.
-        #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
-        #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species, i.e., 3 observations in each partition. We also many levels (12 per each species), so we can use as a random factor.
-            #we can use partition as a random factor testing the impact on the average value of the response, but we cannot test how influence the impact of a specific factor like model, because we only have 1 boyce value per model and partition, see below!
-            #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
-        #possible structures
-            #1|partition:
-                #depending on the partition, the boyce index tends to be higher or lower respect to the average (intercep)
-            #species|partition
-                #all species are not included in each partition, so we cannot test this
-            #algorithm|partition
-                #we cannot test this because, yes, we have 3 observations per partition and all models are inside each partition, but we only have 1 observation per model and partition!, not 3!
-                #indeed, we get the following error testing this
-                    #Error: number of observations (=72) <= number of random effects (=72) for term (model | partition); the random-effects parameters and the residual variance (or scale parameter) are probably unidentifiable
-                #but all algorithms are, i.e., we have boyce index for GLM, GAM and RF in each specific partition, so we can test whether the impact of the algorithm depends on the partition
+    #In case you want to use GLMM
+        #Response: 
+            #the difference in boyce index between phylo and non-phylo.
+            #slope different from zero for factors means that the correction has an impact
+        #Main effects
+            #species
+            #algorithm
+            #invaded region?
+                #maybe separate NA, EU and AUS? maybe phylo works different depending on the breath of climatic conditions of the continent?
+                #like in "Climatic Niche Shifts Are Rare Among Terrestrial Plant Invaders"
+                #but many species have occurrences an South Africa, South America and AUS, you would have to do a level factor with these regions so not sure this is meaningful...
+        #interactions
+            #species*algorithms
+                #the key here is the interaction, phylo diff tends to be different depending on the species and the algorithm? in other words, the impact of the phylogenetic correction is dependent on the species and the algorithm used?
+                #maybe an overall effect is not visible, but we can see impact in specific cases.
+        #random factor: partition of the species
+            #partition_1_halepensis, partition_2_halepensis!!!
+            #the first partition of halepensis is not the same than the first partition of sylvestris!!!
+            #we need to control for this factor but we are not interested to know its effect. Maybe a partition is more difficult to predict than other. We need to let know the model that the boyce index from glm, gam and RF for halepensis_1 are all obtained from the same data!! and they are different from halepensis_2 even though they belong to the same species.
+                #this can have an effect on thet variance of the response variable
+                #but we do not want to lose degrees of freedom because of this, because we have maaany levels, halepensis_1, halepensis_2.... radiata_1..... better a random factor.
+            #we cannot test the interaction with other factors because, again, partition 1 in halepensis is not present in sylvestris, is not fully crossed
+            #In cayuelas course, he used a random block with 10 levels and 3 observations in each one, so we should be ok using partition as a random factor. We have three models for each partition_species, i.e., 3 observations in each partition. We also many levels (12 per each species), so we can use as a random factor.
+                #we can use partition as a random factor testing the impact on the average value of the response, but we cannot test how influence the impact of a specific factor like model, because we only have 1 boyce value per model and partition, see below!
+                #/home/dftortosa/diego_docs/science/formacion/cursos/courses_during_phd/investigacion/R/Modelos mixtos/Modelos mixtos - Luis Cayuelas/5-Modelos lineales mixtos en R.pdf
+            #possible structures
+                #1|partition:
+                    #depending on the partition, the boyce index tends to be higher or lower respect to the average (intercep)
+                #species|partition
+                    #all species are not included in each partition, so we cannot test this
+                #algorithm|partition
+                    #we cannot test this because, yes, we have 3 observations per partition and all models are inside each partition, but we only have 1 observation per model and partition!, not 3!
+                    #indeed, we get the following error testing this
+                        #Error: number of observations (=72) <= number of random effects (=72) for term (model | partition); the random-effects parameters and the residual variance (or scale parameter) are probably unidentifiable
+                    #but all algorithms are, i.e., we have boyce index for GLM, GAM and RF in each specific partition, so we can test whether the impact of the algorithm depends on the partition
 
 #define a function to apply the wilcoxon test
 require(exactRankTests)
@@ -1261,6 +1258,16 @@ if(length(species_algorithms)!=length(unique(results_boyce_phylo_diff_glmm$speci
 #apply the function across all species and model combinations
 list_wilcoxon_signed=lapply(species_algorithms, wilcoxon_signed_calc)
 
+#check we have the correct rows and columns in each table
+#x=list_wilcoxon_signed[[1]]
+#x=list_wilcoxon_signed[[17]]
+check_rows_wilcoxon=FALSE %in% (sapply(list_wilcoxon_signed, {function(x) if(!is.null(x)){nrow(x)==1}}))
+    #each table should have 36 rows: 12 partitions times 3 algorithms 
+check_cols_wilcoxon=FALSE %in% (sapply(list_wilcoxon_signed, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "algorithm", "median_non_phylo", "median_phylo", "median_phylo_diff", "wilcoxon_signed_statistic", "wilcoxon_signed_p"))}}))
+if(check_rows_wilcoxon | check_cols_wilcoxon){
+    stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF WILCOXON ACROSS SPECIES")
+}
+
 #bind all rows into a DF
 require(dplyr)
 wilcoxon_signed_results=bind_rows(list_wilcoxon_signed, .id=NULL)
@@ -1289,9 +1296,9 @@ print(significant_fdr)
         #Therefore, we have correlation between tests of the same species and tests of the same model, decreasing a lot the number of independent test. If we assume that values of the same species are correlated and values of the same model are correlated, the 42 independent tests divided by the 14 species and the 3 models gives 1!
             #you have 3 values for sylvestris across models, all calculated with the same data!
             #you have 14 values for GLM across species, all calculated with the same model!
-    #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we should not need to apply multiple test correction at all, the number of independent tests is really low.
+    #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
 
-#Results:
+#Results: UPDATE WITH TEH NEW RESULTS!!!
     #CHECK Boyce plots:
         #If the number of points in the correlation, i.e., the number of bins, is very low, you can have high Boyce for a case where a lot of areas of the globe are considered as suitable by phylo, capturing all presences but having also a lot of suitable areas without occurrences that are not penalized. 
         #This happens because we remove the contigous bins that have the same P/E ratio, as done by Nick. This is ok in our case and let us to rescue many cases that work actually great, but we can have some extrange cases like the one explained.
@@ -1320,7 +1327,7 @@ write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcox
 #finish the script
 print("## FINISH ##")
 
-#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_process_outputs_v1.R 2>&1 ./code/phylo/global_test_phylo_current_process_outputs_v1.Rout
+#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_process_outputs_v1.R > ./code/phylo/global_test_phylo_current_process_outputs_v1.Rout 2>&1
 
 
 
