@@ -1887,9 +1887,6 @@ predict_eval_phylo = function(species, status_previous_step){
 
                         #give the new suitability value to those cells within the phylo-range
                         selected_phylo_raster[selected_ensemble_phylo>=0.1]=new_suit_value_for_phylo
-
-                        #save the new phylo raster overwritting the previous phylo_raster in the global environment
-                        assign(paste(model_to_check, "_phylo", sep=""), selected_phylo_raster, envir=.GlobalEnv)
                     }
 
                     #calculate again boyce to check whether the phylo-cells are within the last bin
@@ -1919,9 +1916,14 @@ predict_eval_phylo = function(species, status_previous_step){
                     ){
                         print(paste("WARNING! WE HAVE BEEN UNABLE TO PUT THE CELLS OF THE PHYLOGENETIC RANGE IN THE LAST BIN FOR: ", species, "-", selected_phylo_model, "-", k, "-", model_to_check, ". The problem is that the cells inside the phylo-range are the ones with the highest value of suitability. When we give them a new, lower value to enter within the last bin of Boyce, we reduce the max value of suitability for the whole raster. The script has tried to calculate again the bins considering the range of suitability values (new max), but the problem persists, likely because the phylo-cells are still the ones with the highest value, so the second time we gave them a new suitability value, we reduced again the max suitability of the raster. We could continue doing this until a cell outside the phylo-range has a higher suitability but this has the risk of reducing too much the suitability of phylo-cells. From what I have seen, the greatest impact of the correction comes from the removel of occurrences from low and intermediate suitability bins. Adding these occurrences to the last, high suitability bin usually increases Boyce a bit, but it is much less important that the previous removal of occurrences from low-intermediate bins. Considering this, and the fact that doing this process recursively could put again phylo-cells in intermediate or low bins, lead me to stop here.", sep=""))
                     }
+
+                    #return the new raster
+                    return(selected_phylo_raster)
                 }
-                #apply function across models
-                sapply(c("glm", "gam", "rf"), check_last_bin_boyce)
+                #apply function across models and save the new phylo raster
+                glm_phylo=check_last_bin_boyce("glm")
+                gam_phylo=check_last_bin_boyce("gam")
+                rf_phylo=check_last_bin_boyce("rf")
 
                 #calculate the binary predictions for ensemble ONLY FOR THE PHYLO MODEL WE ARE GOING TO USE IN THE PAPER. WE WILL HAVE BOYCE FOR THE REST OF MODELS, BUT NOT ENSEMBLES SO WE SAVE SPACE AND TIME
                 if(selected_phylo_model=="phylo_rasters_proportion_subset_inter"){

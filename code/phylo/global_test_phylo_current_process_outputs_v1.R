@@ -213,8 +213,8 @@ check_outputs_species=function(species){
                 #if not NA, then calculate the min cor
                 cor_value=min(as.numeric(cor_values))
 
-                #if the min cor is lower than 0.9
-                if(cor_value<0.9){
+                #if the min cor is lower than 0.75
+                if(cor_value<0.75){
                     cor_flag="low_cor"     
                 } else {
                     cor_flag="high_cor"
@@ -300,13 +300,15 @@ check_outputs_species=function(species){
                 --count \\
                 ", path_output_file, sep=""), intern=TRUE))
         #check
-        if(count_ending[1]!=1){
-            stop(paste("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED END OF THE SCRIPT FOR ", species, sep=""))
+        if(count_ending[1]==1){
+            finish="FINISH"
+        } else {
+            finish="NO_FINISH"
         }
 
 
         ##return the cor flag and FINISH
-        return(list(cor_flag, "FINISH"))
+        return(list(cor_flag, finish))
     }
 }
 
@@ -325,13 +327,13 @@ output_results_count_low_high_cor_cases=sum(apply(output_results, 2, {function(x
     #one liner ifelse
         #https://stackoverflow.com/questions/15586566/if-statement-in-r-can-only-have-one-line
 if(output_results_count_finish!=length(unique_species)){
-    stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH SPECIES")
+    stop("ERROR! FALSE! WE HAVE A PROBLEM CHECKING THE OUTPUT FILE OF EACH SPECIES. NOT ALL SPECIES HAVE FINISHED THEIR ANALYSES AND THE CHECKS")
 }
 
 #count the number of cases with low correlation between the main phylogenetic approaches
 percent_low_cor=(output_results_count_low_cor_cases/output_results_count_low_high_cor_cases)*100
-if(percent_low_cor>50){
-    stop("ERROR! FALSE! WE HAVE MORE THAN 50% OF SPECIES WITH A LOW CORRELATION BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
+if(percent_low_cor>30){
+    stop("ERROR! FALSE! WE HAVE MORE THAN 30% OF SPECIES WITH A LOW CORRELATION (BELOW 0.75) BETWEEN PHYLO PROPORTION AND NON-PROPORTION")
 }
 
 
@@ -543,9 +545,7 @@ algorithms=c("glm", "gam", "rf")
 
 #open empty plot
 pdf(paste("./results/global_test_phylo_current/n_points_before_resampling/boyce_vs_n_occurrences.pdf", sep=""), width=12, height=8)
-plot(1, type="n", xlab="Number of occurrences after resampling", ylab="Boyce index", xaxt="n", yaxt="n", 
-    xlim=c(0, max(n_points$points_outside_after_resampling)+10), 
-    ylim=c(-1, 1))
+plot(1, type="n", xlab="Number of occurrences after resampling", ylab="Boyce index", xaxt="n", yaxt="n", xlim=c(0, max(n_points$points_outside_after_resampling)+10), ylim=c(-1, 1))
 axis(1, at=seq(0, max(n_points$points_outside_after_resampling)+10, 5))
 axis(2, at=seq(-1, 1, 0.2))
     #the x axis is the number of points, we do not have species with more than 70-80 occurrences
@@ -590,6 +590,9 @@ for(algorithm_index in 1:length(algorithms)){
         #select the type of arrow and the dimensions
         #add the color of the algorithm
 }
+
+#add horizontal line at boyce=0, i.e., performance of the random expectation
+abline(h=0)
 
 #add the legend
 legend(x="topright", legend=algorithms, fill=1:length(algorithms))
@@ -721,9 +724,7 @@ algorithms=c("glm", "gam", "rf")
 #open empty plot
 pdf(paste("./results/global_test_phylo_current/boyce_non_phylo_vs_phylo.pdf", sep=""), width=8, height=8)
     #we need the same height and width in order to properly compare the confidence intervals of X and Y. If the shape of the plot is not cuadrangular, we cannot visualize the difference of the CI between the two variable plots.
-plot(1, type="n", xlab="Boyce index non-phylo", ylab="Boyce index phylo", xaxt="n", yaxt="n", 
-    xlim=c(-1, 1), 
-    ylim=c(-1, 1))
+plot(1, type="n", xlab="Boyce index non-phylo", ylab="Boyce index phylo", xaxt="n", yaxt="n", xlim=c(-1, 1), ylim=c(-1, 1))
 axis(1, at=seq(-1, 1, 0.2))
 axis(2, at=seq(-1, 1, 0.2))
     #the x and y axis are the boyce index, which can go from -1 to 1
@@ -792,6 +793,10 @@ dev.off()
         #if phylo (Y) is lower than non-phylo (X), points will be below diagonal
         #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
 
+
+##por aquiii
+
+##envir=.GlobalEnv, problem with several especies in the same batch!!
 
 
 
@@ -932,7 +937,9 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
         #we need to see 95CIs consistently below 0 for us to say that phylo has a higher boyce index than non-phylo (we do non-phylo vs phylo)
         #silvestris and patula (but patula overlaps with zero)
 
-    #CHECK THE PLOTS ABOUT BOYCE NO PHYLO
+    #CHECK THE PLOTS ABOUT BOYCE NO PHYLO, SPECIALLY ELLILOTTI, NIGRA AND MUGO
+        #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
+            #elliloti seems to be good to differentiate low-suitable areas from intermediate suitable areas, but it cannot differentiate well for higher suitability values. So it has ability to separate areas more likely to have ocurrences but with low-resolution.
         #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
         #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
             #if all partitions show consistently the same situation, and we have a median Boyce very high with just two bins, take a look.
