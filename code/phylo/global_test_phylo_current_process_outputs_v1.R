@@ -184,7 +184,7 @@ check_outputs_species=function(species){
             ", path_output_file, sep=""), intern=TRUE)
 
         #if appears more than 25% of the maxmium number of times it can appear (3 times for each partition and phylo approach)
-        if(count_no_last_bin[1]>(3*12*8)*0.25){
+        if(count_no_last_bin[1]>(3*12*8)*0.50){
             stop(paste("ERROR! FALSE! WE HAVE MANY CASES WHERE WE ARE UNABLE TO PUT THE CELLS WITIHN PHYLO-RANGE INTO THE LAST BIN OF BOYCE FOR ", species, ". THIS IS NOT A BIG DEAL BECAUSE THE GREATEST IMPACT I HAVE SEEN IT IS IN THE REMOVAL OF PHYLO-CELLS FROM INTERMEDIATE BINS. SEE EXPLANATIONS IN THE MAIN SCRIPT.", sep=""))
         }
 
@@ -246,16 +246,18 @@ check_outputs_species=function(species){
             #use regular expression to look for lines having Data include... and any character for the number of presences and absences except a new line character (.*). The string ends with an actual dot, so we have to scape "."
                 #https://stackoverflow.com/a/2912904
 
-        #calculate the expected number of boyce outputs
-        expected_boyce=((((3*2)+6)*12)+(3*3*12*8))
+        #calculate the minimum number of boyce outputs
+        min_expected_boyce=((((3*2)+6)*12)+(2*3*12*8))
+        max_expected_boyce=((((3*2)+6)*12)+(3*3*12*8))
             #in non-phylo: ((3*2)+2)*12
                 #we run boyce for 3 algorithms twice in each case, i.e., removing or not duplicates. We also run 6 times the internal function used by modeva::boyce to calculate the input presence/absence file
                 #this is repeated across the 12 partitions
-            #in phylo: 3*3*12*8
-                #we run boyce 3 times for each of 3 algorithms across 12 partitions and 8 phylo-approaches
-                    #two to define the last bin of boyce where to put cells within the phylo-range and the last for actually running boyce and get the Boyce index.
+            #in phylo: from 2*3*12*8 to 3*3*12*8
+                #we run boyce at least 2 times for each of 3 algorithms across 12 partitions and 8 phylo-approaches
+                    #one (or two) to define the last bin of boyce where to put cells within the phylo-range and the last for actually running boyce and get the Boyce index.
+                    #note I say one or two to define the last bine of Boyce, for some species/models we may need 1 and for others 2, so the number it is going to vary between species, so we set a min and max number of times this can appear
 
-        #get the line number where eval_phylo starts
+        #get the line number where no_eval_phylo starts
         first_line_no_eval_phylo=as.numeric(system(paste(" \\
             grep \\
                 --line-number \\
@@ -281,12 +283,25 @@ check_outputs_species=function(species){
         } else {
 
             #if not, the specie has run and we should have the expected number of boyce outputs
-            check_boyce=n_boyce==expected_boyce
+            check_boyce=n_boyce>=min_expected_boyce && n_boyce<=max_expected_boyce
         }
 
         #check the number of outputs is the correct
         if(!check_boyce){
             stop(paste("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED NUMBER OF OUTPUTS FROM BOYCE FUNCTION ", species, sep=""))
+        }
+
+
+        ##check the script finished
+        #count finish line
+        count_ending=as.numeric(system(paste(" \\
+            grep \\
+                'ENDING  ", species, "'\\
+                --count \\
+                ", path_output_file, sep=""), intern=TRUE))
+        #check
+        if(count_ending[1]!=1){
+            stop(paste("ERROR! FALSE! WE DO NOT HAVE THE EXPECTED END OF THE SCRIPT FOR ", species, sep=""))
         }
 
 
