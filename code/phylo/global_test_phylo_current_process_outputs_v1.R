@@ -600,7 +600,9 @@ legend(x="topright", legend=algorithms, fill=1:length(algorithms))
 legend(x="bottomright", legend=unique(results_boyce$species), pch=seq(1,length(unique(results_boyce$species)),1))
 dev.off()
     #CHECK THE PLOT:
-        #the number of occurrences is biasing our results? If so, we should see a positive correlation between boyce and the number of occurrences. If we see that boyce decreases with the number of occurrences, then it is possible that we do not have ability to evaluate species with a low number of occurrences?
+        #the number of occurrences is biasing our results? If so, we should see a positive correlation between boyce and the number of occurrences. If we see that boyce decreases with lower occurrences, then it is possible that we do not have ability to evaluate species with a low number of occurrences?
+        #this is not the case, no clear pattern between the number of occurrences and the boyce index.
+        #Also interesting to see species with small ranges (like P. patula and P. radiata), exhibiting very good performance.
 
 
 
@@ -792,6 +794,8 @@ dev.off()
         #if they are the same, the points will follow the diagonal. Also the 95CI bars will be the same between phylo and non-phylo
         #if phylo (Y) is lower than non-phylo (X), points will be below diagonal
         #if phylo (Y) is higher than non-phylo (X), points will be above diagonal
+    #No species below the diagonal, so it seems that correction does not make things worse in general.
+    #Above the diagonal only for a few species, strobus, sylvestris, nigra, see below detailed comparison.
 
 
 
@@ -932,15 +936,6 @@ write.table(results_boyce_phylo_diff, paste("./results/global_test_phylo_current
     #CHECK THE TABLE
         #if the 95CI overlaps with zero, it means that the difference between non-phylo and phylo is positive for some data partitions and negative for others.
         #compare with the wilcoxon tests from the next section
-
-    #CHECK THE PLOTS ABOUT BOYCE NO PHYLO, SPECIALLY ELLILOTTI, NIGRA AND MUGO
-        #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
-            #elliloti seems to be good to differentiate low-suitable areas from intermediate suitable areas, but it cannot differentiate well for higher suitability values. So it has ability to separate areas more likely to have ocurrences but with low-resolution.
-        #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
-        #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
-            #if all partitions show consistently the same situation, and we have a median Boyce very high with just two bins, take a look.
-        #also check that the median boyce index correlates well with the ensemble showing predicted suitability outside PA buffer and the naturalized occurrences. Higher boyce should correlated with more matches.
-        #check differences between removing or not duplicated presences.
 
 
 
@@ -1298,11 +1293,23 @@ print(significant_fdr)
             #you have 14 values for GLM across species, all calculated with the same model!
     #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
 
-#Results: UPDATE WITH TEH NEW RESULTS!!!
+#Results:
     #CHECK Boyce plots:
         #If the number of points in the correlation, i.e., the number of bins, is very low, you can have high Boyce for a case where a lot of areas of the globe are considered as suitable by phylo, capturing all presences but having also a lot of suitable areas without occurrences that are not penalized. 
         #This happens because we remove the contigous bins that have the same P/E ratio, as done by Nick. This is ok in our case and let us to rescue many cases that work actually great, but we can have some extrange cases like the one explained.
         #This is very unlikely to happen with a restringed phylo-approach, but just in case, we should check that the Boyce plots of all Boyce values we use (phylo and non-phylo) are ok, with enough data.points and showing a trend of increaseing presence probability with increasing suitability in bins.
+        #also check that the median boyce index correlates well with the ensemble showing predicted suitability outside PA buffer and the naturalized occurrences. Higher boyce should correlated with more matches.
+        #check differences between removing or not duplicated presences.
+    #specific cases
+        #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
+            #elliloti seems to be good to differentiate low-suitable areas from intermediate suitable areas, but it cannot differentiate well for higher suitability values. So it has ability to separate areas more likely to have ocurrences but with low-resolution.
+        #radiata
+            #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
+            #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
+            #if all partitions show consistently the same situation, and we have a median Boyce very high with just two bins, take a look.
+        #nigra
+        #mugo
+
     #IMPORTANT: we are discussing results using the percentage respect to the non-phylo value, but this could be misleading because 0.95 vs 0.98 is going to be a lower difference in percentage than 0.25 vs 0.28.
         #maybe we can calculate a percentage with respect to the range of Boyce index, i.e., from -1 to 1, making a length of 2. 
         #an increase of 0.5 would be 0.5/2 would be a 25% increase.

@@ -19,6 +19,8 @@ Loading required package: sp
    Mode    TRUE 
 logical     114 
 [1] TRUE TRUE TRUE
+Archive:  ./datos/phylo/method_validation/doi_10_5061_dryad_1hr1n52__v20181213.zip
+ extracting: ./results/global_test_phylo_current/exsitu_occurrences/pinus_occurrences_fordryad_exoticonly.csv  
    species            longitude             latitude         
  Length:597         Min.   :-176.60774   Min.   :-46.343000  
  Class :character   1st Qu.: -75.02140   1st Qu.:-37.966255  
@@ -143,6 +145,8 @@ logical     114
 5        contorta                57
 11          nigra                66
 17        radiata                77
+null device 
+          1 
    threshold_value species_remaining
 1                1                25
 2                2                24
@@ -191,7 +195,7 @@ Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=2297803 on localhost:11260 at 13:49:02.224
+starting worker pid=3482169 on localhost:11175 at 17:48:36.872
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -200,6 +204,7 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
+terra 1.7.71
     species total_points points_inside points_outside
 1 banksiana           13             7              6
   points_outside_after_resampling

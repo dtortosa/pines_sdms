@@ -2540,7 +2540,7 @@ write.table(n_points_before_resampling_df, paste("./results/global_test_phylo_cu
 #finish the script
 print("## FINISH ##")
 
-#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_v1.R --species="halepensis,radiata" --batch="batch_1" 2>&1 ./code/phylo/global_test_phylo_current_v1_batch_1.Rout
+#singularity exec 01_global_test_phylo_ubuntu_20_04_v1.sif ./code/phylo/global_test_phylo_current_v1.R --species="halepensis,radiata" --batch="batch_1" > ./code/phylo/global_test_phylo_current_v1_batch_1.Rout 2>&1
 
 
 

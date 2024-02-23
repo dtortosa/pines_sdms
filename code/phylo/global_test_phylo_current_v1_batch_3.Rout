@@ -143,6 +143,8 @@ logical     114
 5        contorta                57
 11          nigra                66
 17        radiata                77
+null device 
+          1 
    threshold_value species_remaining
 1                1                25
 2                2                24
@@ -191,7 +193,7 @@ Loading required package: SystWrapper
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
   there is no package called 'SystWrapper'
-starting worker pid=2300713 on localhost:11008 at 14:27:46.559
+starting worker pid=1375929 on localhost:11410 at 17:59:47.354
 Loading required package: sp
 Linking to GEOS 3.8.0, GDAL 3.0.4, PROJ 6.3.1; sf_use_s2() is TRUE
 randomForest 4.7-1.1
@@ -200,6 +202,7 @@ Loading required package: splines
 Loading required package: foreach
 Loaded gam 1.22-3
 
+terra 1.7.71
    species total_points points_inside points_outside
 1 caribaea            1             0              1
   points_outside_after_resampling
