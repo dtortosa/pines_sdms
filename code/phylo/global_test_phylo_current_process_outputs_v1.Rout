@@ -1,0 +1,195 @@
+[1] FALSE
+Warning message:
+In file.remove(".RData") :
+  cannot remove file '.RData', reason 'No such file or directory'
+         used (Mb) gc trigger (Mb) max used (Mb)
+Ncells 127726  6.9     350000 18.7   197036 10.6
+Vcells 251233  2.0    8388608 64.0  1031509  7.9
+Loading required package: colorout
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'colorout'
+Loading required package: SystWrapper
+Warning message:
+In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
+  there is no package called 'SystWrapper'
+   Mode    TRUE 
+logical     114 
+[1] TRUE TRUE TRUE
+   species            longitude             latitude         
+ Length:597         Min.   :-176.60774   Min.   :-46.343000  
+ Class :character   1st Qu.: -75.02140   1st Qu.:-37.966255  
+ Mode  :character   Median :  18.42403   Median :-27.606871  
+                    Mean   :  37.88816   Mean   : -4.309209  
+                    3rd Qu.: 152.03385   3rd Qu.: 41.271718  
+                    Max.   : 177.72000   Max.   : 65.316637  
+   country               bio1                bio2                bio3          
+ Length:597         Min.   : 1.490532   Min.   : 5.156926   Min.   :0.1934991  
+ Class :character   1st Qu.: 8.364948   1st Qu.: 9.138652   1st Qu.:0.3210652  
+ Mode  :character   Median :11.971340   Median :10.460750   Median :0.4667305  
+                    Mean   :12.097151   Mean   :10.649353   Mean   :0.4394006  
+                    3rd Qu.:15.265280   3rd Qu.:12.131520   3rd Qu.:0.5064614  
+                    Max.   :25.367550   Max.   :16.774160   Max.   :0.7192236  
+      bio4                  bio5               bio6            
+ Min.   :0.003494829   Min.   :15.29030   Min.   :-18.0548000  
+ 1st Qu.:0.012166640   1st Qu.:21.94840   1st Qu.: -4.8419399  
+ Median :0.014736500   Median :25.73230   Median :  0.6400000  
+ Mean   :0.018283075   Mean   :25.28394   Mean   : -0.3525403  
+ 3rd Qu.:0.024200330   3rd Qu.:28.03230   3rd Qu.:  4.6387100  
+ Max.   :0.043937229   Max.   :37.02000   Max.   : 15.2200003  
+      bio7               bio8                bio9               bio10          
+ Min.   :11.78710   Min.   : 1.139167   Min.   :-9.938290   Min.   : 9.748548  
+ 1st Qu.:19.83000   1st Qu.: 7.491362   1st Qu.: 2.388658   1st Qu.:16.022699  
+ Median :23.87806   Median :12.688520   Median :12.984740   Median :18.979080  
+ Mean   :25.63648   Mean   :12.929547   Mean   :10.867309   Mean   :18.638272  
+ 3rd Qu.:29.04517   3rd Qu.:18.562660   3rd Qu.:17.892990   3rd Qu.:20.787230  
+ Max.   :47.07320   Max.   :26.731890   Max.   :24.300350   Max.   :27.898861  
+     bio11                 bio12               bio13         
+ Min.   :-10.3233500   Min.   : 141.0000   Min.   : 4.35383  
+ 1st Qu.:  0.1234554   1st Qu.: 701.0003   1st Qu.:20.05100  
+ Median :  6.3774490   Median : 924.0000   Median :26.50740  
+ Mean   :  5.3362965   Mean   :1015.5461   Mean   :29.13631  
+ 3rd Qu.: 10.3054104   3rd Qu.:1254.0000   3rd Qu.:34.97200  
+ Max.   : 24.1667404   Max.   :4017.0000   Max.   :93.86670  
+     bio14              bio15                bio16           
+ Min.   : 0.00000   Min.   :0.04242603   Min.   :  48.60827  
+ 1st Qu.: 6.53220   1st Qu.:0.13286020   1st Qu.: 240.42050  
+ Median : 9.66931   Median :0.23314850   Median : 314.96021  
+ Mean   :11.04940   Mean   :0.31684201   Mean   : 348.75834  
+ 3rd Qu.:15.87460   3rd Qu.:0.40580571   3rd Qu.: 423.47021  
+ Max.   :50.26150   Max.   :1.06166696   Max.   :1173.93701  
+     bio17                bio18                bio19          
+ Min.   :  2.780044   Min.   :  6.554994   Min.   : 23.64753  
+ 1st Qu.: 98.731956   1st Qu.:145.689301   1st Qu.:153.04620  
+ Median :149.073700   Median :245.585403   Median :237.89320  
+ Mean   :169.685669   Mean   :248.460903   Mean   :263.53957  
+ 3rd Qu.:238.559006   3rd Qu.:313.477203   3rd Qu.:335.00760  
+ Max.   :848.384705   Max.   :877.085388   Max.   :940.21503  
+     bio20               bio21              bio22          
+ Min.   : 87.09377   Min.   :143.2000   Min.   :  1.46067  
+ 1st Qu.:129.68449   1st Qu.:199.9940   1st Qu.: 51.92270  
+ Median :142.42529   Median :217.2460   Median : 67.98770  
+ Mean   :147.89258   Mean   :219.5116   Mean   : 73.18749  
+ 3rd Qu.:170.72050   3rd Qu.:236.6240   3rd Qu.: 93.82190  
+ Max.   :209.84560   Max.   :299.5850   Max.   :159.42000  
+     bio23                bio24               bio25          
+ Min.   :0.07948121   Min.   : 37.49825   Min.   : 41.24715  
+ 1st Qu.:0.30824020   1st Qu.: 99.60302   1st Qu.: 93.18342  
+ Median :0.36867869   Median :138.86360   Median :166.30051  
+ Mean   :0.36189944   Mean   :142.66447   Mean   :154.88748  
+ 3rd Qu.:0.42803699   3rd Qu.:191.23540   3rd Qu.:199.66130  
+ Max.   :0.81556833   Max.   :240.24271   Max.   :275.94891  
+     bio26              bio27               bio28               bio29         
+ Min.   :130.6174   Min.   : 16.87410   Min.   :0.2576124   Min.   :0.431326  
+ 1st Qu.:185.1339   1st Qu.: 66.86153   1st Qu.:0.7458318   1st Qu.:1.037533  
+ Median :200.4654   Median : 83.65874   Median :0.8713113   Median :1.110317  
+ Mean   :202.8808   Mean   : 89.01115   Mean   :0.8618132   Mean   :1.103440  
+ 3rd Qu.:219.5287   3rd Qu.:108.98660   3rd Qu.:0.9984369   3rd Qu.:1.183280  
+ Max.   :278.3310   Max.   :182.40990   Max.   :1.6481990   Max.   :1.809114  
+     bio30               bio31                bio32          
+ Min.   :0.0653549   Min.   :0.01728809   Min.   :0.4236863  
+ 1st Qu.:0.3853040   1st Qu.:0.10989940   1st Qu.:1.0145180  
+ Median :0.5660620   Median :0.19769390   Median :1.0845460  
+ Mean   :0.5761024   Mean   :0.23901085   Mean   :1.0735209  
+ 3rd Qu.:0.7392230   3rd Qu.:0.31088999   3rd Qu.:1.1561090  
+ Max.   :1.3401411   Max.   :0.80281037   Max.   :1.7745370  
+     bio33                bio34               bio35          
+ Min.   :0.08139588   Min.   :0.1089182   Min.   :0.2353032  
+ 1st Qu.:0.42306560   1st Qu.:0.4818078   1st Qu.:0.9557521  
+ Median :0.62984109   Median :0.7019497   Median :1.0457810  
+ Mean   :0.62548916   Mean   :0.6900052   Mean   :1.0165620  
+ 3rd Qu.:0.78866100   3rd Qu.:0.9369955   3rd Qu.:1.1364260  
+ Max.   :1.50377500   Max.   :1.5121860   Max.   :1.6334800  
+    min.minT              max.maxT             aet            
+ Min.   :-182.000000   Min.   :153.0000   Min.   :  8.643969  
+ 1st Qu.: -49.000000   1st Qu.:220.0000   1st Qu.: 41.937290  
+ Median :   6.000000   Median :258.0000   Median : 54.686791  
+ Mean   :  -4.284757   Mean   :253.3266   Mean   : 56.022645  
+ 3rd Qu.:  46.000000   3rd Qu.:281.0000   3rd Qu.: 69.288069  
+ Max.   : 151.000000   Max.   :372.0000   Max.   :102.056050  
+      pet           aet.pet.ratio         not.hot.precip     
+ Min.   : 473.000   Min.   :0.008018524   Min.   : 123.7206  
+ 1st Qu.: 858.000   1st Qu.:0.044439816   1st Qu.: 529.4635  
+ Median :1032.000   Median :0.051589038   Median : 705.1490  
+ Mean   :1055.672   Mean   :0.053596171   Mean   : 767.0852  
+ 3rd Qu.:1266.000   3rd Qu.:0.062251449   3rd Qu.: 908.9467  
+ Max.   :1836.000   Max.   :0.108179358   Max.   :3139.9146  
+There were 50 or more warnings (use warnings() to see the first 50)
+Loading required package: dplyr
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+null device 
+          1 
+null device 
+          1 
+Loading required package: exactRankTests
+ Package 'exactRankTests' is no longer under development.
+ Please consider using package 'coin' instead.
+
+There were 26 warnings (use warnings() to see them)
+[1] "significant cases according to nominal p-value"
+                  species algorithm median_non_phylo   median_phylo
+banksiana_gam   banksiana       gam   -0.03847145251 -0.02426686755
+halepensis_glm halepensis       glm    0.19747112101  0.19796321336
+nigra_glm           nigra       glm   -0.56232818646 -0.54569170529
+nigra_gam           nigra       gam   -0.59034225748 -0.58746589091
+pinea_glm           pinea       glm    0.63264596150  0.63838945464
+pinea_gam           pinea       gam    0.51032662375  0.51738714268
+radiata_gam       radiata       gam    0.36374012674  0.35757671567
+strobus_glm       strobus       glm   -0.44411536705 -0.16800385488
+strobus_gam       strobus       gam   -0.23812764272 -0.13338350471
+sylvestris_gam sylvestris       gam    0.91469365420  0.90801263882
+sylvestris_rf  sylvestris        rf    0.52457508448  0.54598464010
+               median_phylo_diff wilcoxon_signed_statistic wilcoxon_signed_p
+banksiana_gam   -0.0106991474296                        28     0.01562500000
+halepensis_glm  -0.0006510004604                        54     0.00390625000
+nigra_glm       -0.0113711066329                        74     0.00341796875
+nigra_gam       -0.0023041720878                        72     0.00683593750
+pinea_glm       -0.0083001877004                        78     0.00048828125
+pinea_gam       -0.0095537944326                        66     0.03417968750
+radiata_gam      0.0001053841491                         0     0.03125000000
+strobus_glm     -0.2663071091469                        78     0.00048828125
+strobus_gam     -0.0773410150919                        73     0.00488281250
+sylvestris_gam   0.0061188590090                         0     0.00048828125
+sylvestris_rf   -0.0141685801233                        78     0.00048828125
+[1] "significant cases according to FDR<0.1"
+                  species algorithm median_non_phylo   median_phylo
+banksiana_gam   banksiana       gam   -0.03847145251 -0.02426686755
+halepensis_glm halepensis       glm    0.19747112101  0.19796321336
+nigra_glm           nigra       glm   -0.56232818646 -0.54569170529
+nigra_gam           nigra       gam   -0.59034225748 -0.58746589091
+pinea_glm           pinea       glm    0.63264596150  0.63838945464
+strobus_glm       strobus       glm   -0.44411536705 -0.16800385488
+strobus_gam       strobus       gam   -0.23812764272 -0.13338350471
+sylvestris_gam sylvestris       gam    0.91469365420  0.90801263882
+sylvestris_rf  sylvestris        rf    0.52457508448  0.54598464010
+               median_phylo_diff wilcoxon_signed_statistic wilcoxon_signed_p
+banksiana_gam   -0.0106991474296                        28     0.01562500000
+halepensis_glm  -0.0006510004604                        54     0.00390625000
+nigra_glm       -0.0113711066329                        74     0.00341796875
+nigra_gam       -0.0023041720878                        72     0.00683593750
+pinea_glm       -0.0083001877004                        78     0.00048828125
+strobus_glm     -0.2663071091469                        78     0.00048828125
+strobus_gam     -0.0773410150919                        73     0.00488281250
+sylvestris_gam   0.0061188590090                         0     0.00048828125
+sylvestris_rf   -0.0141685801233                        78     0.00048828125
+               wilcoxon_signed_fdr
+banksiana_gam        0.06250000000
+halepensis_glm       0.02343750000
+nigra_glm            0.02343750000
+nigra_gam            0.03076171875
+pinea_glm            0.00439453125
+strobus_glm          0.00439453125
+strobus_gam          0.02511160714
+sylvestris_gam       0.00439453125
+sylvestris_rf        0.00439453125
+[1] "## FINISH ##"
