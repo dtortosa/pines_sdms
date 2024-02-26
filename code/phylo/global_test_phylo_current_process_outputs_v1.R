@@ -1072,6 +1072,7 @@ results_boyce_phylo_diff_glmm=bind_rows(list_results_boyce_phylo_glmm, .id=NULL)
 
 #save the table
 write.table(results_boyce_phylo_diff_glmm, paste("./results/global_test_phylo_current/results_boyce_phylo_diff_glmm.tsv", sep=""), sep="\t", row.names=FALSE)
+#results_boyce_phylo_diff_glmm=read.table(paste("./results/global_test_phylo_current/results_boyce_phylo_diff_glmm.tsv", sep=""), sep="\t", header=TRUE)
 
 
 ##check for significant differences
@@ -1141,12 +1142,32 @@ wilcoxon_signed_calc=function(species_algorithm){
     median_non_phylo=median(subset_boyce$non_phylo)
     median_phylo=median(subset_boyce$phylo)
     median_phylo_diff=median(subset_boyce$phylo_diff)
+        #we are not using 95CI because it can be confousing. I have checked the significant cases for non-phylo, and their 95CI tend to be above zero or, if there is overlap with zero, the distribution is clearly displactes above zero
+
+    #define a function to get the warnings and the output in a one single object
+    #input is code, a function with its arguments
+    mytryCatch <- function(expr){
+
+        #try to run the expression
+        tryCatch(
+            expr=expr,
+            warning=function(w){
+                warning_results=list()
+                warning_results$warning=w
+                warning_results$value=expr
+                return(warning_results)
+            }
+        )
+            #we run function within try catch
+            #provide a function for warnings, that return the warning and the result of running the expression
+    }
+        #https://www.statology.org/r-trycatch/
 
     #calculate the test only if boyce phylo and non-phylo are different
     if(!identical(subset_boyce$phylo, subset_boyce$non_phylo)){
 
         #run the wilcoxon test obtaining exact p-values always, even if ties
-        wilcoxon_signed_raw=wilcox.exact(
+        wilcoxon_diff_raw=wilcox.exact(
                 x=subset_boyce$phylo, 
                 y=subset_boyce$non_phylo, 
                 alternative="two.sided",
@@ -1172,36 +1193,18 @@ wilcoxon_signed_calc=function(species_algorithm){
                     #H1: The median difference is positive or negative, i.e., the phylogenetic correction makes the boyce index to go higher or lower.
 
         #get the statistics
-        wilcoxon_signed_statistic=wilcoxon_signed_raw$statistic
-        names(wilcoxon_signed_statistic)=NULL
+        wilcoxon_diff_statistic=wilcoxon_diff_raw$statistic
+        names(wilcoxon_diff_statistic)=NULL
             #check this link if you want to know how to calculate the statistic by hand, it is pretty straightforward.
             #It is just calculate the difference between each pair in absolute value. Then rank cases from rank 1 to higher rank (i.e., higher absolute difference). Then separate cases where the difference is negative or positive. Then sum negative and positive ranks, separately. The smaller value of the two sums (in absolute value) is the statistic.
             #For example, if for all partitions phylo-non_phylo is negative, all ranks are negative, and the sum of positive ranks is zero. Then zero is the value of the statistic. 
             #This would be a extreme case of clear differences between groups, hence as the statistic is smaller, more differences between the groups, because this means that differences tend to have the same sign, meaning that it is always the same group the one having a greater value, indicating significant differences.
                 #https://www.statology.org/wilcoxon-signed-rank-test/
-        wilcoxon_signed_p=wilcoxon_signed_raw$p.value 
+        wilcoxon_diff_p=wilcoxon_diff_raw$p.value 
 
         #run also the original wilcoxon function and save the warning in case it exists
-        #define a function to get the warnings and the output in a one single object
-        #input is code, a function with its arguments
-        mytryCatch <- function(expr){
-
-            #try to run the expression
-            tryCatch(
-                expr=expr,
-                warning=function(w){
-                    warning_results=list()
-                    warning_results$warning=w
-                    warning_results$value=expr
-                    return(warning_results)
-                }
-            )
-                #we run function within try catch
-                #provide a function for warnings, that return the warning and the result of running the expression
-        }
-            #https://www.statology.org/r-trycatch/
         #run original wilcoxon function
-        wilcoxon_signed_raw1=mytryCatch(
+        wilcoxon_diff_raw1=mytryCatch(
             wilcox.test(
                 x=subset_boyce$phylo, 
                 y=subset_boyce$non_phylo, 
@@ -1212,31 +1215,81 @@ wilcoxon_signed_calc=function(species_algorithm){
 
         #save the p_value and statistics, along with the variable indicating whether we got or not the warning about the ties
         #if the warning is NULL we get FALSE, if it is not NULL but it does not include the message of "ties", also FALSE. We also get TRUE if there is a warning and it is related to the ties.
-        check_ties=ifelse(is.null(wilcoxon_signed_raw1$warning), FALSE, grepl("cannot compute exact p-value with zeroes", wilcoxon_signed_raw1$warning, fixed=TRUE))
+        check_ties=ifelse(is.null(wilcoxon_diff_raw1$warning), FALSE, grepl("cannot compute exact p-value with zeroes", wilcoxon_diff_raw1$warning, fixed=TRUE))
         #if TRUE, i.e., we have a warning about the ties
         if(check_ties){
 
             #we have the warning about ties, so the original wilcoxon function does not calculate exact p-values, it uses instead a normal approximation. Thus, we can only compare the statistic
-            if(wilcoxon_signed_statistic!=wilcoxon_signed_raw1$value$statistic){
+            if(wilcoxon_diff_statistic!=wilcoxon_diff_raw1$value$statistic){
                 stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
             } 
         } else { #we do not have warning about ties, so the p-values should be also equal, we can compare them
             if(
-                wilcoxon_signed_statistic!=wilcoxon_signed_raw1$statistic |
-                round(wilcoxon_signed_p,7)!=round(wilcoxon_signed_raw1$p.value,7)
+                wilcoxon_diff_statistic!=wilcoxon_diff_raw1$statistic |
+                round(wilcoxon_diff_p,7)!=round(wilcoxon_diff_raw1$p.value,7)
             ){
                 stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
             }  
         }
             #ties means that when you calculate phylo boyce - non_phylo boyce for each partition, and you try to make a rank of partitions, two or more partitions have exactly the same value of phylo_diff, thus they cannot be sorted by ranking. This makes the function unable to calculate a exact p-value and it has to use a normal approximation.
-            #I am not sure if this is a problem when not having normal data, but just in case, I am going to be careful to consider as significant results with this warning, so I have to know it.
+            #I am not sure if this is a problem when not having normal data, but just in case, I am going to use the wilcox.exact to have always an exact p-value
             #https://stackoverflow.com/questions/60112609/warnings-in-wilcoxon-rank-sum-test-in-r
     } else {
-        wilcoxon_signed_statistic=NaN
-        wilcoxon_signed_p=NaN
+        wilcoxon_diff_p=NaN
     }
 
-    return(cbind.data.frame(species, algorithm, median_non_phylo, median_phylo, median_phylo_diff, wilcoxon_signed_statistic, wilcoxon_signed_p))
+    #test whether the non_phylo Boyce index is above zero
+    wilcoxon_non_phylo=wilcox.exact(
+        x=subset_boyce$non_phylo, 
+        alternative="greater"
+    )
+        #If only 'x' is given, a Wilcoxon signed rank test of the null that the median of 'x' equals 'mu' (mu=0 as default) is performed.
+        #The alternative hypothesis is "greater", so we test whether Boyce is higher than "mu".
+
+    #test again with the original function capturing the warning
+    wilcoxon_non_phylo_original=mytryCatch(wilcox.test(
+        x=subset_boyce$non_phylo, 
+        alternative="greater"
+    ))
+
+    #compare them
+    #if the warning is NULL we get FALSE, if it is not NULL but it does not include the message of "ties", also FALSE. We also get TRUE if there is a warning and it is related to the ties.
+    check_ties=ifelse(is.null(wilcoxon_non_phylo_original$warning), FALSE, grepl("cannot compute exact p-value with ties", wilcoxon_non_phylo_original$warning, fixed=TRUE))
+    #if TRUE, i.e., we have a warning about the ties
+    if(check_ties){
+
+        #we have the warning about ties, so the original wilcoxon function does not calculate exact p-values, it uses instead a normal approximation. Thus, we can only compare the statistic
+        if(wilcoxon_non_phylo$statistic!=wilcoxon_non_phylo_original$value$statistic){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
+        } 
+    } else { #we do not have warning about ties, so the p-values should be also equal, we can compare them
+        if(
+            wilcoxon_non_phylo$statistic!=wilcoxon_non_phylo_original$statistic |
+            round(wilcoxon_non_phylo$p.value,7)!=round(wilcoxon_non_phylo_original$p.value,7)
+        ){
+            stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF THE WILCOXON TEST FOR ", species, sep=""))
+        }  
+    }
+            #ties means that when you try to make a rank of partitions based on the Boyce value, two or more partitions have exactly the same value of Boyce, thus they cannot be sorted by ranking. This makes the function unable to calculate a exact p-value and it has to use a normal approximation.
+            #I am not sure if this is a problem when not having normal data, but just in case, I am going to use the wilcox.exact to have always an exact p-value
+            #https://stackoverflow.com/questions/60112609/warnings-in-wilcoxon-rank-sum-test-in-r
+
+    #extract the p
+    wilcoxon_non_phylo_p=wilcoxon_non_phylo$p.value
+
+    #calculate p-value for non-boyce above 0.5
+    #test whether the non_phylo Boyce index is above zero
+    wilcoxon_non_phylo_05=wilcox.exact(
+        x=subset_boyce$non_phylo, 
+        alternative="greater",
+        mu=0.5
+    )
+        #the null hypothesis is that median Boyce is equal or lower than 0.5
+    #get p-value
+    wilcoxon_non_phylo_05_p=wilcoxon_non_phylo_05$p.value
+
+    #return the results
+    return(cbind.data.frame(species, algorithm, median_non_phylo, median_phylo, median_phylo_diff, wilcoxon_non_phylo_p, wilcoxon_non_phylo_05_p, wilcoxon_diff_p))
 }
 
 #run the function in one species
@@ -1258,7 +1311,7 @@ list_wilcoxon_signed=lapply(species_algorithms, wilcoxon_signed_calc)
 #x=list_wilcoxon_signed[[17]]
 check_rows_wilcoxon=FALSE %in% (sapply(list_wilcoxon_signed, {function(x) if(!is.null(x)){nrow(x)==1}}))
     #each table should have 36 rows: 12 partitions times 3 algorithms 
-check_cols_wilcoxon=FALSE %in% (sapply(list_wilcoxon_signed, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "algorithm", "median_non_phylo", "median_phylo", "median_phylo_diff", "wilcoxon_signed_statistic", "wilcoxon_signed_p"))}}))
+check_cols_wilcoxon=FALSE %in% (sapply(list_wilcoxon_signed, {function(x) if(!is.null(colnames(x))){identical(colnames(x), c("species", "algorithm", "median_non_phylo", "median_phylo", "median_phylo_diff", "wilcoxon_non_phylo_p", "wilcoxon_non_phylo_05_p", "wilcoxon_diff_p"))}}))
 if(check_rows_wilcoxon | check_cols_wilcoxon){
     stop("ERROR! FALSE! WE HAVE A PROBLEM WITH THE CALCULATION OF WILCOXON ACROSS SPECIES")
 }
@@ -1270,36 +1323,109 @@ wilcoxon_signed_results=bind_rows(list_wilcoxon_signed, .id=NULL)
 #use species/model as row names for easier visualization in the terminal
 rownames(wilcoxon_signed_results)=paste(wilcoxon_signed_results$species, "_", wilcoxon_signed_results$algorithm, sep="")
 
-#see species with p<0.05
-significant_nominal_p_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_p<0.05), ]
-print("significant cases according to nominal p-value")
-print(significant_nominal_p_value)
 
+## p-values
+print("Boyce significantly higher than 0 according to nominal p-value")
+non_phylo_significant_nominal_p_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_non_phylo_p<0.05), ]
+length(unique(non_phylo_significant_nominal_p_value$species))
+
+print("Boyce significantly higher than 0.5 according to nominal p-value")
+non_phylo_05_significant_nominal_p_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_non_phylo_05_p<0.05), ]
+length(unique(non_phylo_05_significant_nominal_p_value$species))
+
+#count species with phylo_diff different from zero for at least one model
+print("Phylo diff significantly different from 0 according to nominal p-value")
+diff_significant_nominal_p_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_diff_p<0.05), ]
+length(unique(diff_significant_nominal_p_value$species))
+
+
+##FDR
 #calculate the FDR across all p-values
-wilcoxon_signed_results$wilcoxon_signed_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_signed_p, method="BH")
+wilcoxon_signed_results$wilcoxon_non_phylo_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_non_phylo_p, method="BH")
+wilcoxon_signed_results$wilcoxon_non_phylo_05_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_non_phylo_05_p, method="BH")
+wilcoxon_signed_results$wilcoxon_diff_fdr = p.adjust(wilcoxon_signed_results$wilcoxon_diff_p, method="BH")
     #correction for BH, it is valid use this correction when markerse are correlated directly, if two markers are correlated, a higher significance in one, will entail higher significance in the other. In the case the correlation was negative, we should used other correction, I think remember that Benjamini & Yekutieli (2001), but check. For further details see: "/media/dftortosa/Windows/Users/dftor/Documents/diego_docs/science/other_projects/helena_study/helena_ucp_cv/p_value_correction/pvalue_correction.pdf"
 
-#see species with FDR<0.05
-significant_fdr=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_signed_fdr<0.1),]
-print("significant cases according to FDR<0.1")
-print(significant_fdr)
+#count species with non_phylo boyce above 0 for at least one model
+print("Boyce significantly higher than 0 according to FDR")
+non_phylo_significant_fdr_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_non_phylo_fdr<0.05), ]
+length(unique(non_phylo_significant_fdr_value$species))
+
+#count species with non_phylo boyce above 0.5 for at least one model
+print("Boyce significantly higher than 0.5 according to FDR")
+non_phylo_05_significant_fdr_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_non_phylo_05_fdr<0.05), ]
+length(unique(non_phylo_05_significant_fdr_value$species))
+
+#count species with phylo_diff different from zero for at least one model
+print("Phylo diff significantly different from 0 according to FDR")
+diff_significant_fdr_value=wilcoxon_signed_results[which(wilcoxon_signed_results$wilcoxon_diff_fdr<0.05), ]
+length(unique(diff_significant_fdr_value$species))
 
 #multiple test correction
     #we have many non-independent tests
-        #all Boyce values calculated for sylvestris have in common the species, i.e., the same partitions are used for glm, gam and rf. Also the same phylo-correction is used! We use the same phylo-suitability map to rescue cells within the phylogenetic range but with low-suitability according to the SDMs. Therefore, the Boyce values with phylo for the same species are NOT independent.
+        #all Boyce values calculated for sylvestris have in common the species, i.e., the same partitions are used for glm, gam and rf. In other words, the same occurrence data was used to fit the different models, and the same naturalized occurrences were used to predict and evaluate. Also the same phylo-correction is used! We use the same phylo-suitability map to rescue cells within the phylogenetic range but with low-suitability according to the SDMs. Therefore, the Boyce values with phylo for the same species are NOT independent.
         #all Boyce values obtained with glm have in common that have been calculated with the same algorithm. Indeed, algorithm as a factor had a significant effect when running an anova on GLM of phylo-diff (you can easily run it if required to justify the lack of multiple-test correction during revision).
         #Therefore, we have correlation between tests of the same species and tests of the same model, decreasing a lot the number of independent test. If we assume that values of the same species are correlated and values of the same model are correlated, the 42 independent tests divided by the 14 species and the 3 models gives 1!
             #you have 3 values for sylvestris across models, all calculated with the same data!
             #you have 14 values for GLM across species, all calculated with the same model!
     #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
+    #We are going to be conservartive because we are going to select this to count how many models work fine (i.e., this is not exploratory in the paper but definitive), so we are going to use FDR<0.05 instead of FDR<0.1, but for sure we do NOT have to sue Bonferroni. This is more than justified.
+
+
+
+
+##########################
+###### FINAL RESULTS #####
+##########################
+
+#non-phylo
+    #I have check all species-algorithms for which median non-phylo boyce above and the Boyce plots look good. Yes, you can have cases like Banksiana, where there is an increase of prpoprtion presences from zero to 0.2 suitability and then nothing. We are removing contiguous classes with the same P/E ratio so the next windows with a P/E ratio of zero are discarded. We are checking here how well the model discriminate areas with presence from areas of low suitability, taking less care of discriminating between more classes. If you have an increase of P/E ratio at the beginning, this means a correlation between P/E ratio and suitability, at least partially, although the rest of the curve is flat because we have all occurrences accumulated at the beggining with low-intermediate suitabiltiy. In that region of suitability, there is a positive correlation, it is not flat or negative, but positive, so overall we get a slight positive correlation. This is also the default used by ecospat and Nick. See the main script for a full explanation of the decision to do it in this way.
+        #Boyce works great if we have enough suitabiltiy windows. Look for example Nigra RF, you have an important increase of presences at the begining, then decrease and then a burst at the end. The result is median Boyce of 0.21.
+        #Even if we have very few suitability windows makes sense. 
+            #See for example, radiata-gam-partition 1. There are only 3 points, because most occurrences are in suitability=0, then the rest are s=1, having zero presences the rest of suitability bins.
+                #In s=0, the proportion of pixels is 0.89, while the proportion of presences is 0.64.
+                #In s=1, the proportion of pixels is 0.016 while the proportion of presences is 0.05. 
+                #All intermediate bins have proportion of presences=0 and hence, P/E ratio=0. From there, we only took one, as they are contiguous cells with the same P/E ratio.
+            #Therefore, in the last, most suitable bin, the proportion of presences increases proportionally a lot with respect of the expected proportion. This is because, the number of cells with s=1 is relatively small compared to those with s=0, but still has a considerable number of occurrences.
+            #This is a good example about what we are assessing here, the ability to discriminate between low and high suitability. We have occurrences in s=0 and s=1. Boyce discards intermediate suitability bins with P/E ratio=0 and just focus on the extremes, showin we have proportionally more occurrences in s=1, giving B=0.5.
+            #This is only 1 partition anyways, so when we consider the rest, we get only 0.36.
+            #In the rest of partitions, we see the P/E ratio for s=0 in a lower position in the plot because the P/E ratio in high suitability bins is much higher, i.e., in absolute terms we have the same P/E ratio in s=0 across partitions, which makes sense because we have the same errors, the same occurrences in s=0 in all cases. The differences is that the high suitability bins for these partitions still have high number of occurrences while being much smaller in total size, thus making the proportion of presences much higher compared to the proportion of pixels, as we have less pixels in these bins.
+                #This is another example of how making larger suitable regions makes the P/E ratio smaller. So if you have increasing larger areas with high suitability, the proportion of presences has to be much higher in order to keep up with the increase in size of the bins, if not, P/E ratio is going to be smaller.
+                #In other words, we are accounting for the errors of having suitable areas without occurrences.
+            #In RF for this species, we see Boyce around 0.4, lower than partition 1 for gam. This happens because the occurrences in the right side of the plot are in high suitable bins, but not in the last one, meaning that the most suitable areas do not have occurrences for RF, while they do have for GAM. This explains that for some partitions of GAM, where the highly suitable areas are very confined and still have occurrences, we have higher Boyce. 
+
+    #Code for plotting sum of continuous predictions non-phylo, easier to see behaviour of the models
+        #species="radiata"
+        #presences=read.table(
+        #    paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", 
+        #    sep=""), sep="\t", header=TRUE)
+        #for(model in c("glm", "gam", "rf")){
+        #    model_stack=stack(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters/prediction_rasters/", species,  "_predictions_", model, ".grd", sep=""))
+        #    model_stack_n_layers=nlayers(model_stack)
+        #    model_stack_sum=calc(model_stack, function(x) (sum(x)*100)/model_stack_n_layers)
+        #    plot(model_stack_sum)
+        #    points(presences$longitude, presences$latitude, col="red", pch=20, cex=0.15)
+        #}
+
+
+
+        #use the response to make supplementary
+        #quick mention of validation at the end of methods
+        #quick comment validation with and without phylo and each corresponding paragraph in discussion
+        #then go for all comments except the one of bioclim
+
+
+    #Important to note that the ensembles you did with binary predictions non-phylo could you no overlap between occurrences and predictions of the models, while exiting that overlap. This happens, for example, in Banksiana, where the probability of presences increases up to 0.2-0.3 of suitability. When you binarize, you are not going to consider these areas in your map. Basically, you are seeing the last part of the Boyce plot (very high suitabilty), but not the rest. If the model does badly there, but good at lower suitabilities, you will not see anything. In cases like contorta or halepensis, whith a great burst of presences at high predicted suitability, you can see it in the plot, because most presences are at high suitability, and these regions are considered as suitable after binarization.
+        #It could be more interesting to plot the sum of all partitions of a model into one single raster. You have the rasters of each partition and model for the 14 species in case you need to do it later.
+        #better not show these plots. If you have time later, you can plot the sums..
+    #No great differences if we remove presences in the same 10x10km cell.
 
 #Results:
     #CHECK Boyce plots:
         #If the number of points in the correlation, i.e., the number of bins, is very low, you can have high Boyce for a case where a lot of areas of the globe are considered as suitable by phylo, capturing all presences but having also a lot of suitable areas without occurrences that are not penalized. 
         #This happens because we remove the contigous bins that have the same P/E ratio, as done by Nick. This is ok in our case and let us to rescue many cases that work actually great, but we can have some extrange cases like the one explained.
-        #This is very unlikely to happen with a restringed phylo-approach, but just in case, we should check that the Boyce plots of all Boyce values we use (phylo and non-phylo) are ok, with enough data.points and showing a trend of increaseing presence probability with increasing suitability in bins.
-        #also check that the median boyce index correlates well with the ensemble showing predicted suitability outside PA buffer and the naturalized occurrences. Higher boyce should correlated with more matches.
-        #check differences between removing or not duplicated presences.
+
+
     #specific cases
         #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
             #elliloti seems to be good to differentiate low-suitable areas from intermediate suitable areas, but it cannot differentiate well for higher suitability values. So it has ability to separate areas more likely to have ocurrences but with low-resolution.
@@ -1323,6 +1449,7 @@ print(significant_fdr)
 
 #save table
 write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
+    #wilcoxon_signed_results=read.table("./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", header=TRUE
 
 
 
