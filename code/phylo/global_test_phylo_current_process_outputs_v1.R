@@ -1431,6 +1431,11 @@ if(FALSE){
     #I have not found any problem with the plots. 
     #Plots with and without phylo are almost indishtinguible for species with significant but small changes.
     #The most clear impact can be seen for sylvestris, and specially strobus. In the latter and after the application of the liberal phylo-approach (no_subset), there is a complete change in the trend, with a clear increase in P/E ratio as suitability increases.
+    #IMPORTANT: for cases like mugo or elliottii, changes in the future becuase of phylo, but the validation did not show impact of phylo
+        #if someone complains about discussing changes in suitability because of phylo in these species in the future, but the validation did not show important changes
+        #remember that the validation is very limited by the availability of naturalized occurrences in areas inside the fundamental but not in the realized niche
+        #in the case of elliotti, the liberal approach improve ahora 1%
+        #so we are very limited to test this
     #to get the figures of each approach
         #eog ./results/global_test_phylo_current/predict_eval_no_phylo/nigra/boyce_index/plots/*_boyce_index_plot.jpeg &
         #eog ./results/global_test_phylo_current/predict_eval_phylo/nigra/boyce_index/plots/*_phylo_rasters_proportion_subset_inter_boyce_index_plot.jpeg &
@@ -1539,6 +1544,8 @@ phylo_liberal_test("sylvestris", "rf")
 phylo_liberal_test("strobus", "glm")
 phylo_liberal_test("strobus", "gam")
 phylo_liberal_test("strobus", "rf")
+
+
 
 #about not using other phylo approaches,
     #there are approaches that work terrible, bad predictions or misleading results from Boyce (artifacts), so not a good idea to combine them all into one single prediction
