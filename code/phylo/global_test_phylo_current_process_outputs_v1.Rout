@@ -3,8 +3,8 @@ Warning message:
 In file.remove(".RData") :
   cannot remove file '.RData', reason 'No such file or directory'
          used (Mb) gc trigger (Mb) max used (Mb)
-Ncells 127726  6.9     350000 18.7   197036 10.6
-Vcells 251233  2.0    8388608 64.0  1031509  7.9
+Ncells 127726  6.9     350000 18.7   197038 10.6
+Vcells 251233  2.0    8388608 64.0  1031544  7.9
 Loading required package: colorout
 Warning message:
 In library(package, lib.loc = lib.loc, character.only = TRUE, logical.return = TRUE,  :
@@ -135,61 +135,45 @@ Loading required package: exactRankTests
  Package 'exactRankTests' is no longer under development.
  Please consider using package 'coin' instead.
 
-There were 26 warnings (use warnings() to see them)
-[1] "significant cases according to nominal p-value"
-                  species algorithm median_non_phylo   median_phylo
-banksiana_gam   banksiana       gam   -0.03847145251 -0.02426686755
-halepensis_glm halepensis       glm    0.19747112101  0.19796321336
-nigra_glm           nigra       glm   -0.56232818646 -0.54569170529
-nigra_gam           nigra       gam   -0.59034225748 -0.58746589091
-pinea_glm           pinea       glm    0.63264596150  0.63838945464
-pinea_gam           pinea       gam    0.51032662375  0.51738714268
-radiata_gam       radiata       gam    0.36374012674  0.35757671567
-strobus_glm       strobus       glm   -0.44411536705 -0.16800385488
-strobus_gam       strobus       gam   -0.23812764272 -0.13338350471
-sylvestris_gam sylvestris       gam    0.91469365420  0.90801263882
-sylvestris_rf  sylvestris        rf    0.52457508448  0.54598464010
-               median_phylo_diff wilcoxon_signed_statistic wilcoxon_signed_p
-banksiana_gam   -0.0106991474296                        28     0.01562500000
-halepensis_glm  -0.0006510004604                        54     0.00390625000
-nigra_glm       -0.0113711066329                        74     0.00341796875
-nigra_gam       -0.0023041720878                        72     0.00683593750
-pinea_glm       -0.0083001877004                        78     0.00048828125
-pinea_gam       -0.0095537944326                        66     0.03417968750
-radiata_gam      0.0001053841491                         0     0.03125000000
-strobus_glm     -0.2663071091469                        78     0.00048828125
-strobus_gam     -0.0773410150919                        73     0.00488281250
-sylvestris_gam   0.0061188590090                         0     0.00048828125
-sylvestris_rf   -0.0141685801233                        78     0.00048828125
-[1] "significant cases according to FDR<0.1"
-                  species algorithm median_non_phylo   median_phylo
-banksiana_gam   banksiana       gam   -0.03847145251 -0.02426686755
-halepensis_glm halepensis       glm    0.19747112101  0.19796321336
-nigra_glm           nigra       glm   -0.56232818646 -0.54569170529
-nigra_gam           nigra       gam   -0.59034225748 -0.58746589091
-pinea_glm           pinea       glm    0.63264596150  0.63838945464
-strobus_glm       strobus       glm   -0.44411536705 -0.16800385488
-strobus_gam       strobus       gam   -0.23812764272 -0.13338350471
-sylvestris_gam sylvestris       gam    0.91469365420  0.90801263882
-sylvestris_rf  sylvestris        rf    0.52457508448  0.54598464010
-               median_phylo_diff wilcoxon_signed_statistic wilcoxon_signed_p
-banksiana_gam   -0.0106991474296                        28     0.01562500000
-halepensis_glm  -0.0006510004604                        54     0.00390625000
-nigra_glm       -0.0113711066329                        74     0.00341796875
-nigra_gam       -0.0023041720878                        72     0.00683593750
-pinea_glm       -0.0083001877004                        78     0.00048828125
-strobus_glm     -0.2663071091469                        78     0.00048828125
-strobus_gam     -0.0773410150919                        73     0.00488281250
-sylvestris_gam   0.0061188590090                         0     0.00048828125
-sylvestris_rf   -0.0141685801233                        78     0.00048828125
-               wilcoxon_signed_fdr
-banksiana_gam        0.06250000000
-halepensis_glm       0.02343750000
-nigra_glm            0.02343750000
-nigra_gam            0.03076171875
-pinea_glm            0.00439453125
-strobus_glm          0.00439453125
-strobus_gam          0.02511160714
-sylvestris_gam       0.00439453125
-sylvestris_rf        0.00439453125
+There were 32 warnings (use warnings() to see them)
+[1] "Boyce significantly higher than 0 according to nominal p-value"
+[1] 13
+[1] "Boyce significantly higher than 0.5 according to nominal p-value"
+[1] 10
+[1] "Phylo diff significantly different from 0 according to nominal p-value"
+[1] 7
+[1] "Boyce significantly higher than 0 according to FDR"
+[1] 13
+[1] "Boyce significantly higher than 0.5 according to FDR"
+[1] 10
+[1] "Phylo diff significantly different from 0 according to FDR"
+[1] 5
+[1] TRUE
+[1] TRUE
+[1] TRUE
+[1] TRUE
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                        0.6326459615                            0.6541062404
+  percent_change  diff_p_value
+1    1.073013944 0.01220703125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                        0.7416238824                            0.8001717225
+  percent_change  diff_p_value
+1    2.927392004 0.00048828125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                        0.9146936542                            0.9221242818
+  percent_change  diff_p_value
+1   0.3715313813 0.00048828125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                        0.5245750845                            0.5549097062
+  percent_change  diff_p_value
+1    1.516731083 0.00048828125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                       -0.4441153671                            0.2654379831
+  percent_change  diff_p_value
+1    35.47766751 0.00048828125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                       -0.2381276427                            0.5528879016
+  percent_change  diff_p_value
+1    39.55077721 0.00048828125
 [1] "## FINISH ##"

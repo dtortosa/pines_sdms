@@ -1371,6 +1371,10 @@ length(unique(diff_significant_fdr_value$species))
     #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
     #We are going to be conservartive because we are going to select this to count how many models work fine (i.e., this is not exploratory in the paper but definitive), so we are going to use FDR<0.05 instead of FDR<0.1, but for sure we do NOT have to sue Bonferroni. This is more than justified.
 
+#save table
+write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
+    #wilcoxon_signed_results=read.table("./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", header=TRUE
+
 
 
 
@@ -1378,78 +1382,167 @@ length(unique(diff_significant_fdr_value$species))
 ###### FINAL RESULTS #####
 ##########################
 
-#non-phylo
-    #I have check all species-algorithms for which median non-phylo boyce above and the Boyce plots look good. Yes, you can have cases like Banksiana, where there is an increase of prpoprtion presences from zero to 0.2 suitability and then nothing. We are removing contiguous classes with the same P/E ratio so the next windows with a P/E ratio of zero are discarded. We are checking here how well the model discriminate areas with presence from areas of low suitability, taking less care of discriminating between more classes. If you have an increase of P/E ratio at the beginning, this means a correlation between P/E ratio and suitability, at least partially, although the rest of the curve is flat because we have all occurrences accumulated at the beggining with low-intermediate suitabiltiy. In that region of suitability, there is a positive correlation, it is not flat or negative, but positive, so overall we get a slight positive correlation. This is also the default used by ecospat and Nick. See the main script for a full explanation of the decision to do it in this way.
-        #Boyce works great if we have enough suitabiltiy windows. Look for example Nigra RF, you have an important increase of presences at the begining, then decrease and then a burst at the end. The result is median Boyce of 0.21.
-        #Even if we have very few suitability windows makes sense. 
-            #See for example, radiata-gam-partition 1. There are only 3 points, because most occurrences are in suitability=0, then the rest are s=1, having zero presences the rest of suitability bins.
-                #In s=0, the proportion of pixels is 0.89, while the proportion of presences is 0.64.
-                #In s=1, the proportion of pixels is 0.016 while the proportion of presences is 0.05. 
-                #All intermediate bins have proportion of presences=0 and hence, P/E ratio=0. From there, we only took one, as they are contiguous cells with the same P/E ratio.
-            #Therefore, in the last, most suitable bin, the proportion of presences increases proportionally a lot with respect of the expected proportion. This is because, the number of cells with s=1 is relatively small compared to those with s=0, but still has a considerable number of occurrences.
-            #This is a good example about what we are assessing here, the ability to discriminate between low and high suitability. We have occurrences in s=0 and s=1. Boyce discards intermediate suitability bins with P/E ratio=0 and just focus on the extremes, showin we have proportionally more occurrences in s=1, giving B=0.5.
-            #This is only 1 partition anyways, so when we consider the rest, we get only 0.36.
-            #In the rest of partitions, we see the P/E ratio for s=0 in a lower position in the plot because the P/E ratio in high suitability bins is much higher, i.e., in absolute terms we have the same P/E ratio in s=0 across partitions, which makes sense because we have the same errors, the same occurrences in s=0 in all cases. The differences is that the high suitability bins for these partitions still have high number of occurrences while being much smaller in total size, thus making the proportion of presences much higher compared to the proportion of pixels, as we have less pixels in these bins.
-                #This is another example of how making larger suitable regions makes the P/E ratio smaller. So if you have increasing larger areas with high suitability, the proportion of presences has to be much higher in order to keep up with the increase in size of the bins, if not, P/E ratio is going to be smaller.
-                #In other words, we are accounting for the errors of having suitable areas without occurrences.
-            #In RF for this species, we see Boyce around 0.4, lower than partition 1 for gam. This happens because the occurrences in the right side of the plot are in high suitable bins, but not in the last one, meaning that the most suitable areas do not have occurrences for RF, while they do have for GAM. This explains that for some partitions of GAM, where the highly suitable areas are very confined and still have occurrences, we have higher Boyce. 
+##non-phylo
+#I have check all species-algorithms for which median non-phylo boyce above and the Boyce plots look good. Yes, you can have cases like Banksiana, where there is an increase of prpoprtion presences from zero to 0.2 suitability and then nothing. We are removing contiguous classes with the same P/E ratio so the next windows with a P/E ratio of zero are discarded. We are checking here how well the model discriminate areas with presence from areas of low suitability, taking less care of discriminating between more classes. If you have an increase of P/E ratio at the beginning, this means a correlation between P/E ratio and suitability, at least partially, although the rest of the curve is flat because we have all occurrences accumulated at the beggining with low-intermediate suitabiltiy. In that region of suitability, there is a positive correlation, it is not flat or negative, but positive, so overall we get a slight positive correlation. This is also the default used by ecospat and Nick. See the main script for a full explanation of the decision to do it in this way.
+    #Boyce works great if we have enough suitabiltiy windows. Look for example Nigra RF, you have an important increase of presences at the begining, then decrease and then a burst at the end. The result is median Boyce of 0.21.
+    #Even if we have very few suitability windows makes sense. 
+        #See for example, radiata-gam-partition 1. There are only 3 points, because most occurrences are in suitability=0, then the rest are s=1, having zero presences the rest of suitability bins.
+            #In s=0, the proportion of pixels is 0.89, while the proportion of presences is 0.64.
+            #In s=1, the proportion of pixels is 0.016 while the proportion of presences is 0.05. 
+            #All intermediate bins have proportion of presences=0 and hence, P/E ratio=0. From there, we only took one, as they are contiguous cells with the same P/E ratio.
+        #Therefore, in the last, most suitable bin, the proportion of presences increases proportionally a lot with respect of the expected proportion. This is because, the number of cells with s=1 is relatively small compared to those with s=0, but still has a considerable number of occurrences.
+        #This is a good example about what we are assessing here, the ability to discriminate between low and high suitability. We have occurrences in s=0 and s=1. Boyce discards intermediate suitability bins with P/E ratio=0 and just focus on the extremes, showin we have proportionally more occurrences in s=1, giving B=0.5.
+        #This is only 1 partition anyways, so when we consider the rest, we get only 0.36.
+        #In the rest of partitions, we see the P/E ratio for s=0 in a lower position in the plot because the P/E ratio in high suitability bins is much higher, i.e., in absolute terms we have the same P/E ratio in s=0 across partitions, which makes sense because we have the same errors, the same occurrences in s=0 in all cases. The differences is that the high suitability bins for these partitions still have high number of occurrences while being much smaller in total size, thus making the proportion of presences much higher compared to the proportion of pixels, as we have less pixels in these bins.
+            #This is another example of how making larger suitable regions makes the P/E ratio smaller. So if you have increasing larger areas with high suitability, the proportion of presences has to be much higher in order to keep up with the increase in size of the bins, if not, P/E ratio is going to be smaller.
+            #In other words, we are accounting for the errors of having suitable areas without occurrences.
+        #In RF for this species, we see Boyce around 0.4, lower than partition 1 for gam. This happens because the occurrences in the right side of the plot are in high suitable bins, but not in the last one, meaning that the most suitable areas do not have occurrences for RF, while they do have for GAM. This explains that for some partitions of GAM, where the highly suitable areas are very confined and still have occurrences, we have higher Boyce. 
 
-    #Code for plotting sum of continuous predictions non-phylo, easier to see behaviour of the models
-        #species="radiata"
-        #presences=read.table(
-        #    paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", 
-        #    sep=""), sep="\t", header=TRUE)
-        #for(model in c("glm", "gam", "rf")){
-        #    model_stack=stack(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters/prediction_rasters/", species,  "_predictions_", model, ".grd", sep=""))
-        #    model_stack_n_layers=nlayers(model_stack)
-        #    model_stack_sum=calc(model_stack, function(x) (sum(x)*100)/model_stack_n_layers)
-        #    plot(model_stack_sum)
-        #    points(presences$longitude, presences$latitude, col="red", pch=20, cex=0.15)
-        #}
+#No great differences if we remove presences in the same 10x10km cell.
 
+#Also, we have tested with wilxcoxon whether the Boyce index is significantly above of zero across partitions, so we are only considering as better than random, those models working better than zero across the 12 partitions.
 
+#Important to note that the ensembles you did with binary predictions non-phylo could you no overlap between occurrences and predictions of the models, while exiting that overlap. This happens, for example, in Banksiana, where the probability of presences increases up to 0.2-0.3 of suitability. When you binarize, you are not going to consider these areas in your map. Basically, you are seeing the last part of the Boyce plot (very high suitabilty), but not the rest. If the model does badly there, but good at lower suitabilities, you will not see anything. In cases like contorta or halepensis, whith a great burst of presences at high predicted suitability, you can see it in the plot, because most presences are at high suitability, and these regions are considered as suitable after binarization.
+    #It could be more interesting to plot the sum of all partitions of a model into one single raster. You have the rasters of each partition and model for the 14 species in case you need to do it later.
+    #better not show these plots. If you have time later, you can plot the sums..
 
-        #use the response to make supplementary
-        #quick mention of validation at the end of methods
-        #quick comment validation with and without phylo and each corresponding paragraph in discussion
-        #then go for all comments except the one of bioclim
-
-
-    #Important to note that the ensembles you did with binary predictions non-phylo could you no overlap between occurrences and predictions of the models, while exiting that overlap. This happens, for example, in Banksiana, where the probability of presences increases up to 0.2-0.3 of suitability. When you binarize, you are not going to consider these areas in your map. Basically, you are seeing the last part of the Boyce plot (very high suitabilty), but not the rest. If the model does badly there, but good at lower suitabilities, you will not see anything. In cases like contorta or halepensis, whith a great burst of presences at high predicted suitability, you can see it in the plot, because most presences are at high suitability, and these regions are considered as suitable after binarization.
-        #It could be more interesting to plot the sum of all partitions of a model into one single raster. You have the rasters of each partition and model for the 14 species in case you need to do it later.
-        #better not show these plots. If you have time later, you can plot the sums..
-    #No great differences if we remove presences in the same 10x10km cell.
-
-#Results:
-    #CHECK Boyce plots:
-        #If the number of points in the correlation, i.e., the number of bins, is very low, you can have high Boyce for a case where a lot of areas of the globe are considered as suitable by phylo, capturing all presences but having also a lot of suitable areas without occurrences that are not penalized. 
-        #This happens because we remove the contigous bins that have the same P/E ratio, as done by Nick. This is ok in our case and let us to rescue many cases that work actually great, but we can have some extrange cases like the one explained.
+#Code for plotting sum of continuous predictions non-phylo, easier to see behaviour of the models: NOT CHECKED
+if(FALSE){
+    species="radiata"
+    presences=read.table(
+        paste("./results/global_test_phylo_current/exsitu_occurrences/", species, "/", species, "_final_presences.tsv", 
+        sep=""), sep="\t", header=TRUE)
+    for(model in c("glm", "gam", "rf")){
+        model_stack=stack(paste("./results/global_test_phylo_current/predict_eval_no_phylo/", species, "/", species, "_prediction_rasters/prediction_rasters/", species,  "_predictions_", model, ".grd", sep=""))
+        model_stack_n_layers=nlayers(model_stack)
+        model_stack_sum=calc(model_stack, function(x) (sum(x)*100)/model_stack_n_layers)
+        plot(model_stack_sum)
+        points(presences$longitude, presences$latitude, col="red", pch=20, cex=0.15)
+    }
+}
 
 
-    #specific cases
-        #ellilotti, nigra and mugo have negative boyce for some bmodels and very positive for otherss
-            #elliloti seems to be good to differentiate low-suitable areas from intermediate suitable areas, but it cannot differentiate well for higher suitability values. So it has ability to separate areas more likely to have ocurrences but with low-resolution.
-        #radiata
-            #We need to check whether the P/E ratio vs suitability plots show strange things like in radiata.
-            #If one of the partitions is like partition 1 GAM of radiata, then the other ones should have lower boyce indexes reducing the median, if not, take a look in detail.
-            #if all partitions show consistently the same situation, and we have a median Boyce very high with just two bins, take a look.
-        #nigra
-        #mugo
+##phylo
+#boyce plots
+    #I have checked the boyce plots with phylo for all the species showing significant changes after the application of the correction, comparing also with the boyce plots without correction.
+    #I have not found any problem with the plots. 
+    #Plots with and without phylo are almost indishtinguible for species with significant but small changes.
+    #The most clear impact can be seen for sylvestris, and specially strobus. In the latter and after the application of the liberal phylo-approach (no_subset), there is a complete change in the trend, with a clear increase in P/E ratio as suitability increases.
+    #to get the figures of each approach
+        #eog ./results/global_test_phylo_current/predict_eval_no_phylo/nigra/boyce_index/plots/*_boyce_index_plot.jpeg &
+        #eog ./results/global_test_phylo_current/predict_eval_phylo/nigra/boyce_index/plots/*_phylo_rasters_proportion_subset_inter_boyce_index_plot.jpeg &
+        #eog ./results/global_test_phylo_current/predict_eval_phylo/nigra/boyce_index/plots/*_phylo_rasters_proportion_no_subset_inter_boyce_index_plot.jpeg &
 
-    #IMPORTANT: we are discussing results using the percentage respect to the non-phylo value, but this could be misleading because 0.95 vs 0.98 is going to be a lower difference in percentage than 0.25 vs 0.28.
-        #maybe we can calculate a percentage with respect to the range of Boyce index, i.e., from -1 to 1, making a length of 2. 
-        #an increase of 0.5 would be 0.5/2 would be a 25% increase.
-    #Table XXX show that for 13, at least one model has a Boyce index above 0, i.e., performing better than the random expectation. 11 of these species show a high Boyce index (above 0.5), indicating a good ability to predict naturalized occurrences on unseen data. Note that, from the original 25 species of Perret's dataset, we could only perform the complete evaluation of the models for 14 species due to a reduced number of presences after data cleaning. Therefore, our models had a better performance predicting new occurrences than the random expectation for majority of the species analyzed (13 out 14 species). This suggests that, overall, these models could be useful to predict suitability of pines species. Note, however, that we did not perform an exhaustive independent evaluation of the whole Pinus genus as we were bounded by the availability of naturalized occurrences, limiting our ability to determine to what exent our models work well for the whole genus. Neverthelss, we found a good performance for most of the species studied, so it is plausible that our models could also work well for the rest of the species of the genus.
-    #As shown in table XXX, from all species analyzed, the phylogenetic has a significant impact on the Boyce index for 4 species (using nominal p-value; 3 after multiple test correction). For P. patula the phylogenetic correction had a slight impact. GLM shows in increase in the Boyce index from 0.427 to 0.437 (2.34% increase; median values across partitions hereafter), while GAM shows an increase from 0.205 to 0.208 (1.46% increase). For P. sylvestris, GAM shows a slight decrease in the Boyce index from 0.914 to 0.906 (0.87% decrease), but still maintaining a very high performance. In this species, RF shows an increase of peformance from 0.525 to 0.541 (3% increase). Finally, for P. strobus, GLM shows an increase from -0.446 to -0.169 (38% increase), while GAM shows an increase from -0.242 to -0.127 (52% increase). Note, however, that despite the great increase in performance due to the phylogenetic correction (Boyce index goes from -1 to 1), the models still perform worse than the random expectation.
-    #It is important to note that our ability to evaluate the performance of the phylogenetic correction depends on the availability of naturalized occurrences. We need independent data from outside of the current ranges in order to evaluate the ability of the correction to include parts of the climatic fundamental niche that are not present in current ranges. Therefore, this evaluation approach is limited by the amount of truly naturalized presences of pines. As previously explained, we could perform the full independent evaluation for only 14 pine species (n ocurrences>=5), with only 11 of them having more than 10 occurrences. 
-    #Despite this limitation, we found several instances of significant improvements in performence when the phylogenetic correction was applied ranging from 1.46% to 52% increases in the Boyce index. The only case for significant and negative impact of the phylogenetic correction was a model already showing a very higher performance, i.e., Boyce index>0.9, and after the application of the correction the performance still remained above 0.9. Therefore, it does not to make worse the good-performing models. This is congruent with the conservative approach we follow to apply the phylogenetic correction. We limite its application to areas showing uncertainty across SDMs predictions in order to avoid a great influence of phylogenetic incertainty on robust models. Note that this could also explain the limited impact of the phylogenetic correction on the models. We explored more liberal applications of the phylogenetic on the 2 species showing the greatest impact, namely P. sylvestris and P. strobus. In P. sylvestris, the application of the correaction across all areas (independently of the uncertainty) improves the performance of GLM from 0.741 to 0.801 (%%% PVALUE), of GAM from 0.915 to 0.920 (XXX) and finally, the performance of RF increased from 0.525 to 0.547 (XXX). These are greater improvements compared to the more conervative phylogenetic approach used in the manuscript. The improvements with the liberal pylogenetic approach are even more marked in P. strobus. These species showed great improvements of performance whith the conservative phylogenetic correction, but being still below the random expectation. The more liberal approach makes positive the Boyce index for the three models, i.e., all perform above the random expectation, increasing the performance more than 100% (from -0.447 to 0.183, form -0.243 to 0.460 and from -0.047 to 0.324 for GLM, GAM and RF, respectively). Therefore, a more liberal approach was able to improve relatively good-performing models (P. sylvestris) along with models performing much worse than the random expectation (P. strobus). Note that the boyce penalizes performance if the model has bins with increasing suitability and not increasing proportion of presences, hence you cannot get better performance by just increase the suitable area at random. Therefore, if this non-conservative approach dramatically increases performance, it is not just because a greater increase in the total area of suitable areas, but an increase in areas where it is more likely to find true naturalized presences. We did not further develop these analyses given the risk of overfitting. The selection of a different phylogenetic approach based on the performance observes in Perret's dataset would lead to the need of an additional independent dataset where test the best performing phylogenetic approach. In other words, if we tune the phylogenetic approach using the test set, this set is no longer unseen or independent as it has been used for fine tunning the models. And we cannot split Perret's dataset in another training-evaluation sets, because it is not big enough, having many species a low number of occurrences. Neverthelss, these results shows the potential of the phylogenetic correction to improving model performance and supports the interest in further explore it in the future using more liberal approximations.
-        #about not using other phylo approaches,
-            #remember, you cannot just chcedk what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
-            #there are approaches that work terrible, bad predictions or misleading results from Boyce (artifacts), so not a good idea to combine them all into one single prediction
+#define function to calculate the percentage of change with and without the phylogenetic correction
+#x=0.5; y=1
+calc_percent_increase=function(x, y){
 
-#save table
-write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
-    #wilcoxon_signed_results=read.table("./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", header=TRUE
+    #calculate the percentage of change
+    percentage_change=(abs(x-y)*100)/2
+        #if 2 (from -1 to 1, i.e., range of Boyce) is the maximum change (100%), then the observed diffrence (x-y) would be X; X=(abs(x-y)*100)/2
+        #this is better than just calculate the percentage of change with respect to the values without phylo
+            #0.95 vs 0.98
+                #(abs(0.95-0.98)*100)/0.95
+                #3.157%
+            #0.25 vs 0.28
+                #(abs(0.25-0.28)*100)/0.25
+                #12%
+            #0.03 is a 12% of 0.25, but only a 3.15% of 0.95. We do not want this. We want to obtain the percentage for the same difference irrespectively the non-phylo value is smaller or larger
+        #With our approach, both differences get now the same percentage, i.e., 1.5%
+            #(abs(0.95-0.98)*100)/2
+            #(abs(0.25-0.28)*100)/2
+
+    #return the value
+    return(percentage_change)
+}
+calc_percent_increase(0.5, 1)==25
+    #25% with respect 2 (50/2=25)
+calc_percent_increase(-0.10, 0.15)==12.5 
+calc_percent_increase(0, 0.25)==12.5
+calc_percent_increase(-0.25, 0)==12.5
+    #12.5 with respect 2 (25/2=12.5) independently of the sign
+
+#explore more liberal phylo-approaches for species with the highest impact for the phylo-correction
+#species="strobus"; algorithm="glm"
+phylo_liberal_test=function(species, algorithm){
+
+    #get the table with and phylo boyce for the selected species
+    phylo_diff_species =read.table(
+        paste("./results/global_test_phylo_current/predict_eval_phylo/", species, "/boyce_index/", species, "_boyce_table_non_phylo_vs_phylo.tsv.gz", sep=""), 
+        sep="\t", 
+        header=TRUE
+    )
+
+    #select the rows of the selected model non-phylo
+    phylo_diff_species_non_phylo=phylo_diff_species[
+        which(phylo_diff_species$model==paste(algorithm, "_eval", sep="")),
+    ]
+
+    #remove model and percentile columns, then convert to numeric
+    phylo_diff_species_non_phylo=as.numeric(
+        phylo_diff_species_non_phylo[
+            ,which(!colnames(phylo_diff_species_non_phylo) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))
+        ]
+    )
+
+    #select the rows of the selected model with liberal phylo-approach
+    phylo_diff_species_phylo_liberal=phylo_diff_species[
+        which(phylo_diff_species$model==paste("phylo_rasters_proportion_no_subset_inter_", algorithm, "_boyce", sep="")),
+    ]
+
+    #remove model and percentile columns, then convert to numeric
+    phylo_diff_species_phylo_liberal=as.numeric(
+        phylo_diff_species_phylo_liberal[
+            ,which(!colnames(phylo_diff_species_phylo_liberal) %in% c("model", "percentile_2.5", "percentile_50", "percentile_97.5"))
+        ]
+    )
+
+    #check number of points is 12, i.e., 1 per partition
+    if(
+        (length(phylo_diff_species_non_phylo)!=12) ||
+        (length(phylo_diff_species_phylo_liberal)!=12)
+    ){
+        stop(paste("ERROR! FALSE! WE HAVE A PROBLEM WITH THE NUMBER OF PARTITIONS FOR ", species, " and ", algorithm, sep=""))
+    }
+
+    #calculate the wilcoxon test using the exact function
+    wilcoxon_test_phylo_liberal=wilcox.exact(
+        x=phylo_diff_species_non_phylo, 
+        y=phylo_diff_species_phylo_liberal, 
+        alternative="two.sided",
+        paired=TRUE)
+        #in the previous steps, I calculated wilcoxon for non-phylo and phylo Boyce using the original wilcoxon function and this one, getting the same results. Thus, we are just going to use this one as, because it also avoid problems when there are ties.
+
+    #get the p-value
+    diff_p_value=wilcoxon_test_phylo_liberal$p.value
+
+    #calculate the medians
+    phylo_diff_species_non_phylo_median=median(phylo_diff_species_non_phylo)
+    phylo_diff_species_phylo_liberal_median=median(phylo_diff_species_phylo_liberal)
+
+    #calculate the percentage of change
+    percent_change=calc_percent_increase(phylo_diff_species_non_phylo_median, phylo_diff_species_phylo_liberal_median)
+
+    #return the results
+    return(cbind.data.frame(phylo_diff_species_non_phylo_median, phylo_diff_species_phylo_liberal_median, percent_change, diff_p_value))
+}
+
+#run the cases we are interested in
+#pinea
+phylo_liberal_test("pinea", "glm")
+#sylvestris
+phylo_liberal_test("sylvestris", "glm")
+phylo_liberal_test("sylvestris", "gam")
+phylo_liberal_test("sylvestris", "rf")
+#strobus
+phylo_liberal_test("strobus", "glm")
+phylo_liberal_test("strobus", "gam")
+
+#about not using other phylo approaches,
+    #there are approaches that work terrible, bad predictions or misleading results from Boyce (artifacts), so not a good idea to combine them all into one single prediction
+    #we would need a new dataset, so we could select the best phylo approach in perret in then validate in a new one.
+        #remember, you cannot just check what is the best phylo approach in current distirbutions because everyhing close to current will be 1 in the correction, so the phylo correction is not going to have a great impact there.
+        #we need a dataset outside current distributions to validate the phylo-correction and, again, we cannot just use gbif because we do not know if the occurrences are naturalized and self-sustained or not.
 
 
 
