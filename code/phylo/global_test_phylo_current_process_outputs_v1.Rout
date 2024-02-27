@@ -153,10 +153,6 @@ There were 32 warnings (use warnings() to see them)
 [1] TRUE
 [1] TRUE
   phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
-1                        0.6326459615                            0.6541062404
-  percent_change  diff_p_value
-1    1.073013944 0.01220703125
-  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
 1                        0.7416238824                            0.8001717225
   percent_change  diff_p_value
 1    2.927392004 0.00048828125
@@ -176,4 +172,8 @@ There were 32 warnings (use warnings() to see them)
 1                       -0.2381276427                            0.5528879016
   percent_change  diff_p_value
 1    39.55077721 0.00048828125
+  phylo_diff_species_non_phylo_median phylo_diff_species_phylo_liberal_median
+1                      -0.04109210921                            0.4909134104
+  percent_change  diff_p_value
+1    26.60027598 0.00048828125
 [1] "## FINISH ##"

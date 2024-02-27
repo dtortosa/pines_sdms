@@ -1371,9 +1371,12 @@ length(unique(diff_significant_fdr_value$species))
     #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
     #We are going to be conservartive because we are going to select this to count how many models work fine (i.e., this is not exploratory in the paper but definitive), so we are going to use FDR<0.05 instead of FDR<0.1, but for sure we do NOT have to sue Bonferroni. This is more than justified.
 
+#remove the column with median difference phylo across partititions, because we already have the two columns median phylo and non-phylo, which are enough to explain our results
+wilcoxon_signed_results=wilcoxon_signed_results[,which(colnames(wilcoxon_signed_results)!="median_phylo_diff")]
+
 #save table
 write.table(wilcoxon_signed_results, "./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", col.names=TRUE, row.names=FALSE)
-    #wilcoxon_signed_results=read.table("./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", header=TRUE
+    #wilcoxon_signed_results=read.table("./results/global_test_phylo_current/wilcoxon_test_phylo.tsv", sep="\t", header=TRUE)
 
 
 
@@ -1528,8 +1531,6 @@ phylo_liberal_test=function(species, algorithm){
 }
 
 #run the cases we are interested in
-#pinea
-phylo_liberal_test("pinea", "glm")
 #sylvestris
 phylo_liberal_test("sylvestris", "glm")
 phylo_liberal_test("sylvestris", "gam")
@@ -1537,6 +1538,7 @@ phylo_liberal_test("sylvestris", "rf")
 #strobus
 phylo_liberal_test("strobus", "glm")
 phylo_liberal_test("strobus", "gam")
+phylo_liberal_test("strobus", "rf")
 
 #about not using other phylo approaches,
     #there are approaches that work terrible, bad predictions or misleading results from Boyce (artifacts), so not a good idea to combine them all into one single prediction
