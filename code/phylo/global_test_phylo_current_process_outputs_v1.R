@@ -1369,6 +1369,7 @@ length(unique(diff_significant_fdr_value$species))
             #you have 3 values for sylvestris across models, all calculated with the same data!
             #you have 14 values for GLM across species, all calculated with the same model!
     #Because of this, we are not doing so many tests. We should not use Bonferroni and, indeed, we could even not apply multiple test correction at all, the number of independent tests is really low.
+        #Remember that Bonferroni divides the p-value by the number of independent tests. If you have 10 tests and divide 0.05/100, the new threshold is 0.0005. However, if some tests are correlated and the total number of independent tests is 5, then the threshold should be 0.005 instead of 0.0005. Therefore, we would be overconservative using the number of test to correct with Bonferroni in the scenario of non-independence.
     #We are going to be conservartive because we are going to select this to count how many models work fine (i.e., this is not exploratory in the paper but definitive), so we are going to use FDR<0.05 instead of FDR<0.1, but for sure we do NOT have to sue Bonferroni. This is more than justified.
 
 #remove the column with median difference phylo across partititions, because we already have the two columns median phylo and non-phylo, which are enough to explain our results
@@ -1435,6 +1436,7 @@ if(FALSE){
         #if someone complains about discussing changes in suitability because of phylo in these species in the future, but the validation did not show important changes
         #remember that the validation is very limited by the availability of naturalized occurrences in areas inside the fundamental but not in the realized niche
         #in the case of elliotti, the liberal approach improve ahora 1%
+        #for european pines expanding to the north, we have the case of nigra, which shows significant impact of the correction and there is a clear increase of suitability to the north in the future. The total range expansion is 3% but it losses suitable area in the south that offset the gains. If you look directly to the nort, you will see great increases of suitability and this is validated. 
         #so we are very limited to test this
     #to get the figures of each approach
         #eog ./results/global_test_phylo_current/predict_eval_no_phylo/nigra/boyce_index/plots/*_boyce_index_plot.jpeg &
@@ -1544,8 +1546,6 @@ phylo_liberal_test("sylvestris", "rf")
 phylo_liberal_test("strobus", "glm")
 phylo_liberal_test("strobus", "gam")
 phylo_liberal_test("strobus", "rf")
-
-
 
 #about not using other phylo approaches,
     #there are approaches that work terrible, bad predictions or misleading results from Boyce (artifacts), so not a good idea to combine them all into one single prediction
