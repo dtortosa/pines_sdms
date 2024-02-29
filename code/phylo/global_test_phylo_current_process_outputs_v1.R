@@ -1442,6 +1442,11 @@ if(FALSE){
         #eog ./results/global_test_phylo_current/predict_eval_no_phylo/nigra/boyce_index/plots/*_boyce_index_plot.jpeg &
         #eog ./results/global_test_phylo_current/predict_eval_phylo/nigra/boyce_index/plots/*_phylo_rasters_proportion_subset_inter_boyce_index_plot.jpeg &
         #eog ./results/global_test_phylo_current/predict_eval_phylo/nigra/boyce_index/plots/*_phylo_rasters_proportion_no_subset_inter_boyce_index_plot.jpeg &
+    #the case of strobus if like other pines in southeastern USA
+        #the ancestor node has a more negative bio17, suggesting it lived in drier environments
+        #you can see the value of the ancestros in the table bm models
+        #you can see the ensemble phylo for the future in
+            #plot(raster("./results/phylo_reconstruction/final_figures/phylo_ensamble/with_proportions/strobus_phylo_ensamble_with_proportions.asc"))
 
 #define function to calculate the percentage of change with and without the phylogenetic correction
 #x=0.5; y=1
