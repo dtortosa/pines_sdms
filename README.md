@@ -5,3 +5,5 @@ This repository includes a novel approach for modelling the edaphoclimatic niche
 
 
 ![Figure 1](/flowchart_summary_v2.jpeg)
+
+Flowchart summarizing the steps of our analyses. The main analyses, i.e., processing of presence/absence and climate data along with modeling and projection of suitability, are shown in boxes filled with white. The steps of the phylogenetic correction are shown in a separated branch at the right (boxes filled with green). The steps of the independent validation are shown at the bottom (box filled with blue). Abbreviations: RF: Random Forest; GAM: Generalized Additive Model; GLM: Generalized Linear Model; RCPs: Representative Concentration Pathways; GCMs: Global Circulation Models; BIO4: Temperature Seasonality; BIO17: Moisture of the driest quarter; AUC: Area Under Roc Curve; TSS: True Skill Statistics.
